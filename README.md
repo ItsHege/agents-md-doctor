@@ -1,5 +1,7 @@
 # AGENTS.md Doctor
 
+[![CI](https://github.com/ItsHege/agents-md-doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/ItsHege/agents-md-doctor/actions/workflows/ci.yml)
+
 Repo-aware CLI and CI tool for validating `AGENTS.md` instructions used by AI coding agents.
 
 `AGENTS.md Doctor` helps teams keep agent instructions short, accurate, non-contradictory, and aligned with the real repository. It is not a text editor. It is an analysis engine for the instruction layer that sits between developers, codebases, and coding agents such as Codex, Copilot, Cursor, Claude Code, and similar tools.
@@ -29,6 +31,9 @@ agents-doctor lint --json <repo>
 This first vertical slice discovers `AGENTS.md` files and reports
 `size.file_too_long` when a file has more than 500 logical lines. Findings are
 warning-only and do not fail CI by default.
+
+GitHub Actions currently runs typecheck, tests, build, and CLI smoke checks for
+the short and long `AGENTS.md` fixtures.
 
 Planned MVP command surface:
 
