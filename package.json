@@ -1,0 +1,37 @@
+{
+  "name": "agents-doctor",
+  "version": "0.0.0",
+  "description": "Repo-aware CLI and CI tool for validating AGENTS.md instructions.",
+  "type": "module",
+  "bin": {
+    "agents-doctor": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "AGENTS.md",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "keywords": [
+    "agents",
+    "cli",
+    "ci",
+    "markdown",
+    "validator"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
