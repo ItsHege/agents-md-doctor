@@ -4,7 +4,7 @@ import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { buildReport } from "../report/index.js";
-import { renderJsonReport } from "../render/index.js";
+import { renderHumanLintReport, renderJsonReport } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
 import type { ExitCode } from "../types/index.js";
@@ -12,6 +12,7 @@ import type { ExitCode } from "../types/index.js";
 export interface LintCommandOptions {
   root?: string;
   json: boolean;
+  strict?: boolean;
 }
 
 export interface CommandResult {
@@ -22,15 +23,7 @@ export interface CommandResult {
 
 export function runLintCommand(options: LintCommandOptions): CommandResult {
   try {
-    if (!options.root) {
-      throw new AppError("E_MISSING_REPO", "repo path is required");
-    }
-
-    if (!options.json) {
-      throw new AppError("E_JSON_REQUIRED", "pass --json; human output is not implemented yet");
-    }
-
-    const root = resolveRoot(options.root);
+    const root = resolveRoot(options.root ?? process.cwd());
     const agentsFiles = findAgentsFiles(root);
     const loadedFiles: LoadedAgentsFile[] = agentsFiles.map((file) => ({
       ...file,
@@ -46,12 +39,13 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
     const report = buildReport({
       command: "lint",
       root,
-      findings
+      findings,
+      failOnWarnings: options.strict === true
     });
 
     return {
       exitCode: report.exitCode,
-      stdout: renderJsonReport(report),
+      stdout: options.json ? renderJsonReport(report) : renderHumanLintReport(report, { strict: options.strict === true }),
       stderr: ""
     };
   } catch (error) {
@@ -91,4 +85,3 @@ function formatErrorMessage(error: unknown): string {
 
   return "unknown runtime failure";
 }
-

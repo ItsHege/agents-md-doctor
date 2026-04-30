@@ -25,12 +25,16 @@ Common failure modes:
 Current implementation:
 
 ```bash
-agents-doctor lint --json <repo>
+agents-doctor lint [repo]
+agents-doctor lint --json [repo]
+agents-doctor lint --strict [repo]
 ```
 
 This first vertical slice discovers `AGENTS.md` files and reports
 `size.file_too_long` when a file has more than 500 logical lines. Findings are
-warning-only and do not fail CI by default.
+warning-only and do not fail CI by default. The optional `[repo]` argument
+defaults to the current directory. Use `--strict` to make warning findings exit
+with code `1`.
 
 GitHub Actions currently runs typecheck, tests, build, and CLI smoke checks for
 the short and long `AGENTS.md` fixtures.
@@ -47,8 +51,9 @@ agents-doctor explain path/to/file.ts
 
 ### Lint
 
-Current behavior checks for oversized `AGENTS.md` files with JSON output.
-Additional structure and quality checks are planned.
+Current behavior checks for oversized `AGENTS.md` files. Human-readable output is
+the default, and JSON output is available with `--json`. Additional structure and
+quality checks are planned.
 
 - Detects oversized instruction files.
 - Checks heading structure. Planned.
@@ -124,6 +129,33 @@ Non-goals for the first version:
   ]
 }
 ```
+
+## Current Human Output
+
+No findings:
+
+```text
+agents-doctor lint: OK
+No findings.
+```
+
+Warning:
+
+```text
+agents-doctor lint: 1 warning
+
+warning size.file_too_long AGENTS.md:1
+AGENTS.md has 501 lines. Recommended maximum: 500 lines.
+```
+
+Exit codes:
+
+- `0`: no error findings, and warnings are allowed unless `--strict` is used.
+- `1`: error findings, or warning findings when `--strict` is used.
+- `2`: usage, config, or runtime failure.
+
+Successful human and JSON output is written to stdout. Usage, config, and
+runtime failures are written to stderr.
 
 ## Positioning
 

@@ -33,6 +33,9 @@ Runtime result produced by a rule.
 
 Machine-readable output for a CLI run.
 
+Successful JSON output is written to stdout only. Usage, config, and runtime
+failures are written to stderr and are not JSON reports.
+
 ```json
 {
   "schemaVersion": "1.0.0",
@@ -65,6 +68,10 @@ Machine-readable output for a CLI run.
 
 Exit codes:
 
-- `0`: no errors.
-- `1`: one or more error-severity findings.
+- `0`: no error findings, and no warning failure unless strict mode is enabled.
+- `1`: one or more error-severity findings, or warning findings when strict
+  mode is enabled.
 - `2`: usage, config, or runtime failure.
+
+Strict mode changes only the report `exitCode`; it does not change
+`findings[].severity`.

@@ -28,6 +28,27 @@ describe("buildReport", () => {
     expect(() => ReportSchema.parse(report)).not.toThrow();
   });
 
+  it("sets exit 1 for warning-only reports when warnings should fail", () => {
+    const report = buildReport({
+      command: "lint",
+      root: "C:/repo",
+      failOnWarnings: true,
+      findings: [
+        {
+          ruleId: "size.file_too_long",
+          severity: "warning",
+          message: "AGENTS.md has 501 lines. Recommended maximum: 500 lines.",
+          file: "AGENTS.md",
+          line: 1
+        }
+      ]
+    });
+
+    expect(report.summary.warningCount).toBe(1);
+    expect(report.exitCode).toBe(1);
+    expect(report.findings[0]?.severity).toBe("warning");
+  });
+
   it("sets exit 1 when an error finding exists", () => {
     const report = buildReport({
       command: "lint",
@@ -47,4 +68,3 @@ describe("buildReport", () => {
     expect(report.exitCode).toBe(1);
   });
 });
-

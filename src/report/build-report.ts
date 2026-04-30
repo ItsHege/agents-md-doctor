@@ -6,6 +6,7 @@ export interface BuildReportOptions {
   root: string;
   findings: Finding[];
   generatedAt?: Date;
+  failOnWarnings?: boolean;
 }
 
 export function buildReport(options: BuildReportOptions): Report {
@@ -21,11 +22,10 @@ export function buildReport(options: BuildReportOptions): Report {
     command: options.command,
     generatedAt: (options.generatedAt ?? new Date()).toISOString(),
     root: options.root,
-    exitCode: summary.errorCount > 0 ? 1 : 0,
+    exitCode: summary.errorCount > 0 || (options.failOnWarnings === true && summary.warningCount > 0) ? 1 : 0,
     summary,
     findings: options.findings
   };
 
   return ReportSchema.parse(report);
 }
-
