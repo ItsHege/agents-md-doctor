@@ -231,11 +231,10 @@ Short version:
 
 ## Roadmap
 
-1. Define rule model and report schema.
-2. Implement Markdown discovery and parsing.
-3. Implement `lint`.
-4. Expand repository command coverage across more ecosystems.
-5. Deepen `verify` with command/path cross-check explainers.
-6. Add richer inheritance diagnostics in `explain` output.
-7. Add CI examples.
-8. Publish first GitHub-ready release.
+See `docs/roadmap.md` for the full public roadmap.
+
+- Strengthen deterministic conflict checks for nested `AGENTS.md` inheritance.
+- Publish GitHub Actions examples with CI-friendly annotations.
+- Add optional SARIF output for code scanning integrations.
+- Add `agents-doctor init` to bootstrap starter configuration.
+- Expand real-world fixtures from public repositories.
