@@ -22,8 +22,17 @@ Planned failure modes:
 
 ## Available Now
 
-The package is not published to npm yet. Local testing currently uses the built
-CLI after `npm run build`:
+The package is published on npm as `agents-doctor@0.1.0`.
+
+Quick usage:
+
+```bash
+npx agents-doctor@latest lint .
+npx agents-doctor@latest verify --json .
+npx agents-doctor@latest explain src
+```
+
+Command surface:
 
 ```bash
 agents-doctor lint [repo]
@@ -54,6 +63,24 @@ argument defaults to the current directory.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
 packed-package smoke test.
+
+## How It Works (10 Seconds)
+
+```text
+Run agents-doctor (lint / verify / explain)
+-> Load config (.agents-doctor.json + CLI flags)
+-> Discover AGENTS.md files
+-> Read files safely inside repo boundary
+-> Extract Markdown structure (headings, code, links)
+-> Apply deterministic rules
+-> Build report (findings + summary + exit code)
+-> Output (terminal report or JSON for CI)
+```
+
+AGENTS.md Doctor does not execute commands from AGENTS.md. It only inspects
+instructions, paths, command references, and policy signals.
+
+For the full architecture flow, see `docs/how-it-works.md`.
 
 ## Configuration
 
