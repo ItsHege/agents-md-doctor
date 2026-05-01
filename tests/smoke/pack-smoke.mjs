@@ -20,12 +20,13 @@ try {
   run(process.execPath, [npmCliPath, "init", "-y"], tempRoot);
   run(process.execPath, [npmCliPath, "install", tarballPath, "--ignore-scripts"], tempRoot);
 
-  const helpResult = run(process.execPath, [npmCliPath, "exec", "agents-doctor", "--", "--help"], tempRoot);
-  assert.match(`${helpResult.stdout}${helpResult.stderr}`, /Usage: agents-doctor/);
+  const installedCliPath = resolveInstalledCliPath(tempRoot);
+  const helpResult = run(process.execPath, [installedCliPath, "--help"], tempRoot);
+  assert.match(helpResult.stdout, /Usage: agents-doctor/);
 
   const lintResult = run(
     process.execPath,
-    [npmCliPath, "exec", "agents-doctor", "--", "lint", "--json", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
+    [installedCliPath, "lint", "--json", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
     tempRoot
   );
   const report = JSON.parse(lintResult.stdout);
@@ -58,4 +59,14 @@ function run(command, args, cwd) {
     stdout: result.stdout,
     stderr: result.stderr
   };
+}
+
+function resolveInstalledCliPath(root) {
+  const cliPath = path.join(root, "node_modules", "agents-doctor", "dist", "cli.js");
+
+  if (!fs.existsSync(cliPath)) {
+    throw new Error("Installed agents-doctor CLI not found in node_modules/agents-doctor/dist/cli.js");
+  }
+
+  return cliPath;
 }
