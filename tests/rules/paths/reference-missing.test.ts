@@ -68,6 +68,34 @@ describe("paths.reference_missing", () => {
       }
     });
   });
+
+  it("ignores obvious placeholder and glob-style path references", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Use `game/assets/world/textures/<asset-id>/raw_generations/`.",
+        "Use `docs/{name}/index.md`.",
+        "Use `content/[id]/meta.json`.",
+        "Use `path/to/...`.",
+        "Use `/path/to/...`.",
+        "Use `YOUR_PATH`.",
+        "Use `packages/*/CHANGELOG.md`."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
 });
 
 function makeTempRoot(): string {

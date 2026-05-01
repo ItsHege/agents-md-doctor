@@ -33,7 +33,9 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
         path: sanitizeInlinePath(element.value),
         line: element.location.line
       }))
-  ].filter((candidate): candidate is { line: number; path: string } => candidate.path !== null);
+  ]
+    .filter((candidate): candidate is { line: number; path: string } => candidate.path !== null)
+    .filter((candidate) => !isPlaceholderPathReference(candidate.path));
 
   const findings: Finding[] = [];
   const seen = new Set<string>();
@@ -134,4 +136,37 @@ function resolveCandidatePath(root: string, fileAbsolutePath: string, referenceP
   }
 
   return path.resolve(path.dirname(fileAbsolutePath), referencePath);
+}
+
+function isPlaceholderPathReference(referencePath: string): boolean {
+  const normalized = referencePath.replace(/\\/g, "/").trim();
+  const lowered = normalized.toLowerCase();
+
+  if (
+    normalized.length === 0 ||
+    normalized === "*" ||
+    normalized.includes("*") ||
+    normalized.includes("...") ||
+    lowered.includes("your_path")
+  ) {
+    return true;
+  }
+
+  if (lowered.startsWith("path/to/") || lowered.startsWith("/path/to/")) {
+    return true;
+  }
+
+  if (/<[^>]+>/.test(normalized)) {
+    return true;
+  }
+
+  if (/\{[^}]+\}/.test(normalized)) {
+    return true;
+  }
+
+  if (/\[[^\]]+\]/.test(normalized)) {
+    return true;
+  }
+
+  return false;
 }
