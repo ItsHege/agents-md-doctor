@@ -21,7 +21,7 @@ try {
   run(process.execPath, [npmCliPath, "install", tarballPath, "--ignore-scripts"], tempRoot);
 
   const helpResult = run(process.execPath, [npmCliPath, "exec", "agents-doctor", "--", "--help"], tempRoot);
-  assert.match(helpResult.stdout, /Usage: agents-doctor/);
+  assert.match(`${helpResult.stdout}${helpResult.stderr}`, /Usage: agents-doctor/);
 
   const lintResult = run(
     process.execPath,
