@@ -76,6 +76,7 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 - `paths.reference_missing` when referenced paths do not exist or point outside the repo.
 - `commands.mentioned_command_missing` when referenced scripts/targets are missing.
 - `security.risky_instruction` for high-confidence risky instruction patterns.
+- opt-in instruction graph findings in `verify`/`explain` when enabled in config.
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
@@ -123,12 +124,28 @@ exists.
       "severity": "warning",
       "requiredHeadings": ["Safety", "Testing"]
     }
+  },
+  "instructionGraph": {
+    "enabled": false,
+    "maxDepth": 2,
+    "include": [
+      "**/AGENTS.md",
+      "**/.agents/**/*.md",
+      "**/docs/agents/**/*.md",
+      "**/docs/agent/**/*.md",
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      "**/.github/copilot-instructions.md",
+      "**/.cursor/rules/**/*.md"
+    ]
   }
 }
 ```
 
 Rule severity can be `error`, `warning`, `info`, or `off`. CLI flags override
 matching config values where applicable.
+
+For full configuration details, see `docs/configuration.md`.
 
 ## Core Features
 
@@ -149,6 +166,7 @@ Current behavior: runs lint checks plus coverage sanity and emits a unified `ver
 
 - Includes all lint findings in one report.
 - Adds coverage sanity markers (`coverage.discovery_summary`, optional root/no-file warnings).
+- When `instructionGraph.enabled` is true, validates referenced instruction files as an instruction graph.
 - Supports JSON output and strict/fail-on-warning exit behavior.
 
 ### Explain
@@ -158,6 +176,7 @@ Current behavior: shows the effective instruction context for a target path.
 - Finds all inherited `AGENTS.md` files.
 - Explains which `AGENTS.md` files apply to a specific path.
 - Highlights chain order from root to nearest.
+- When `instructionGraph.enabled` is true, includes referenced instruction files reachable from the applied chain.
 - Adds deterministic conflict notes for:
   - package manager disagreement,
   - test command hint mismatch,

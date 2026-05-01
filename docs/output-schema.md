@@ -75,3 +75,18 @@ Exit codes:
 
 Strict mode changes only the report `exitCode`; it does not change
 `findings[].severity`.
+
+## Instruction Graph Details
+
+Instruction graph output in `0.2.0` is represented as normal findings with
+additive `details` fields. The top-level report schema remains
+`schemaVersion: "1.0.0"`.
+
+When `instructionGraph.enabled` is true:
+
+- `verify --json` can include `inheritance.instruction_graph_summary` and graph
+  diagnostic findings.
+- `explain --json` adds an `instructionGraph` object inside the existing
+  `inheritance.applied_chain` finding details.
+- referenced instruction file findings can include provenance fields such as
+  `fileClass`, `graphDepth`, and `referencedBy`.

@@ -8,7 +8,14 @@
       "commit": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
       "repoType": "no-agents",
       "expectedStatus": "verify_warning_no_agents",
-      "notes": "Sanity check repository with no AGENTS.md file."
+      "notes": "Sanity check repository with no AGENTS.md file.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "No AGENTS.md files should apply at repository root."
+        }
+      ]
     },
     {
       "id": "nodejs-node",
@@ -16,7 +23,34 @@
       "commit": "9c0101860e771b69b5229ced41bbfcae84fe554d",
       "repoType": "no-agents",
       "expectedStatus": "verify_warning_no_agents",
-      "notes": "Large production repository without a root AGENTS.md at this commit."
+      "notes": "Large production repository without a root AGENTS.md at this commit.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "No AGENTS.md files should apply at repository root."
+        },
+        {
+          "id": "readme",
+          "path": "README.md",
+          "notes": "No AGENTS.md files should apply to README."
+        },
+        {
+          "id": "src",
+          "path": "src",
+          "notes": "No AGENTS.md files should apply to source directory."
+        },
+        {
+          "id": "lib",
+          "path": "lib",
+          "notes": "No AGENTS.md files should apply to lib directory."
+        },
+        {
+          "id": "test",
+          "path": "test",
+          "notes": "No AGENTS.md files should apply to test directory."
+        }
+      ]
     },
     {
       "id": "openai-agents-md",
@@ -24,7 +58,24 @@
       "commit": "d1ac7f063d20e70015ed6732664049ae4ba9d74e",
       "repoType": "single",
       "expectedStatus": "baseline_capture",
-      "notes": "Specification repository with a root AGENTS.md."
+      "notes": "Specification repository with a root AGENTS.md.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "Root AGENTS.md should apply."
+        },
+        {
+          "id": "agents-file",
+          "path": "AGENTS.md",
+          "notes": "Root AGENTS.md should apply to itself."
+        },
+        {
+          "id": "readme",
+          "path": "README.md",
+          "notes": "Root AGENTS.md should apply to README."
+        }
+      ]
     },
     {
       "id": "microsoft-typescript",
@@ -32,7 +83,29 @@
       "commit": "f350b52331494b68c90ab02e2b6d0828d2a22a74",
       "repoType": "single",
       "expectedStatus": "baseline_capture",
-      "notes": "Large repository with a root AGENTS.md."
+      "notes": "Large repository with a root AGENTS.md.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "Root AGENTS.md should apply."
+        },
+        {
+          "id": "agents-file",
+          "path": "AGENTS.md",
+          "notes": "Root AGENTS.md should apply to itself."
+        },
+        {
+          "id": "readme",
+          "path": "README.md",
+          "notes": "Root AGENTS.md should apply to README."
+        },
+        {
+          "id": "src",
+          "path": "src",
+          "notes": "Root AGENTS.md should apply to source directory."
+        }
+      ]
     },
     {
       "id": "nvm-sh-nvm",
@@ -40,7 +113,19 @@
       "commit": "3e4b0f05b707b6b939a67737d975f98e401f896a",
       "repoType": "single",
       "expectedStatus": "baseline_capture",
-      "notes": "Shell-heavy repository with a root AGENTS.md."
+      "notes": "Shell-heavy repository with a root AGENTS.md.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "Root AGENTS.md should apply."
+        },
+        {
+          "id": "agents-file",
+          "path": "AGENTS.md",
+          "notes": "Root AGENTS.md should apply to itself."
+        }
+      ]
     },
     {
       "id": "langchainjs",
@@ -48,7 +133,19 @@
       "commit": "1f76917248056b145b3973284dbf8604307b3ba6",
       "repoType": "monorepo",
       "expectedStatus": "baseline_capture",
-      "notes": "Monorepo benchmark candidate with AGENTS.md guidance."
+      "notes": "Monorepo benchmark candidate with AGENTS.md guidance.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "Root instruction context baseline."
+        },
+        {
+          "id": "agents-file",
+          "path": "AGENTS.md",
+          "notes": "Root AGENTS.md should apply to itself."
+        }
+      ]
     },
     {
       "id": "vercel-nextjs",
@@ -56,7 +153,24 @@
       "commit": "65340b27724dc2878e4fcef4b8608ad06e7b4cc8",
       "repoType": "monorepo",
       "expectedStatus": "baseline_capture",
-      "notes": "Monorepo benchmark candidate with AGENTS.md guidance."
+      "notes": "Monorepo benchmark candidate with AGENTS.md guidance.",
+      "graphTargets": [
+        {
+          "id": "root",
+          "path": ".",
+          "notes": "Root instruction context baseline."
+        },
+        {
+          "id": "agents-file",
+          "path": "AGENTS.md",
+          "notes": "Root AGENTS.md should apply to itself."
+        },
+        {
+          "id": "packages-next",
+          "path": "packages/next",
+          "notes": "Nested package AGENTS.md should apply after root AGENTS.md."
+        }
+      ]
     }
   ]
 }

@@ -36,6 +36,7 @@ The benchmark runner performs only:
 2. checkout/fetch to the pinned commit SHA.
 3. `agents-doctor lint --json <repo>`.
 4. `agents-doctor verify --json <repo>`.
+5. `agents-doctor explain --json <target> <repo>` for configured graph targets.
 
 The runner does not execute scripts from benchmarked repositories.
 
@@ -45,8 +46,19 @@ The runner does not execute scripts from benchmarked repositories.
 - Includes:
   - per-repo lint/verify summaries
   - findings grouped by rule
+  - graph target explain summaries
   - expectation pass/fail summary
   - operational failures (clone, checkout, runtime)
+
+## Graph Targets
+
+Benchmark repositories can define `graphTargets` in `benchmarks/repos.json`.
+Each target is a repo-relative path used to validate `explain --json` applied
+chain behavior.
+
+Graph expectations live in `benchmarks/expected-findings.json` under
+`graphExpectations`. They assert deterministic `appliedFiles` chains for pinned
+commits. They do not depend on human CLI output or prose wording.
 
 ## Labeling Rules
 

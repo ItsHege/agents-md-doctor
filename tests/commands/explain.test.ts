@@ -118,6 +118,55 @@ describe("runExplainCommand", () => {
     expect(humanResult.stdout).toContain("[commands.test_hint_conflict]");
     expect(humanResult.stdout).toContain("[generated_files.edit_policy_mismatch]");
   });
+
+  it("includes instruction graph details when enabled", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        instructionGraph: {
+          enabled: true,
+          maxDepth: 2,
+          include: ["**/AGENTS.md", "**/docs/agent/**/*.md"]
+        }
+      })
+    );
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n\nRead [agent testing](docs/agent/testing.md).\n");
+    fs.mkdirSync(path.join(root, "docs", "agent"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "agent", "testing.md"), "# Testing\n");
+
+    const jsonResult = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(jsonResult.stdout));
+    const details = report.findings[0]?.details as {
+      instructionGraph: {
+        referencedInstructionFiles: string[];
+        instructionEdges: Array<{ from: string; to: string }>;
+      };
+    };
+
+    expect(jsonResult.exitCode).toBe(0);
+    expect(details.instructionGraph.referencedInstructionFiles).toEqual(["docs/agent/testing.md"]);
+    expect(details.instructionGraph.instructionEdges).toEqual([
+      expect.objectContaining({
+        from: "AGENTS.md",
+        to: "docs/agent/testing.md"
+      })
+    ]);
+
+    const humanResult = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: false
+    });
+
+    expect(humanResult.stdout).toContain("Referenced instruction files:");
+    expect(humanResult.stdout).toContain("docs/agent/testing.md");
+  });
 });
 
 function makeTempRoot(): string {

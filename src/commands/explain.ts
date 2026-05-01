@@ -1,10 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
+import { loadConfig } from "../config/index.js";
+import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
+import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import { AppError, isAppError } from "../errors.js";
 import { normalizeRelativePath, isPathInsideRoot } from "../path-utils.js";
 import { buildReport } from "../report/index.js";
 import { renderJsonReport } from "../render/index.js";
 import type { CommandResult } from "./lint.js";
+import type { Finding } from "../types/index.js";
 
 export interface ExplainCommandOptions {
   targetPath: string;
@@ -24,14 +28,43 @@ interface ExplainConflict {
   details: Record<string, unknown>;
 }
 
+interface ExplainGraphDetails {
+  referencedInstructionFiles: string[];
+  instructionEdges: Array<{
+    from: string;
+    to: string;
+    reference: string;
+    line: number;
+    sourceType: string;
+  }>;
+  graphDiagnostics: Array<{
+    code: string;
+    file: string;
+    line?: number;
+    reference?: string;
+    target?: string;
+  }>;
+}
+
 export function runExplainCommand(options: ExplainCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
+    const config = loadConfig({ root });
     const resolvedTargetPath = resolveTargetPath(root, options.targetPath);
     const targetRelativePath = normalizeRelativePath(path.relative(root, resolvedTargetPath));
     const appliedFiles = findApplicableAgentsFiles(root, resolvedTargetPath);
     const conflicts = detectExplainConflicts(root, appliedFiles);
-    const findings = [
+    const instructionGraph = config.instructionGraph.enabled
+      ? buildInstructionGraph({
+          root,
+          entryFiles: loadAppliedFiles(root, appliedFiles),
+          maxDepth: config.instructionGraph.maxDepth,
+          include: config.instructionGraph.include,
+          ignore: config.ignore
+        })
+      : undefined;
+    const graphDetails = instructionGraph ? buildExplainGraphDetails(instructionGraph) : undefined;
+    const findings: Finding[] = [
       {
         ruleId: "inheritance.applied_chain" as const,
         severity: "info" as const,
@@ -44,10 +77,14 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
         details: {
           targetPath: targetRelativePath,
           appliedFiles,
-          conflicts
+          conflicts,
+          ...(graphDetails ? { instructionGraph: graphDetails } : {})
         }
       }
     ];
+    if (instructionGraph) {
+      findings.push(...buildInstructionGraphFindings(instructionGraph, config));
+    }
     const report = buildReport({
       command: "explain",
       root,
@@ -56,7 +93,9 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
 
     return {
       exitCode: report.exitCode,
-      stdout: options.json ? renderJsonReport(report) : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts),
+      stdout: options.json
+        ? renderJsonReport(report)
+        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, graphDetails),
       stderr: ""
     };
   } catch (error) {
@@ -129,7 +168,12 @@ function findApplicableAgentsFiles(root: string, targetPath: string): string[] {
     .map((agentsPath) => normalizeRelativePath(path.relative(root, agentsPath)));
 }
 
-function renderHumanExplainOutput(targetPath: string, appliedFiles: string[], conflicts: ExplainConflict[]): string {
+function renderHumanExplainOutput(
+  targetPath: string,
+  appliedFiles: string[],
+  conflicts: ExplainConflict[],
+  graphDetails?: ExplainGraphDetails
+): string {
   if (appliedFiles.length === 0) {
     return `agents-doctor explain: 0 files apply\ntarget: ${targetPath}\nNo AGENTS.md files found in target ancestry.\n`;
   }
@@ -154,7 +198,56 @@ function renderHumanExplainOutput(targetPath: string, appliedFiles: string[], co
     }
   }
 
+  if (graphDetails && graphDetails.referencedInstructionFiles.length > 0) {
+    lines.push("Referenced instruction files:");
+
+    for (const file of graphDetails.referencedInstructionFiles) {
+      lines.push(`- ${file}`);
+    }
+  }
+
+  if (graphDetails && graphDetails.graphDiagnostics.length > 0) {
+    lines.push("Graph notes:");
+
+    for (const [index, diagnostic] of graphDetails.graphDiagnostics.entries()) {
+      lines.push(`${index + 1}. [${diagnostic.code}] ${diagnostic.file}${diagnostic.reference ? ` -> ${diagnostic.reference}` : ""}`);
+    }
+  }
+
   return `${lines.join("\n")}\n`;
+}
+
+function loadAppliedFiles(root: string, appliedFiles: string[]): Array<{ absolutePath: string; relativePath: string; content: string }> {
+  return appliedFiles.map((relativePath) => {
+    const absolutePath = path.join(root, relativePath);
+    return {
+      absolutePath,
+      relativePath,
+      content: fs.readFileSync(absolutePath, "utf8")
+    };
+  });
+}
+
+function buildExplainGraphDetails(graph: InstructionGraph): ExplainGraphDetails {
+  return {
+    referencedInstructionFiles: graph.nodes
+      .filter((node) => node.discoveredBy === "reference" && node.status === "loaded")
+      .map((node) => node.id),
+    instructionEdges: graph.edges.map((edge) => ({
+      from: edge.from,
+      to: edge.to,
+      reference: edge.reference,
+      line: edge.line,
+      sourceType: edge.sourceType
+    })),
+    graphDiagnostics: graph.diagnostics.map((diagnostic) => ({
+      code: diagnostic.code,
+      file: diagnostic.file,
+      line: diagnostic.line,
+      reference: diagnostic.reference,
+      target: diagnostic.target
+    }))
+  };
 }
 
 function formatErrorMessage(error: unknown): string {
