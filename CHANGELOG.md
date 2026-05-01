@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0-rc.0 - 2026-05-01
 
 ### Added
 - Opt-in instruction graph analysis for `verify` and `explain`.
