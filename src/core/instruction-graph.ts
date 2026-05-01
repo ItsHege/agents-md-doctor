@@ -244,23 +244,13 @@ function traverse(options: TraverseOptions): void {
       continue;
     }
 
-    if (options.ignoreMatcher(resolved.relativePath)) {
+    if (resolved.relativePath === readResult.relativePath) {
       continue;
     }
 
-    options.edges.push({
-      from: readResult.relativePath,
-      to: resolved.relativePath,
-      reference: resolved.reference,
-      kind: resolved.kind,
-      sourceType: resolved.kind,
-      line: resolved.location.line,
-      location: {
-        file: readResult.relativePath,
-        line: resolved.location.line,
-        column: resolved.location.column
-      }
-    });
+    if (options.ignoreMatcher(resolved.relativePath)) {
+      continue;
+    }
 
     if (!isPathInsideRoot(options.root, resolved.absolutePath)) {
       options.diagnostics.push({
@@ -279,6 +269,20 @@ function traverse(options: TraverseOptions): void {
     if (!options.includeMatcher(resolved.relativePath)) {
       continue;
     }
+
+    options.edges.push({
+      from: readResult.relativePath,
+      to: resolved.relativePath,
+      reference: resolved.reference,
+      kind: resolved.kind,
+      sourceType: resolved.kind,
+      line: resolved.location.line,
+      location: {
+        file: readResult.relativePath,
+        line: resolved.location.line,
+        column: resolved.location.column
+      }
+    });
 
     if (options.visiting.has(resolved.relativePath)) {
       options.diagnostics.push({

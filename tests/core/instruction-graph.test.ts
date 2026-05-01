@@ -35,6 +35,22 @@ describe("buildInstructionGraph", () => {
     expect(graph.diagnostics).toEqual([]);
   });
 
+  it("ignores references from an instruction file to itself", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Root\n\nCanonical project instruction file is `AGENTS.md`.\n");
+
+    const graph = buildInstructionGraph({
+      root,
+      entryFiles: [loadEntry(root, "AGENTS.md")],
+      maxDepth: 2,
+      include: ["**/AGENTS.md"]
+    });
+
+    expect(graph.nodes.map((node) => node.id)).toEqual(["AGENTS.md"]);
+    expect(graph.edges).toEqual([]);
+    expect(graph.diagnostics).toEqual([]);
+  });
+
   it("ignores non-instruction markdown references and fenced code blocks", () => {
     const root = makeTempRoot();
     writeFile(
