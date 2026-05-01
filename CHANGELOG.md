@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 - 2026-05-01
+
+### Added
+- Document agent workflow usage and add a Codex skill example.
+
 ## 0.2.1 - 2026-05-01
 
 ### Changed

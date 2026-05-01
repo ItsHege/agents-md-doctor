@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Deterministic CLI/CI checker for AGENTS.md agent instruction files.",
   "type": "module",
   "bin": {
@@ -11,7 +11,8 @@
     "README.md",
     "CHANGELOG.md",
     "AGENTS.md",
-    "docs"
+    "docs",
+    "examples"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

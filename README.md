@@ -25,6 +25,15 @@ AI coding agents increasingly rely on repository-level instruction files. When t
 
 AGENTS.md Doctor catches these issues before agent work starts.
 
+## Problem Examples
+
+AGENTS.md Doctor is built for drift like this:
+
+- `AGENTS.md` says `npm run test:all`, but `package.json` only has `npm test`.
+- Nested `AGENTS.md` files disagree about `npm` vs `pnpm`.
+- A rules file grows to 800 lines and buries the safety rules.
+- A path reference points to a file that no longer exists.
+
 ## Available Now
 
 The package is published on npm as `agents-doctor`.
@@ -103,6 +112,23 @@ AGENTS.md Doctor does not execute commands from AGENTS.md. It only inspects
 instructions, paths, command references, and policy signals.
 
 For the full architecture flow, see `docs/how-it-works.md`.
+
+## Agent Workflow Example
+
+AGENTS.md Doctor can be used inside agent skills and custom coding-agent
+workflows. Run it first, inspect the findings, then let the coding agent make
+scoped instruction edits with human review.
+
+A typical loop:
+
+1. Run `agents-doctor verify --json .`.
+2. Classify findings as `TP`, `FP`, `Needs-Config`, or `Unclear`.
+3. Fix only validated instruction drift: stale commands, missing paths,
+   oversized files, or risky instructions.
+4. Re-run `agents-doctor verify --json .`.
+5. Leave semantic or product decisions to human review.
+
+See `examples/codex-skill/SKILL.md` for a Codex skill example.
 
 ## Configuration
 
