@@ -65,5 +65,147 @@
       "expectedLabel": "FP",
       "notes": "Root AGENTS.md is expected at the pinned commit."
     }
+  ],
+  "graphExpectations": [
+    {
+      "repoId": "octocat-hello-world",
+      "targetId": "root",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "nodejs-node",
+      "targetId": "root",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "nodejs-node",
+      "targetId": "readme",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "nodejs-node",
+      "targetId": "src",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "nodejs-node",
+      "targetId": "lib",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "nodejs-node",
+      "targetId": "test",
+      "expectedAppliedFiles": [],
+      "expectedLabel": "TP",
+      "notes": "No AGENTS.md files should apply."
+    },
+    {
+      "repoId": "openai-agents-md",
+      "targetId": "root",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "openai-agents-md",
+      "targetId": "agents-file",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "openai-agents-md",
+      "targetId": "readme",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "microsoft-typescript",
+      "targetId": "root",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "microsoft-typescript",
+      "targetId": "agents-file",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "microsoft-typescript",
+      "targetId": "readme",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "microsoft-typescript",
+      "targetId": "src",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "nvm-sh-nvm",
+      "targetId": "root",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "nvm-sh-nvm",
+      "targetId": "agents-file",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "langchainjs",
+      "targetId": "root",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "langchainjs",
+      "targetId": "agents-file",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "vercel-nextjs",
+      "targetId": "root",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "vercel-nextjs",
+      "targetId": "agents-file",
+      "expectedAppliedFiles": ["AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Root AGENTS.md should apply."
+    },
+    {
+      "repoId": "vercel-nextjs",
+      "targetId": "packages-next",
+      "expectedAppliedFiles": ["AGENTS.md", "packages/next/AGENTS.md"],
+      "expectedLabel": "TP",
+      "notes": "Nested package AGENTS.md should apply after root AGENTS.md."
+    }
   ]
 }

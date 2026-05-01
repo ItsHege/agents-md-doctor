@@ -10,6 +10,9 @@ export interface LoadedAgentsFile {
   absolutePath: string;
   relativePath: string;
   content: string;
+  fileClass?: "agents" | "referencedInstruction";
+  graphDepth?: number;
+  referencedBy?: string;
 }
 
 export interface FileRule {
@@ -27,6 +30,10 @@ export const lintRules: FileRule[] = [
   {
     definition: fileTooLongRuleDefinition,
     check(file, context) {
+      if (file.fileClass === "referencedInstruction") {
+        return [];
+      }
+
       const ruleOptions = getRuleConfig(context, fileTooLongRuleDefinition.id);
       const severity = getRuleSeverity(context, fileTooLongRuleDefinition);
 
@@ -45,6 +52,10 @@ export const lintRules: FileRule[] = [
   {
     definition: requiredSectionsRuleDefinition,
     check(file, context) {
+      if (file.fileClass === "referencedInstruction") {
+        return [];
+      }
+
       const ruleOptions = getRuleConfig(context, requiredSectionsRuleDefinition.id);
       const severity = getRuleSeverity(context, requiredSectionsRuleDefinition);
 

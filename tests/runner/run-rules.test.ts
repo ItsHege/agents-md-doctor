@@ -18,6 +18,11 @@ describe("runRules", () => {
         config: {
           ignore: [],
           failOnWarning: false,
+          instructionGraph: {
+            enabled: false,
+            maxDepth: 2,
+            include: []
+          },
           rules: {
             "structure.required_sections": {
               severity: "off"

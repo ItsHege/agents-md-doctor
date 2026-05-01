@@ -16,14 +16,40 @@ const RuleConfigSchema = z
   })
   .strict();
 
+export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
+  "**/AGENTS.md",
+  "**/.agents/**/*.md",
+  "**/docs/agents/**/*.md",
+  "**/docs/agent/**/*.md",
+  "**/CLAUDE.md",
+  "**/GEMINI.md",
+  "**/.github/copilot-instructions.md",
+  "**/.cursor/rules/**/*.md"
+];
+
+const InstructionGraphConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    maxDepth: z.number().int().min(0).max(10).optional(),
+    include: z.array(z.string().min(1)).optional()
+  })
+  .strict();
+
 const AgentsDoctorConfigSchema = z
   .object({
     ignore: z.array(z.string().min(1)).optional(),
     maxLines: z.number().int().positive().optional(),
     failOnWarning: z.boolean().optional(),
+    instructionGraph: InstructionGraphConfigSchema.optional(),
     rules: z.record(RuleIdSchema, RuleConfigSchema).optional()
   })
   .strict();
+
+export interface ResolvedInstructionGraphConfig {
+  enabled: boolean;
+  maxDepth: number;
+  include: string[];
+}
 
 export type RuleSeverityOverride = z.infer<typeof RuleSeverityOverrideSchema>;
 export type RuleConfig = z.infer<typeof RuleConfigSchema>;
@@ -33,6 +59,7 @@ export interface ResolvedLintConfig {
   ignore: string[];
   maxLines?: number;
   failOnWarning: boolean;
+  instructionGraph: ResolvedInstructionGraphConfig;
   rules: Record<string, RuleConfig>;
 }
 
@@ -47,6 +74,11 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
     return {
       ignore: [],
       failOnWarning: false,
+      instructionGraph: {
+        enabled: false,
+        maxDepth: 2,
+        include: DEFAULT_INSTRUCTION_GRAPH_INCLUDE
+      },
       rules: {}
     };
   }
@@ -68,12 +100,19 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
 
   const config = parsedConfig.data;
   const ignore = config.ignore ?? [];
+  const instructionGraphInclude = config.instructionGraph?.include ?? DEFAULT_INSTRUCTION_GRAPH_INCLUDE;
   validateIgnorePatterns(ignore);
+  validateIgnorePatterns(instructionGraphInclude);
 
   return {
     ignore,
     ...(config.maxLines ? { maxLines: config.maxLines } : {}),
     failOnWarning: config.failOnWarning ?? false,
+    instructionGraph: {
+      enabled: config.instructionGraph?.enabled ?? false,
+      maxDepth: config.instructionGraph?.maxDepth ?? 2,
+      include: instructionGraphInclude
+    },
     rules: config.rules ?? {}
   };
 }

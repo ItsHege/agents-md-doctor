@@ -36,8 +36,17 @@ flowchart TD
     F4 --> REP
     F5 --> REP
 
+    V1 --> G1{"Instruction graph enabled?"}
+    G1 -->|yes| G2["Build instruction graph<br/>explicit local instruction references"]
+    G1 -->|no| REP
+    G2 --> G3["Add graph findings<br/>summary, missing refs, cycles, depth"]
+    G3 --> REP
+
     E1 --> E2["Detect deterministic conflict markers"]
-    E2 --> REP2["Build explain report<br/>applied chain + conflicts"]
+    E2 --> E3{"Instruction graph enabled?"}
+    E3 -->|yes| E4["Build graph from applied chain"]
+    E3 -->|no| REP2["Build explain report<br/>applied chain + optional graph details + conflicts"]
+    E4 --> REP2
 
     REP --> OUT{"Output format"}
     REP2 --> OUT
@@ -57,3 +66,13 @@ agents-doctor lint: 1 warning
 warning size.file_too_long AGENTS.md:1
 AGENTS.md has 501 lines. Recommended maximum: 500 lines.
 ```
+
+## Instruction Graph
+
+The instruction graph is opt-in through `.agents-doctor.json`. When enabled,
+`verify` and `explain` follow explicit local Markdown links and inline-code
+references that look like agent instruction files, such as
+`docs/agent/testing.md` or `.cursor/rules/react.md`.
+
+The graph builder does not scan all documentation, follow remote URLs, follow
+symlinks, or read files outside the repository boundary.

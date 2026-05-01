@@ -18,6 +18,7 @@ if (!fs.existsSync(cliPath)) {
 const manifest = readJsonFile(manifestPath);
 const expectations = readJsonFile(expectationsPath);
 const expectedByRepoAndCommand = groupExpectations(expectations.expectations ?? []);
+const graphExpectedByRepoAndTarget = groupGraphExpectations(expectations.graphExpectations ?? []);
 const startedAt = new Date().toISOString();
 const tempRoot = createShortTempRoot();
 
@@ -35,8 +36,10 @@ try {
     const repoExpectations = expectedByRepoAndCommand.get(repo.id) ?? [];
     const repoExpectationResults = evaluateExpectations(repoResult, repoExpectations);
     expectationResults.push(...repoExpectationResults);
+    const graphExpectations = graphExpectedByRepoAndTarget.get(repo.id) ?? [];
+    expectationResults.push(...evaluateGraphExpectations(repoResult, graphExpectations));
 
-    if (!repoResult.lint.ok || !repoResult.verify.ok) {
+    if (!repoResult.lint.ok || !repoResult.verify.ok || repoResult.graphTargets.some((target) => !target.explain.ok)) {
       operationalFailures += 1;
     }
   }
@@ -113,7 +116,8 @@ function runRepoBenchmark(repo, tempDir) {
         status: null,
         stderr: "Skipped because clone failed.",
         stdoutPreview: ""
-      }
+      },
+      graphTargets: []
     };
   }
 
@@ -130,6 +134,7 @@ function runRepoBenchmark(repo, tempDir) {
 
   const lint = runCli("lint", repoDir);
   const verify = runCli("verify", repoDir);
+  const graphTargets = runGraphTargets(repo.graphTargets ?? [], repoDir);
   const cloneCompletedAt = new Date().toISOString();
 
   return {
@@ -150,14 +155,27 @@ function runRepoBenchmark(repo, tempDir) {
       stderr: checkout.stderr
     },
     lint: summarizeCommandResult(lint),
-    verify: summarizeCommandResult(verify)
+    verify: summarizeCommandResult(verify),
+    graphTargets
   };
 }
 
-function runCli(command, repoDir) {
+function runGraphTargets(graphTargets, repoDir) {
+  return graphTargets.map((target) => {
+    const explain = runCli("explain", repoDir, [target.path]);
+    return {
+      id: target.id,
+      path: target.path,
+      notes: target.notes,
+      explain: summarizeCommandResult(explain)
+    };
+  });
+}
+
+function runCli(command, repoDir, extraArgs = []) {
   const result = spawnSync(
     process.execPath,
-    [cliPath, command, "--json", repoDir],
+    command === "explain" ? [cliPath, command, "--json", ...extraArgs, repoDir] : [cliPath, command, "--json", repoDir],
     {
       cwd: projectRoot,
       encoding: "utf8",
@@ -241,6 +259,39 @@ function evaluateExpectations(repoResult, repoExpectations) {
   return results;
 }
 
+function evaluateGraphExpectations(repoResult, graphExpectations) {
+  /** @type {Array<object>} */
+  const results = [];
+
+  for (const expected of graphExpectations) {
+    const targetResult = repoResult.graphTargets.find((target) => target.id === expected.targetId);
+    const findings = targetResult?.explain?.findings ?? [];
+    const appliedChain = extractAppliedChain(findings);
+    const ok = arraysEqual(appliedChain, expected.expectedAppliedFiles ?? []);
+
+    results.push({
+      repoId: repoResult.id,
+      command: "explain",
+      targetId: expected.targetId,
+      targetPath: targetResult?.path,
+      ruleId: "inheritance.applied_chain",
+      expectedAppliedFiles: expected.expectedAppliedFiles ?? [],
+      actualAppliedFiles: appliedChain,
+      expectedLabel: expected.expectedLabel,
+      notes: expected.notes,
+      ok
+    });
+  }
+
+  return results;
+}
+
+function extractAppliedChain(findings) {
+  const appliedChainFinding = findings.find((finding) => finding.ruleId === "inheritance.applied_chain");
+  const appliedFiles = appliedChainFinding?.details?.appliedFiles;
+  return Array.isArray(appliedFiles) ? appliedFiles : [];
+}
+
 function groupExpectations(expectationList) {
   /** @type {Map<string, Array<object>>} */
   const grouped = new Map();
@@ -252,6 +303,27 @@ function groupExpectations(expectationList) {
   }
 
   return grouped;
+}
+
+function groupGraphExpectations(expectationList) {
+  /** @type {Map<string, Array<object>>} */
+  const grouped = new Map();
+
+  for (const expected of expectationList) {
+    const list = grouped.get(expected.repoId) ?? [];
+    list.push(expected);
+    grouped.set(expected.repoId, list);
+  }
+
+  return grouped;
+}
+
+function arraysEqual(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
 }
 
 function countByRule(findings) {

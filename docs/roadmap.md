@@ -6,7 +6,7 @@ public milestones.
 
 ## Near Term
 
-- Improve deterministic policy conflict detection for nested `AGENTS.md` files.
+- Expand instruction graph benchmarks with more nested and monorepo targets.
 - Publish GitHub Actions examples, including clear CI annotation patterns.
 - Add optional SARIF output for code scanning integrations.
 

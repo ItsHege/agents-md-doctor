@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+- Opt-in instruction graph analysis for `verify` and `explain`.
+- Instruction graph config via `instructionGraph.enabled`, `instructionGraph.maxDepth`, and `instructionGraph.include`.
+- Graph findings for summary, missing referenced instruction files, cycles, and depth limits.
+- Benchmark graph targets for `explain --json` applied-chain assertions.
+
 ### Changed
 - README polish for public portfolio clarity: moved a concrete CLI example near the top, added install alternatives, and added an AI-assisted development note.
 

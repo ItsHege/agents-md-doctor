@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, validateIgnorePatterns } from "../config/index.js";
+import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
+import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
@@ -52,6 +54,27 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       }
     });
     findings.push(...buildCoverageSanityFindings(root, loadedFiles));
+    if (config.instructionGraph.enabled) {
+      const graph = buildInstructionGraph({
+        root,
+        entryFiles: loadedFiles,
+        maxDepth: config.instructionGraph.maxDepth,
+        include: config.instructionGraph.include,
+        ignore: [...config.ignore, ...cliIgnore]
+      });
+      const graphFiles = buildLoadedFilesFromGraph(graph);
+      const graphRuleFindings = runRules({
+        files: graphFiles,
+        rules: lintRules,
+        context: {
+          root,
+          config,
+          ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
+        }
+      }).map((finding) => addGraphProvenance(finding, graph));
+
+      findings.push(...graphRuleFindings, ...buildInstructionGraphFindings(graph, config));
+    }
     const failOnWarnings = options.strict === true || options.failOnWarning === true || config.failOnWarning;
     const report = buildReport({
       command: "verify",
@@ -76,6 +99,37 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       stderr: `agents-doctor: error: ${formatErrorMessage(error)}\n`
     };
   }
+}
+
+function buildLoadedFilesFromGraph(graph: InstructionGraph): LoadedAgentsFile[] {
+  return graph.nodes
+    .filter((node) => node.discoveredBy === "reference" && node.status === "loaded" && typeof node.content === "string")
+    .map((node) => ({
+      absolutePath: node.absolutePath,
+      relativePath: node.id,
+      content: node.content ?? "",
+      fileClass: node.kind,
+      graphDepth: node.depth,
+      referencedBy: node.referencedBy
+    }));
+}
+
+function addGraphProvenance(finding: Finding, graph: InstructionGraph): Finding {
+  const node = graph.nodes.find((candidate) => candidate.id === finding.file);
+
+  if (!node) {
+    return finding;
+  }
+
+  return {
+    ...finding,
+    details: {
+      ...(finding.details ?? {}),
+      fileClass: node.kind,
+      graphDepth: node.depth,
+      referencedBy: node.referencedBy
+    }
+  };
 }
 
 function buildCoverageSanityFindings(root: string, files: LoadedAgentsFile[]): Finding[] {

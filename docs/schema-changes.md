@@ -4,6 +4,8 @@ Record user-visible JSON output schema changes here.
 
 ## Unreleased
 
+- Instruction graph output is represented through existing findings and
+  additive `details`; the report schema remains `1.0.0`.
 - Added initial `RuleDefinition`, `Finding`, and `Report` schemas.
 - Initial JSON report schema version is `1.0.0`.
 - Rule id namespaces are based on problem type: `structure`, `size`,

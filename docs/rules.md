@@ -116,3 +116,47 @@ Example finding:
 warning security.risky_instruction AGENTS.md:20
 AGENTS.md contains a risky instruction: instruction suggests dumping environment variables.
 ```
+
+## `inheritance.instruction_graph_summary`
+
+- Category: `inheritance`
+- Default severity: `info`
+- Config options: `severity`
+
+Emitted by `verify` and `explain` when `instructionGraph.enabled` is true.
+Summarizes instruction graph node, edge, diagnostic, and referenced-file counts.
+
+## `inheritance.referenced_instruction_missing`
+
+- Category: `inheritance`
+- Default severity: `warning`
+- Config options: `severity`
+
+Reports instruction-like Markdown references that are missing, unreadable,
+outside the repository, or symlinked. AGENTS.md Doctor does not traverse these
+references.
+
+Example finding:
+
+```text
+warning inheritance.referenced_instruction_missing AGENTS.md:12
+AGENTS.md references a missing instruction file: docs/agent/testing.md.
+```
+
+## `inheritance.instruction_graph_cycle`
+
+- Category: `inheritance`
+- Default severity: `warning`
+- Config options: `severity`
+
+Reports cycles in opt-in referenced instruction files, such as
+`AGENTS.md -> docs/agent/testing.md -> AGENTS.md`.
+
+## `inheritance.instruction_graph_depth_exceeded`
+
+- Category: `inheritance`
+- Default severity: `warning`
+- Config options: `severity`
+
+Reports instruction references that were not traversed because they exceeded
+`instructionGraph.maxDepth`.
