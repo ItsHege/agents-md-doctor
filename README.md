@@ -4,25 +4,34 @@
 
 AGENTS.md Doctor is a deterministic CLI/CI checker for agent instruction files.
 
-`AGENTS.md Doctor` helps teams keep agent instructions short, scoped, and aligned with the real repository. It is not a text editor. It is an analysis engine for the instruction layer that sits between developers, codebases, and coding agents such as Codex, Copilot, Cursor, Claude Code, and similar tools.
+It helps teams keep AGENTS.md instructions short, scoped, and aligned with the real repository.
+
+## Quick Example
+
+```bash
+$ npx agents-doctor@latest lint .
+agents-doctor lint: 2 warnings
+
+warning size.file_too_long AGENTS.md:1
+AGENTS.md has 612 lines. Recommended maximum: 500 lines.
+
+warning commands.mentioned_command_missing AGENTS.md:45
+AGENTS.md references a missing package script: typecheck.
+```
+
+## Demo
+
+A short terminal demo GIF is planned for this section to show an end-to-end `lint` + `verify` flow in under 30 seconds.
 
 ## Why This Exists
 
-AI coding agents increasingly rely on repository-level instruction files. When those instructions drift from reality, agents waste time, run wrong commands, ignore important constraints, or try to fix problems in the wrong place.
+AI coding agents increasingly rely on repository-level instruction files. When those instructions drift from reality, agents waste time, run wrong commands, and ignore important constraints.
 
-Planned failure modes:
-
-- `AGENTS.md` tells the agent to run a test command that no longer exists.
-- Monorepo folders contain conflicting instructions.
-- Files are too long and burn tokens without improving behavior.
-- Safety, testing, or review expectations are missing.
-- A developer cannot easily tell which instructions apply to a specific file.
-
-`AGENTS.md Doctor` is designed to catch these problems before an agent starts working. The current implementation starts with lint rules for oversized files and required sections.
+AGENTS.md Doctor catches these issues before agent work starts.
 
 ## Available Now
 
-The package is published on npm as `agents-doctor@0.1.1`.
+The package is published on npm as `agents-doctor@0.1.2`.
 
 Quick usage:
 
@@ -30,6 +39,17 @@ Quick usage:
 npx agents-doctor@latest lint .
 npx agents-doctor@latest verify --json .
 npx agents-doctor@latest explain src
+```
+
+Install alternatives:
+
+```bash
+npm install -g agents-doctor
+agents-doctor lint .
+```
+
+```bash
+pnpm dlx agents-doctor lint .
 ```
 
 Command surface:
@@ -232,3 +252,7 @@ See `docs/roadmap.md` for the full public roadmap.
 - Add optional SARIF output for code scanning integrations.
 - Add `agents-doctor init` to bootstrap starter configuration.
 - Expand real-world fixtures from public repositories.
+
+## AI-Assisted Development
+
+This project is built with an AI-assisted engineering workflow. Design and implementation were done by the maintainer, with agent support for scoped coding, test iteration, and release execution. Every shipped change is reviewed and validated with deterministic tests, smoke checks, and benchmark runs before release.
