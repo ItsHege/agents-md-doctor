@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 - 2026-05-01
+
+### Fixed
+- `paths.reference_missing` now ignores obvious placeholder/glob-style path references to reduce false positives in real-world repos (for example `<asset-id>`, `{id}`, `[id]`, `path/to/...`, and wildcard placeholders).
+
 ## 0.1.0 - 2026-05-01
 
 ### Added

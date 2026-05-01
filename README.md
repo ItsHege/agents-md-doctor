@@ -22,7 +22,7 @@ Planned failure modes:
 
 ## Available Now
 
-The package is published on npm as `agents-doctor@0.1.0`.
+The package is published on npm as `agents-doctor@0.1.1`.
 
 Quick usage:
 
@@ -57,9 +57,11 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 - `commands.mentioned_command_missing` when referenced scripts/targets are missing.
 - `security.risky_instruction` for high-confidence risky instruction patterns.
 
-Findings are warning-only by default and do not fail CI unless `--strict`,
-`--fail-on-warning`, or `failOnWarning` config is enabled. The optional `[repo]`
-argument defaults to the current directory.
+Most findings are warnings by default. Some checks can emit errors, for example
+`commands.mentioned_command_missing` when a referenced command/target is not
+declared. CI failure behavior can also be tightened with `--strict`,
+`--fail-on-warning`, or `failOnWarning` config. The optional `[repo]` argument
+defaults to the current directory.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
 packed-package smoke test.
@@ -112,15 +114,14 @@ matching config values where applicable.
 
 ### Lint
 
-Current behavior checks for oversized `AGENTS.md` files and missing required
-sections. Human-readable output is the default, and JSON output is available
-with `--json`. Additional structure and quality checks are planned.
+Current behavior checks all active lint rules and reports deterministic findings.
+Human-readable output is the default, and JSON output is available with `--json`.
 
-- Detects oversized instruction files.
-- Checks required heading sections.
-- Flags vague or conflicting rules. Planned.
-- Warns when safety, testing, or review guidance is missing. Planned.
-- Detects suspicious copy-paste boilerplate. Planned.
+- `size.file_too_long`
+- `structure.required_sections`
+- `paths.reference_missing`
+- `commands.mentioned_command_missing`
+- `security.risky_instruction`
 
 ### Verify
 
@@ -142,20 +143,13 @@ Current behavior: shows the effective instruction context for a target path.
   - test command hint mismatch,
   - generated-files edit policy mismatch.
 
-## First Release Target
+## Scope and Non-goals
 
-The first open-source version should stay narrow. Some items below are planned,
-not fully implemented yet:
+Current release scope is deterministic validation for repository `AGENTS.md`
+instructions through `lint`, `verify`, and `explain`, with machine-readable CI
+output and human-readable terminal output.
 
-- Single-repo and simple monorepo support.
-- Markdown parsing.
-- Command detection and verification.
-- Effective context explanation.
-- Machine-readable CI output.
-- Human-readable terminal output.
-- Initial JSON output schema documented in `docs/output-schema.md`.
-
-Non-goals for the first version:
+Non-goals:
 
 - Rewriting `AGENTS.md` automatically.
 - Building a full AI agent framework.

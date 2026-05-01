@@ -9,6 +9,16 @@ the latest main branch first.
 
 Please report vulnerabilities privately before public disclosure.
 
+Preferred channel:
+
+- Use GitHub private vulnerability reporting for this repository if available.
+
+Fallback channel (when private vulnerability reporting is not available):
+
+- Contact the maintainer before opening a public issue.
+- Until private vulnerability reporting is enabled, do not include secrets,
+  exploit details, private keys, or credential material in public issues.
+
 Include:
 
 1. What behavior is unsafe.
