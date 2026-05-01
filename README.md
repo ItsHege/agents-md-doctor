@@ -182,26 +182,51 @@ Non-goals:
 {
   "schemaVersion": "1.0.0",
   "tool": "agents-doctor",
-  "command": "lint",
-  "generatedAt": "2026-04-30T19:30:00.000Z",
+  "command": "verify",
+  "generatedAt": "2026-05-01T19:30:00.000Z",
   "root": "C:/repo",
-  "exitCode": 0,
+  "exitCode": 1,
   "summary": {
-    "errorCount": 0,
-    "warningCount": 1,
+    "errorCount": 1,
+    "warningCount": 2,
     "infoCount": 0
   },
   "findings": [
     {
-      "ruleId": "size.file_too_long",
+      "ruleId": "paths.reference_missing",
       "severity": "warning",
-      "message": "AGENTS.md has 501 lines. Recommended maximum: 500 lines.",
+      "message": "AGENTS.md references a missing path: package-lock.json.",
       "file": "AGENTS.md",
-      "line": 1,
+      "line": 24,
       "details": {
-        "lineCount": 501,
-        "thresholdLines": 500,
-        "unit": "lines"
+        "reference": "package-lock.json",
+        "reason": "not_found"
+      }
+    },
+    {
+      "ruleId": "commands.mentioned_command_missing",
+      "severity": "warning",
+      "message": "AGENTS.md references script \"dev\" that is missing in the local package but present in workspace package(s): apps/web/package.json.",
+      "file": "AGENTS.md",
+      "line": 32,
+      "details": {
+        "reference": "pnpm run dev",
+        "scriptName": "dev",
+        "source": "workspace",
+        "reason": "scope_ambiguous",
+        "matchedPackages": ["apps/web/package.json"]
+      }
+    },
+    {
+      "ruleId": "commands.mentioned_command_missing",
+      "severity": "error",
+      "message": "AGENTS.md references a missing Makefile target: lint.",
+      "file": "AGENTS.md",
+      "line": 45,
+      "details": {
+        "reference": "make lint",
+        "targetName": "lint",
+        "source": "Makefile"
       }
     }
   ]
@@ -220,10 +245,22 @@ No findings.
 Warning:
 
 ```text
-agents-doctor lint: 1 warning
+agents-doctor lint: 2 warnings
 
-warning size.file_too_long AGENTS.md:1
-AGENTS.md has 501 lines. Recommended maximum: 500 lines.
+warning paths.reference_missing AGENTS.md:24
+AGENTS.md references a missing path: package-lock.json.
+
+warning commands.mentioned_command_missing AGENTS.md:32
+AGENTS.md references script "dev" that is missing in the local package but present in workspace package(s): apps/web/package.json.
+```
+
+Error:
+
+```text
+agents-doctor verify: 1 error, 2 warnings
+
+error commands.mentioned_command_missing AGENTS.md:45
+AGENTS.md references a missing Makefile target: lint.
 ```
 
 Exit codes:
