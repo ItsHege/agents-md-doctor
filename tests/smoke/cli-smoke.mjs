@@ -7,6 +7,7 @@ const cliPath = path.join(projectRoot, "dist/cli.js");
 
 assertSuccessfulHelp(["--help"]);
 assertSuccessfulHelp(["lint", "--help"]);
+assertSuccessfulHelp(["verify", "--help"]);
 
 const shortReport = runLint(["lint", "--json", "tests/fixtures/short-agents-file"]);
 assert.equal(shortReport.exitCode, 0);
@@ -53,6 +54,23 @@ assert.equal(strictLongResult.status, 1);
 assert.equal(strictLongResult.stderr, "");
 assert.match(strictLongResult.stdout, /Strict mode enabled: warnings set exit code 1\./);
 
+const selfLintReport = runLint(["lint", "--json", "."]);
+assert.equal(selfLintReport.exitCode, 0);
+assert.deepEqual(selfLintReport.summary, {
+  errorCount: 0,
+  warningCount: 0,
+  infoCount: 0
+});
+assert.deepEqual(selfLintReport.findings, []);
+
+const verifyReport = runReport(["verify", "--json", "tests/fixtures/short-agents-file"], "verify");
+assert.equal(verifyReport.exitCode, 0);
+assert.equal(verifyReport.command, "verify");
+assert.equal(
+  verifyReport.findings.some((finding) => finding.ruleId === "coverage.discovery_summary"),
+  true
+);
+
 function assertSuccessfulHelp(args) {
   const result = runCli(args);
 
@@ -62,6 +80,10 @@ function assertSuccessfulHelp(args) {
 }
 
 function runLint(args, cwd = projectRoot) {
+  return runReport(args, "lint", cwd);
+}
+
+function runReport(args, command, cwd = projectRoot) {
   const result = runCli(args, cwd);
 
   assert.equal(result.status, 0, result.stderr);
@@ -70,7 +92,7 @@ function runLint(args, cwd = projectRoot) {
   const report = JSON.parse(result.stdout);
   assert.equal(report.schemaVersion, "1.0.0");
   assert.equal(report.tool, "agents-doctor");
-  assert.equal(report.command, "lint");
+  assert.equal(report.command, command);
   assert.match(report.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
 
   return report;

@@ -4,13 +4,14 @@ import { loadConfig, validateIgnorePatterns } from "../config/index.js";
 import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
+import { normalizeRelativePath } from "../path-utils.js";
 import { buildReport } from "../report/index.js";
 import { renderHumanLintReport, renderJsonReport } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
-import type { ExitCode } from "../types/index.js";
+import type { Finding, ExitCode } from "../types/index.js";
 
-export interface LintCommandOptions {
+export interface VerifyCommandOptions {
   root?: string;
   json: boolean;
   strict?: boolean;
@@ -25,7 +26,7 @@ export interface CommandResult {
   stderr: string;
 }
 
-export function runLintCommand(options: LintCommandOptions): CommandResult {
+export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
     const config = loadConfig({ root });
@@ -50,11 +51,13 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
         ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
       }
     });
+    findings.push(...buildCoverageSanityFindings(root, loadedFiles));
+    const failOnWarnings = options.strict === true || options.failOnWarning === true || config.failOnWarning;
     const report = buildReport({
-      command: "lint",
+      command: "verify",
       root,
       findings,
-      failOnWarnings: options.strict === true || options.failOnWarning === true || config.failOnWarning
+      failOnWarnings
     });
 
     return {
@@ -62,8 +65,8 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
       stdout: options.json
         ? renderJsonReport(report)
         : renderHumanLintReport(report, {
-            strict: options.strict === true || options.failOnWarning === true || config.failOnWarning
-          }),
+            strict: failOnWarnings
+          }).replace("agents-doctor lint:", "agents-doctor verify:"),
       stderr: ""
     };
   } catch (error) {
@@ -73,6 +76,49 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
       stderr: `agents-doctor: error: ${formatErrorMessage(error)}\n`
     };
   }
+}
+
+function buildCoverageSanityFindings(root: string, files: LoadedAgentsFile[]): Finding[] {
+  const hasRootAgents = files.some((file) => file.relativePath === "AGENTS.md");
+  const findings: Finding[] = [
+    {
+      ruleId: "coverage.discovery_summary",
+      severity: "info",
+      message: `Scanned ${files.length} AGENTS.md file${files.length === 1 ? "" : "s"} for lint and inheritance sanity.`,
+      file: files[0]?.relativePath,
+      line: 1,
+      details: {
+        agentsFileCount: files.length,
+        hasRootAgents
+      }
+    }
+  ];
+
+  if (files.length === 0) {
+    findings.push({
+      ruleId: "coverage.no_agents_file",
+      severity: "warning",
+      message: "No AGENTS.md files found in the repository scope.",
+      line: 1,
+      details: {
+        root: normalizeRelativePath(root)
+      }
+    });
+  }
+
+  if (!hasRootAgents && files.length > 0) {
+    findings.push({
+      ruleId: "coverage.root_agents_missing",
+      severity: "warning",
+      message: "Root AGENTS.md is missing; inheritance may be harder to reason about.",
+      line: 1,
+      details: {
+        nearestAgentsFiles: files.slice(0, 5).map((file) => file.relativePath)
+      }
+    });
+  }
+
+  return findings;
 }
 
 function resolveRoot(root: string): string {

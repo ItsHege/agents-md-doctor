@@ -42,8 +42,8 @@ the rule. Stable categories are:
 Examples:
 
 - `size.file_too_long`
-- `commands.missing_script`
-- `paths.missing_reference`
+- `commands.mentioned_command_missing`
+- `paths.reference_missing`
 - `inheritance.conflict`
 
 ## Severity

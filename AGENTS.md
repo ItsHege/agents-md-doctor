@@ -1,4 +1,14 @@
-# AGENTS.md Doctor Agent Instructions
+# AGENTS.md Doctor Public Agent Instructions
+
+## Scope Of This File
+
+This file is public-safe project guidance for contributors and coding agents
+working inside the AGENTS.md Doctor repository.
+
+Workspace-only coordination, role briefs, owner workflow, durable memory, and
+planning notes belong outside this publishable project. Do not copy local
+workspace instructions into this repository unless they have been deliberately
+cleaned into public documentation.
 
 ## Project Goal
 
@@ -39,4 +49,3 @@ The project should stay focused on three user outcomes:
 - Keep README examples current with real CLI behavior.
 - Document rule ids and output schema.
 - Include short CI examples for GitHub Actions.
-

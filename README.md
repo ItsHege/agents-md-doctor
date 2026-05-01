@@ -2,15 +2,15 @@
 
 [![CI](https://github.com/ItsHege/agents-md-doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/ItsHege/agents-md-doctor/actions/workflows/ci.yml)
 
-Repo-aware CLI and CI tool for validating `AGENTS.md` instructions used by AI coding agents.
+AGENTS.md Doctor is a deterministic CLI/CI checker for agent instruction files.
 
-`AGENTS.md Doctor` helps teams keep agent instructions short, accurate, non-contradictory, and aligned with the real repository. It is not a text editor. It is an analysis engine for the instruction layer that sits between developers, codebases, and coding agents such as Codex, Copilot, Cursor, Claude Code, and similar tools.
+`AGENTS.md Doctor` helps teams keep agent instructions short, scoped, and aligned with the real repository. It is not a text editor. It is an analysis engine for the instruction layer that sits between developers, codebases, and coding agents such as Codex, Copilot, Cursor, Claude Code, and similar tools.
 
 ## Why This Exists
 
 AI coding agents increasingly rely on repository-level instruction files. When those instructions drift from reality, agents waste time, run wrong commands, ignore important constraints, or try to fix problems in the wrong place.
 
-Common failure modes:
+Planned failure modes:
 
 - `AGENTS.md` tells the agent to run a test command that no longer exists.
 - Monorepo folders contain conflicting instructions.
@@ -18,70 +18,107 @@ Common failure modes:
 - Safety, testing, or review expectations are missing.
 - A developer cannot easily tell which instructions apply to a specific file.
 
-`AGENTS.md Doctor` is designed to catch these problems before an agent starts working.
+`AGENTS.md Doctor` is designed to catch these problems before an agent starts working. The current implementation starts with lint rules for oversized files and required sections.
 
-## MVP Commands
+## Available Now
 
-Current implementation:
+The package is not published to npm yet. Local testing currently uses the built
+CLI after `npm run build`:
 
 ```bash
 agents-doctor lint [repo]
 agents-doctor lint --json [repo]
 agents-doctor lint --strict [repo]
+agents-doctor lint --fail-on-warning [repo]
+agents-doctor lint --ignore "tests/fixtures/**" [repo]
+agents-doctor lint --max-lines 400 [repo]
+agents-doctor verify [repo]
+agents-doctor verify --json [repo]
+agents-doctor verify --strict [repo]
+agents-doctor verify --fail-on-warning [repo]
+agents-doctor explain <path> [repo]
+agents-doctor explain --json <path> [repo]
 ```
 
-This first vertical slice discovers `AGENTS.md` files and reports
-`size.file_too_long` when a file has more than 500 logical lines. Findings are
-warning-only and do not fail CI by default. The optional `[repo]` argument
-defaults to the current directory. Use `--strict` to make warning findings exit
-with code `1`.
+Current lint behavior discovers `AGENTS.md` files and reports:
 
-GitHub Actions currently runs typecheck, tests, build, and CLI smoke checks for
-the short and long `AGENTS.md` fixtures.
+- `size.file_too_long` when a file has more than the configured line threshold.
+- `structure.required_sections` when required section headings are missing.
+- `paths.reference_missing` when referenced paths do not exist or point outside the repo.
+- `commands.mentioned_command_missing` when referenced scripts/targets are missing.
+- `security.risky_instruction` for high-confidence risky instruction patterns.
 
-Planned MVP command surface:
+Findings are warning-only by default and do not fail CI unless `--strict`,
+`--fail-on-warning`, or `failOnWarning` config is enabled. The optional `[repo]`
+argument defaults to the current directory.
 
-```bash
-agents-doctor lint
-agents-doctor verify
-agents-doctor explain path/to/file.ts
+GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
+packed-package smoke test.
+
+## Configuration
+
+AGENTS.md Doctor reads `.agents-doctor.json` from the repository root when it
+exists.
+
+```json
+{
+  "ignore": ["tests/fixtures/**"],
+  "maxLines": 500,
+  "failOnWarning": false,
+  "rules": {
+    "size.file_too_long": {
+      "severity": "warning",
+      "maxLines": 500
+    },
+    "structure.required_sections": {
+      "severity": "warning",
+      "requiredHeadings": ["Safety", "Testing"]
+    }
+  }
+}
 ```
+
+Rule severity can be `error`, `warning`, `info`, or `off`. CLI flags override
+matching config values where applicable.
 
 ## Core Features
 
 ### Lint
 
-Current behavior checks for oversized `AGENTS.md` files. Human-readable output is
-the default, and JSON output is available with `--json`. Additional structure and
-quality checks are planned.
+Current behavior checks for oversized `AGENTS.md` files and missing required
+sections. Human-readable output is the default, and JSON output is available
+with `--json`. Additional structure and quality checks are planned.
 
 - Detects oversized instruction files.
-- Checks heading structure. Planned.
+- Checks required heading sections.
 - Flags vague or conflicting rules. Planned.
 - Warns when safety, testing, or review guidance is missing. Planned.
 - Detects suspicious copy-paste boilerplate. Planned.
 
 ### Verify
 
-Planned behavior: compares instructions against the real repository.
+Current behavior: runs lint checks plus coverage sanity and emits a unified `verify` report.
 
-- Verifies commands mentioned in `AGENTS.md`.
-- Checks `package.json`, `Makefile`, task runners, and common config files.
-- Flags stale test, lint, build, or dev commands.
-- Detects references to missing folders, scripts, tools, or docs.
+- Includes all lint findings in one report.
+- Adds coverage sanity markers (`coverage.discovery_summary`, optional root/no-file warnings).
+- Supports JSON output and strict/fail-on-warning exit behavior.
 
 ### Explain
 
-Planned behavior: shows the effective instruction context for a target file.
+Current behavior: shows the effective instruction context for a target path.
 
 - Finds all inherited `AGENTS.md` files.
-- Explains which rules apply to a specific path.
-- Highlights conflicts between parent and child instructions.
-- Helps developers understand what an AI agent will read before editing.
+- Explains which `AGENTS.md` files apply to a specific path.
+- Highlights chain order from root to nearest.
+- Adds deterministic conflict notes for:
+  - package manager disagreement,
+  - test command hint mismatch,
+  - generated-files edit policy mismatch.
 
-## First Scope
+## First Release Target
 
-The first open-source version should stay narrow:
+The first open-source version should stay narrow. Some items below are planned,
+not fully implemented yet:
 
 - Single-repo and simple monorepo support.
 - Markdown parsing.
@@ -170,8 +207,8 @@ Short version:
 1. Define rule model and report schema.
 2. Implement Markdown discovery and parsing.
 3. Implement `lint`.
-4. Implement repository command extraction.
-5. Implement `verify`.
-6. Implement `explain`.
+4. Expand repository command coverage across more ecosystems.
+5. Deepen `verify` with command/path cross-check explainers.
+6. Add richer inheritance diagnostics in `explain` output.
 7. Add CI examples.
 8. Publish first GitHub-ready release.

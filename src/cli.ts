@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { runLintCommand, type CommandResult } from "./commands/index.js";
+import { runExplainCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
 
 export function runCli(argv = process.argv): CommandResult {
   const program = new Command();
@@ -28,11 +28,73 @@ export function runCli(argv = process.argv): CommandResult {
     .argument("[repo]", "repository root")
     .option("--json", "emit JSON report")
     .option("--strict", "exit 1 when warnings are present")
-    .action((repo: string | undefined, options: { json?: boolean; strict?: boolean }) => {
+    .option("--fail-on-warning", "exit 1 when warnings are present")
+    .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
+    .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .action(
+      (
+        repo: string | undefined,
+        options: {
+          failOnWarning?: boolean;
+          ignore?: string[];
+          json?: boolean;
+          maxLines?: string;
+          strict?: boolean;
+        }
+      ) => {
       result = runLintCommand({
         root: repo,
         json: options.json === true,
-        strict: options.strict === true
+        strict: options.strict === true,
+        failOnWarning: options.failOnWarning === true,
+        ignore: options.ignore ?? [],
+        maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined
+      });
+    }
+    );
+
+  program
+    .command("verify")
+    .description("Run lint plus inheritance/coverage sanity checks for AGENTS.md.")
+    .argument("[repo]", "repository root")
+    .option("--json", "emit JSON report")
+    .option("--strict", "exit 1 when warnings are present")
+    .option("--fail-on-warning", "exit 1 when warnings are present")
+    .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
+    .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .action(
+      (
+        repo: string | undefined,
+        options: {
+          failOnWarning?: boolean;
+          ignore?: string[];
+          json?: boolean;
+          maxLines?: string;
+          strict?: boolean;
+        }
+      ) => {
+        result = runVerifyCommand({
+          root: repo,
+          json: options.json === true,
+          strict: options.strict === true,
+          failOnWarning: options.failOnWarning === true,
+          ignore: options.ignore ?? [],
+          maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined
+        });
+      }
+    );
+
+  program
+    .command("explain")
+    .description("Show which AGENTS.md files apply to a target path.")
+    .argument("<target>", "target file or directory path")
+    .argument("[repo]", "repository root")
+    .option("--json", "emit JSON report")
+    .action((target: string, repo: string | undefined, options: { json?: boolean }) => {
+      result = runExplainCommand({
+        targetPath: target,
+        root: repo,
+        json: options.json === true
       });
     });
 
@@ -99,4 +161,18 @@ function formatCommanderError(message: string, capturedStderr: string): string {
   const detail = cleanCapturedStderr.length > 0 ? cleanCapturedStderr : cleanMessage;
 
   return `agents-doctor: error: ${detail}\nRun "agents-doctor --help" for usage.\n`;
+}
+
+function collectOption(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function parsePositiveIntegerOption(optionName: string, value: string): number {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(`${optionName} must be a positive integer`);
+  }
+
+  return parsedValue;
 }

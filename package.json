@@ -1,20 +1,22 @@
 {
   "name": "agents-doctor",
-  "version": "0.0.0",
-  "description": "Repo-aware CLI and CI tool for validating AGENTS.md instructions.",
+  "version": "0.1.0",
+  "description": "Deterministic CLI/CI checker for AGENTS.md agent instruction files.",
   "type": "module",
   "bin": {
-    "agents-doctor": "./dist/cli.js"
+    "agents-doctor": "dist/cli.js"
   },
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "AGENTS.md",
     "docs"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "smoke": "node tests/smoke/cli-smoke.mjs",
+    "smoke:pack": "node tests/smoke/pack-smoke.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
@@ -28,10 +30,15 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^14.0.3",
+    "picomatch": "^4.0.4",
+    "remark": "^15.0.1",
+    "remark-parse": "^11.0.0",
+    "unist-util-visit": "^5.1.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@types/picomatch": "^4.0.3",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

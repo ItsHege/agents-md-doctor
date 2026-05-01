@@ -12,11 +12,22 @@ describe("runRules", () => {
           content: Array.from({ length: 501 }, (_, index) => `line ${index + 1}`).join("\n")
         }
       ],
-      rules: lintRules
+      rules: lintRules,
+      context: {
+        root: "/repo",
+        config: {
+          ignore: [],
+          failOnWarning: false,
+          rules: {
+            "structure.required_sections": {
+              severity: "off"
+            }
+          }
+        }
+      }
     });
 
     expect(findings).toHaveLength(1);
     expect(findings[0]?.ruleId).toBe("size.file_too_long");
   });
 });
-

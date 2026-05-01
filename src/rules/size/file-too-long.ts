@@ -1,4 +1,4 @@
-import type { Finding, RuleDefinition } from "../../types/index.js";
+import type { Finding, RuleDefinition, Severity } from "../../types/index.js";
 
 export const FILE_TOO_LONG_WARNING_LINES = 500;
 
@@ -14,6 +14,7 @@ export interface CheckFileTooLongOptions {
   file: string;
   content: string;
   warningLineThreshold?: number;
+  severity?: Severity;
 }
 
 export function countLogicalLines(content: string): number {
@@ -42,7 +43,7 @@ export function checkFileTooLong(options: CheckFileTooLongOptions): Finding[] {
   return [
     {
       ruleId: fileTooLongRuleDefinition.id,
-      severity: fileTooLongRuleDefinition.defaultSeverity,
+      severity: options.severity ?? fileTooLongRuleDefinition.defaultSeverity,
       message: `${options.file} has ${lineCount} lines. Recommended maximum: ${warningThreshold} lines.`,
       file: options.file,
       line: 1,
@@ -54,4 +55,3 @@ export function checkFileTooLong(options: CheckFileTooLongOptions): Finding[] {
     }
   ];
 }
-

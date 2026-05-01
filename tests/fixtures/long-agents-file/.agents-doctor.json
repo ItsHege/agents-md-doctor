@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "structure.required_sections": {
+      "severity": "off"
+    }
+  }
+}

@@ -1,8 +1,10 @@
 export type AppErrorCode =
+  | "E_CONFIG_INVALID"
   | "E_MISSING_REPO"
   | "E_REPO_NOT_FOUND"
   | "E_REPO_NOT_DIRECTORY"
   | "E_JSON_REQUIRED"
+  | "E_IGNORE_PATTERN_INVALID"
   | "E_PATH_OUTSIDE_ROOT"
   | "E_FILE_NOT_FOUND"
   | "E_FILE_NOT_READABLE"
@@ -21,4 +23,3 @@ export class AppError extends Error {
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }
-

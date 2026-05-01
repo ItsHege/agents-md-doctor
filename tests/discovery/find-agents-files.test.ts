@@ -61,6 +61,18 @@ describe("findAgentsFiles", () => {
 
     expect(findAgentsFiles(root)).toEqual([]);
   });
+
+  it("ignores user-provided repo-relative glob patterns", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "tests", "fixtures", "long-agents-file"), { recursive: true });
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "tests", "fixtures", "long-agents-file", "AGENTS.md"), "# Ignored\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.md"), "# App\n");
+
+    expect(findAgentsFiles(root, { ignore: ["tests/fixtures/**"] }).map((file) => file.relativePath)).toEqual([
+      "packages/app/AGENTS.md"
+    ]);
+  });
 });
 
 function makeTempRoot(): string {

@@ -1,0 +1,15 @@
+{
+  "ignore": ["tests/fixtures/**"],
+  "maxLines": 500,
+  "failOnWarning": false,
+  "rules": {
+    "size.file_too_long": {
+      "severity": "warning",
+      "maxLines": 500
+    },
+    "structure.required_sections": {
+      "severity": "warning",
+      "requiredHeadings": ["Safety", "Testing"]
+    }
+  }
+}

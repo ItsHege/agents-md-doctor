@@ -15,6 +15,32 @@ describe("runCli", () => {
     expect(report.command).toBe("lint");
   });
 
+  it("dispatches explain --json", () => {
+    const result = runCli([
+      "node",
+      "dist/cli.js",
+      "explain",
+      "--json",
+      "packages/app",
+      path.join(fixtureRoot, "nested-agents")
+    ]);
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(report.command).toBe("explain");
+    expect(report.findings[0]?.ruleId).toBe("inheritance.applied_chain");
+  });
+
+  it("dispatches verify --json", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--json", path.join(fixtureRoot, "short-agents-file")]);
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(report.command).toBe("verify");
+  });
+
   it("dispatches lint --json with default cwd", () => {
     const previousCwd = process.cwd();
 
@@ -49,6 +75,23 @@ describe("runCli", () => {
     expect(report.findings[0]?.severity).toBe("warning");
   });
 
+  it("dispatches lint --fail-on-warning", () => {
+    const result = runCli([
+      "node",
+      "dist/cli.js",
+      "lint",
+      "--json",
+      "--fail-on-warning",
+      path.join(fixtureRoot, "long-agents-file")
+    ]);
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(report.exitCode).toBe(1);
+    expect(report.findings[0]?.severity).toBe("warning");
+  });
+
   it("returns top-level help as success", () => {
     const result = runCli(["node", "dist/cli.js", "--help"]);
 
@@ -67,6 +110,33 @@ describe("runCli", () => {
     expect(result.stdout).toContain("[repo]");
     expect(result.stdout).toContain("--json");
     expect(result.stdout).toContain("--strict");
+    expect(result.stdout).toContain("--fail-on-warning");
+    expect(result.stdout).toContain("--ignore");
+    expect(result.stdout).toContain("--max-lines");
+  });
+
+  it("returns explain help as success", () => {
+    const result = runCli(["node", "dist/cli.js", "explain", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("Usage: agents-doctor explain");
+    expect(result.stdout).toContain("<target>");
+    expect(result.stdout).toContain("[repo]");
+  });
+
+  it("returns verify help as success", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("Usage: agents-doctor verify");
+    expect(result.stdout).toContain("[repo]");
+    expect(result.stdout).toContain("--json");
+    expect(result.stdout).toContain("--strict");
+    expect(result.stdout).toContain("--fail-on-warning");
+    expect(result.stdout).toContain("--ignore");
+    expect(result.stdout).toContain("--max-lines");
   });
 
   it("returns exit 2 for unknown commands", () => {
@@ -83,6 +153,14 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("unknown option");
+  });
+
+  it("returns exit 2 for invalid max-lines values", () => {
+    const result = runCli(["node", "dist/cli.js", "lint", "--max-lines", "nope"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--max-lines must be a positive integer");
   });
 
   it("returns exit 2 when no command is provided", () => {

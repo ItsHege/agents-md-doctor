@@ -40,3 +40,6 @@ jobs:
 
       - name: Smoke test built CLI
         run: npm run smoke
+
+      - name: Smoke test packed CLI
+        run: npm run smoke:pack
