@@ -1,6 +1,6 @@
 # Benchmark Methodology
 
-This document defines the M1 real-repository benchmark process for AGENTS.md Doctor.
+This document defines the real-repository benchmark process for AGENTS.md Doctor.
 
 ## Goals
 

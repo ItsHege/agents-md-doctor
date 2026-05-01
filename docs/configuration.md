@@ -49,10 +49,28 @@ Missing config is valid and uses defaults.
 
 Rule severity can be `error`, `warning`, `info`, or `off`.
 
+CLI flags override matching config values for ignore patterns, max-line
+thresholds, and warning failure behavior.
+
+Graph mechanics findings use the same rule override mechanism:
+
+```json
+{
+  "rules": {
+    "inheritance.instruction_graph_summary": {
+      "severity": "off"
+    },
+    "inheritance.referenced_instruction_missing": {
+      "severity": "error"
+    }
+  }
+}
+```
+
 ## Instruction Graph Defaults
 
-Instruction graph traversal is disabled by default in `0.2.0` to avoid
-surprising users with findings from documentation fragments.
+Instruction graph traversal is disabled by default in the `0.2.0` release line
+to avoid surprising users with findings from documentation fragments.
 
 When enabled, AGENTS.md Doctor follows only explicit local Markdown links and
 inline-code references that look like agent instruction files. It does not scan

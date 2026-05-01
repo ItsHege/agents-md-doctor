@@ -1,6 +1,6 @@
 # Rules
 
-This catalog lists shipped AGENTS.md Doctor rules only.
+This catalog lists AGENTS.md Doctor rule and report finding IDs.
 
 ## `size.file_too_long`
 
@@ -116,6 +116,46 @@ Example finding:
 warning security.risky_instruction AGENTS.md:20
 AGENTS.md contains a risky instruction: instruction suggests dumping environment variables.
 ```
+
+## Report Findings
+
+These finding IDs describe command/report context rather than standalone lint
+problems.
+
+### `coverage.discovery_summary`
+
+- Category: `coverage`
+- Default severity: `info`
+- Emitted by: `verify`
+
+Summarizes how many `AGENTS.md` files were discovered and whether a root
+`AGENTS.md` exists.
+
+### `coverage.no_agents_file`
+
+- Category: `coverage`
+- Default severity: `warning`
+- Emitted by: `verify`
+
+Reports that no `AGENTS.md` files were found in the repository scope.
+
+### `coverage.root_agents_missing`
+
+- Category: `coverage`
+- Default severity: `warning`
+- Emitted by: `verify`
+
+Reports that scoped `AGENTS.md` files exist but the repository root does not
+have a root `AGENTS.md`.
+
+### `inheritance.applied_chain`
+
+- Category: `inheritance`
+- Default severity: `info`
+- Emitted by: `explain`
+
+Reports which `AGENTS.md` files apply to the requested target path, plus any
+deterministic conflict notes.
 
 ## `inheritance.instruction_graph_summary`
 

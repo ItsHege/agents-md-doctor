@@ -9,7 +9,7 @@
 - Benchmark graph targets for `explain --json` applied-chain assertions.
 
 ### Changed
-- README polish for public portfolio clarity: moved a concrete CLI example near the top, added install alternatives, and added an AI-assisted development note.
+- README polish: moved a concrete CLI example near the top, added install alternatives, and added an AI-assisted development note.
 
 ## 0.1.2 - 2026-05-01
 

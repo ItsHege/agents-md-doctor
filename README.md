@@ -10,18 +10,14 @@ It helps teams keep AGENTS.md instructions short, scoped, and aligned with the r
 
 ```bash
 $ npx agents-doctor@latest lint .
-agents-doctor lint: 2 warnings
+agents-doctor lint: 1 error, 1 warning
 
 warning size.file_too_long AGENTS.md:1
 AGENTS.md has 612 lines. Recommended maximum: 500 lines.
 
-warning commands.mentioned_command_missing AGENTS.md:45
+error commands.mentioned_command_missing AGENTS.md:45
 AGENTS.md references a missing package script: typecheck.
 ```
-
-## Demo
-
-A short terminal demo GIF is planned for this section to show an end-to-end `lint` + `verify` flow in under 30 seconds.
 
 ## Why This Exists
 
@@ -31,7 +27,11 @@ AGENTS.md Doctor catches these issues before agent work starts.
 
 ## Available Now
 
-The package is published on npm as `agents-doctor@0.1.2`.
+The package is published on npm as `agents-doctor`.
+
+This README describes the current `main` branch. npm `agents-doctor@latest`
+may lag unreleased `main` features; see `CHANGELOG.md` for the exact released
+feature set.
 
 Quick usage:
 
@@ -76,7 +76,6 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 - `paths.reference_missing` when referenced paths do not exist or point outside the repo.
 - `commands.mentioned_command_missing` when referenced scripts/targets are missing.
 - `security.risky_instruction` for high-confidence risky instruction patterns.
-- opt-in instruction graph findings in `verify`/`explain` when enabled in config.
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
@@ -109,6 +108,9 @@ For the full architecture flow, see `docs/how-it-works.md`.
 
 AGENTS.md Doctor reads `.agents-doctor.json` from the repository root when it
 exists.
+
+Instruction graph validation is part of the `0.2.0` release line. It is
+disabled by default and must be enabled explicitly.
 
 ```json
 {
@@ -311,4 +313,8 @@ See `docs/roadmap.md` for the full public roadmap.
 
 ## AI-Assisted Development
 
-This project is built with an AI-assisted engineering workflow. Design and implementation were done by the maintainer, with agent support for scoped coding, test iteration, and release execution. Every shipped change is reviewed and validated with deterministic tests, smoke checks, and benchmark runs before release.
+This project is built with an AI-assisted engineering workflow. Design and
+implementation are owned by the maintainer, with agent support for scoped
+coding, documentation review, test iteration, and release preparation. Shipped
+changes are validated with deterministic tests and smoke checks; benchmark runs
+are used for real-repository signal checks.

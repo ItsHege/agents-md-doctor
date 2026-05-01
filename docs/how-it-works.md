@@ -45,7 +45,7 @@ flowchart TD
     E1 --> E2["Detect deterministic conflict markers"]
     E2 --> E3{"Instruction graph enabled?"}
     E3 -->|yes| E4["Build graph from applied chain"]
-    E3 -->|no| REP2["Build explain report<br/>applied chain + optional graph details + conflicts"]
+    E3 -->|no| REP2["Build explain report<br/>applied chain + graph details + conflicts"]
     E4 --> REP2
 
     REP --> OUT{"Output format"}

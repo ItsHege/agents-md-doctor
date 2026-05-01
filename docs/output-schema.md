@@ -78,8 +78,8 @@ Strict mode changes only the report `exitCode`; it does not change
 
 ## Instruction Graph Details
 
-Instruction graph output in `0.2.0` is represented as normal findings with
-additive `details` fields. The top-level report schema remains
+Instruction graph output in the `0.2.0` release line is represented as normal
+findings with additive `details` fields. The top-level report schema remains
 `schemaVersion: "1.0.0"`.
 
 When `instructionGraph.enabled` is true:
@@ -90,3 +90,58 @@ When `instructionGraph.enabled` is true:
   `inheritance.applied_chain` finding details.
 - referenced instruction file findings can include provenance fields such as
   `fileClass`, `graphDepth`, and `referencedBy`.
+
+Example `inheritance.applied_chain` details:
+
+```json
+{
+  "targetPath": "packages/app/src/index.ts",
+  "appliedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
+  "conflicts": [],
+  "instructionGraph": {
+    "referencedInstructionFiles": ["docs/agent/testing.md"],
+    "instructionEdges": [
+      {
+        "from": "AGENTS.md",
+        "to": "docs/agent/testing.md",
+        "reference": "docs/agent/testing.md",
+        "line": 12,
+        "sourceType": "link"
+      }
+    ],
+    "graphDiagnostics": []
+  }
+}
+```
+
+Example `inheritance.instruction_graph_summary` details:
+
+```json
+{
+  "entryFiles": ["AGENTS.md"],
+  "nodeCount": 2,
+  "edgeCount": 1,
+  "diagnosticCount": 0,
+  "referencedInstructionFiles": ["docs/agent/testing.md"]
+}
+```
+
+Example graph diagnostic details:
+
+```json
+{
+  "code": "instruction_reference_missing",
+  "reference": "docs/agent/missing.md",
+  "target": "docs/agent/missing.md"
+}
+```
+
+Example referenced instruction provenance:
+
+```json
+{
+  "fileClass": "referencedInstruction",
+  "graphDepth": 1,
+  "referencedBy": "AGENTS.md"
+}
+```
