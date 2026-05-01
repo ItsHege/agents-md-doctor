@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "description": "Pinned public repositories used for real-world benchmark baselines.",
+  "repos": [
+    {
+      "id": "octocat-hello-world",
+      "url": "https://github.com/octocat/Hello-World.git",
+      "commit": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "repoType": "no-agents",
+      "expectedStatus": "verify_warning_no_agents",
+      "notes": "Sanity check repository with no AGENTS.md file."
+    },
+    {
+      "id": "nodejs-node",
+      "url": "https://github.com/nodejs/node.git",
+      "commit": "9c0101860e771b69b5229ced41bbfcae84fe554d",
+      "repoType": "no-agents",
+      "expectedStatus": "verify_warning_no_agents",
+      "notes": "Large production repository without a root AGENTS.md at this commit."
+    },
+    {
+      "id": "openai-agents-md",
+      "url": "https://github.com/openai/agents.md.git",
+      "commit": "d1ac7f063d20e70015ed6732664049ae4ba9d74e",
+      "repoType": "single",
+      "expectedStatus": "baseline_capture",
+      "notes": "Specification repository with a root AGENTS.md."
+    },
+    {
+      "id": "microsoft-typescript",
+      "url": "https://github.com/microsoft/TypeScript.git",
+      "commit": "f350b52331494b68c90ab02e2b6d0828d2a22a74",
+      "repoType": "single",
+      "expectedStatus": "baseline_capture",
+      "notes": "Large repository with a root AGENTS.md."
+    },
+    {
+      "id": "nvm-sh-nvm",
+      "url": "https://github.com/nvm-sh/nvm.git",
+      "commit": "3e4b0f05b707b6b939a67737d975f98e401f896a",
+      "repoType": "single",
+      "expectedStatus": "baseline_capture",
+      "notes": "Shell-heavy repository with a root AGENTS.md."
+    },
+    {
+      "id": "langchainjs",
+      "url": "https://github.com/langchain-ai/langchainjs.git",
+      "commit": "1f76917248056b145b3973284dbf8604307b3ba6",
+      "repoType": "monorepo",
+      "expectedStatus": "baseline_capture",
+      "notes": "Monorepo benchmark candidate with AGENTS.md guidance."
+    },
+    {
+      "id": "vercel-nextjs",
+      "url": "https://github.com/vercel/next.js.git",
+      "commit": "65340b27724dc2878e4fcef4b8608ad06e7b4cc8",
+      "repoType": "monorepo",
+      "expectedStatus": "baseline_capture",
+      "notes": "Monorepo benchmark candidate with AGENTS.md guidance."
+    }
+  ]
+}

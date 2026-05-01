@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 - 2026-05-01
+
+### Fixed
+- Reduced false positives in `paths.reference_missing` by ignoring system absolute paths and domain-like references that are not repository-local files.
+- Workspace-scoped command matches in `commands.mentioned_command_missing` are now reported as `scope_ambiguous` warnings instead of missing-script errors.
+
+### Tests
+- Added coverage for new path heuristics and workspace command scope detection.
+
 ## 0.1.1 - 2026-05-01
 
 ### Fixed

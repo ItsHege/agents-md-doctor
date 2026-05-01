@@ -46,6 +46,24 @@ describe("paths.reference_missing", () => {
     ).toEqual([]);
   });
 
+  it("ignores domain-like links without explicit scheme", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      "# Instructions\n\nSee [GitHub](github.com/example/repo) and [Docs](docs.example.org/guide).\n"
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
   it("reports outside-root traversal attempts", () => {
     const root = makeTempRoot();
     const nestedDir = path.join(root, "nested");
@@ -86,6 +104,96 @@ describe("paths.reference_missing", () => {
         "Use `packages/*/CHANGELOG.md`."
       ].join("\n")
     );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores import-like module specifiers in inline code", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Use `next/font` in examples.",
+        "Use `@scope/pkg` when documenting dependencies.",
+        "Use `.ts` and `.tsx` to describe TypeScript extensions."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores absolute system-like paths", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Use `/etc/hosts` for local examples.",
+        "Use `/usr/local/bin/tool` as a sample.",
+        "Use `%APPDATA%\\npm\\prefix` in Windows notes.",
+        "Use `$HOME/.config/tool` in shell examples."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("still reports explicit filesystem-looking inline paths", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Check `src/missing.ts`.",
+        "Then check `./also-missing.ts`."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({ line: finding.line, reason: finding.details?.reason }))
+    ).toEqual([
+      { line: 3, reason: "not_found" },
+      { line: 4, reason: "not_found" }
+    ]);
+  });
+
+  it("ignores missing path findings with optionality markers", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nSee `docs/optional.md` if available.\n");
 
     expect(
       checkPathReferences({

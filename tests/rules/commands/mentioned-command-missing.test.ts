@@ -129,6 +129,139 @@ describe("commands.mentioned_command_missing", () => {
     expect(findings[0]?.details?.scriptName).toBe("lint");
   });
 
+  it("ignores pnpm binary-style command invocations", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `pnpm prettier . --check`.\n");
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("handles package-manager flags before script names", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run", build: "tsc -p ." } }));
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Run `pnpm --filter web test` and `pnpm --filter=@scope/web build`.",
+        "",
+        "```bash",
+        "pnpm --filter web run test",
+        "```"
+      ].join("\n")
+    );
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("reports missing script when using pnpm filter + alias syntax", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `pnpm --filter web lint`.\n");
+
+    const findings = checkMentionedCommands({
+      root,
+      fileAbsolutePath: agentsPath,
+      fileRelativePath: "AGENTS.md",
+      content: fs.readFileSync(agentsPath, "utf8")
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.details?.scriptName).toBe("lint");
+  });
+
+  it("downgrades to scope-ambiguous warning when script exists in a workspace package", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ private: true, scripts: {} }));
+    fs.mkdirSync(path.join(root, "apps", "web"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "apps", "web", "package.json"),
+      JSON.stringify({ scripts: { dev: "vite", test: "vitest run" } })
+    );
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `pnpm run dev`.\n");
+
+    const findings = checkMentionedCommands({
+      root,
+      fileAbsolutePath: agentsPath,
+      fileRelativePath: "AGENTS.md",
+      content: fs.readFileSync(agentsPath, "utf8")
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      severity: "warning",
+      details: {
+        scriptName: "dev",
+        source: "workspace",
+        reason: "scope_ambiguous"
+      }
+    });
+  });
+
+  it("does not treat flags or placeholders as script names", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Examples:",
+        "",
+        "`pnpm run --if-present`",
+        "`pnpm --filter web run --if-present`",
+        "`pnpm --filter <workspace> run <script>`",
+        "`yarn run <script>`"
+      ].join("\n")
+    );
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores missing command findings with optionality markers", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `npm run lint` if present.\n");
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
   it("validates Makefile targets when mentioned", () => {
     const root = makeTempRoot();
     fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: {} }));

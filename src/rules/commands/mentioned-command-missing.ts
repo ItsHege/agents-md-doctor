@@ -27,8 +27,25 @@ interface CommandReference {
   type: "script" | "make";
 }
 
+interface PackageScriptContext {
+  packagePath: string | null;
+  scripts: Set<string>;
+}
+
 const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9:_-]+$/;
 const MAKE_TARGET_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+const OPTIONALITY_MARKERS = ["if present", "if available", "if it exists", "when available", "optional", "--if-present"];
+const PACKAGE_MANAGER_OPTIONS_WITH_VALUE = new Set([
+  "--filter",
+  "-F",
+  "--workspace",
+  "-w",
+  "--cwd",
+  "--dir",
+  "-C",
+  "--prefix"
+]);
+const PNPM_DIRECT_SCRIPT_ALIASES = new Set(["test", "start", "build", "lint", "dev", "check"]);
 const NPM_NON_SCRIPT_COMMANDS = new Set([
   "add",
   "audit",
@@ -129,9 +146,10 @@ const YARN_NON_SCRIPT_COMMANDS = new Set([
 
 export function checkMentionedCommands(options: CheckMentionedCommandsOptions): Finding[] {
   const references = findCommandReferences(options.content);
+  const contentLines = options.content.split(/\r?\n/);
   const findings: Finding[] = [];
   const seen = new Set<string>();
-  const packageScripts = loadNearestPackageScripts(options.root, options.fileAbsolutePath);
+  const packageContext = loadNearestPackageScripts(options.root, options.fileAbsolutePath);
   const makeTargets = loadNearestMakeTargets(options.root, options.fileAbsolutePath);
 
   for (const reference of references) {
@@ -144,7 +162,35 @@ export function checkMentionedCommands(options: CheckMentionedCommandsOptions): 
     seen.add(dedupeKey);
 
     if (reference.type === "script") {
-      if (packageScripts.has(reference.scriptName)) {
+      if (packageContext.scripts.has(reference.scriptName)) {
+        continue;
+      }
+
+      if (lineHasOptionalityMarker(contentLines, reference.line)) {
+        continue;
+      }
+
+      const workspaceMatches = findWorkspaceScriptMatches(
+        options.root,
+        reference.scriptName,
+        packageContext.packagePath
+      );
+
+      if (workspaceMatches.length > 0) {
+        findings.push({
+          ruleId: mentionedCommandMissingRuleDefinition.id,
+          severity: "warning",
+          message: `${options.fileRelativePath} references script "${reference.scriptName}" that is missing in the local package but present in workspace package(s): ${workspaceMatches.join(", ")}.`,
+          file: options.fileRelativePath,
+          line: reference.line,
+          details: {
+            reference: reference.raw,
+            scriptName: reference.scriptName,
+            source: "workspace",
+            reason: "scope_ambiguous",
+            matchedPackages: workspaceMatches
+          }
+        });
         continue;
       }
 
@@ -164,6 +210,10 @@ export function checkMentionedCommands(options: CheckMentionedCommandsOptions): 
     }
 
     if (makeTargets.has(reference.scriptName)) {
+      continue;
+    }
+
+    if (lineHasOptionalityMarker(contentLines, reference.line)) {
       continue;
     }
 
@@ -254,7 +304,7 @@ function parseScriptReference(cleanedLine: string): string | null {
   }
 
   if (command === "pnpm") {
-    return parseNodePackageManagerScript(tokens, PNPM_NON_SCRIPT_COMMANDS);
+    return parsePnpmScript(tokens);
   }
 
   if (command === "bun") {
@@ -275,14 +325,15 @@ function parseScriptReference(cleanedLine: string): string | null {
 }
 
 function parseNodePackageManagerScript(tokens: string[], nonScriptCommands: Set<string>): string | null {
-  const candidate = tokens[1];
+  const commandTokens = extractPositionalCommandTokens(tokens.slice(1));
+  const candidate = commandTokens[0];
 
   if (!candidate) {
     return null;
   }
 
   if (candidate === "run" || candidate === "run-script") {
-    const scriptName = tokens[2];
+    const scriptName = commandTokens[1];
     return isValidScriptName(scriptName) ? scriptName : null;
   }
 
@@ -293,15 +344,44 @@ function parseNodePackageManagerScript(tokens: string[], nonScriptCommands: Set<
   return nonScriptCommands.has(candidate) ? null : candidate;
 }
 
+function parsePnpmScript(tokens: string[]): string | null {
+  const commandTokens = extractPositionalCommandTokens(tokens.slice(1));
+  const candidate = commandTokens[0];
+
+  if (!candidate) {
+    return null;
+  }
+
+  if (candidate === "run" || candidate === "run-script") {
+    const scriptName = commandTokens[1];
+    return isValidScriptName(scriptName) ? scriptName : null;
+  }
+
+  if (!isValidScriptName(candidate)) {
+    return null;
+  }
+
+  if (PNPM_NON_SCRIPT_COMMANDS.has(candidate)) {
+    return null;
+  }
+
+  if (candidate.includes(":")) {
+    return candidate;
+  }
+
+  return PNPM_DIRECT_SCRIPT_ALIASES.has(candidate) ? candidate : null;
+}
+
 function parseYarnScript(tokens: string[]): string | null {
-  const candidate = tokens[1];
+  const commandTokens = extractPositionalCommandTokens(tokens.slice(1));
+  const candidate = commandTokens[0];
 
   if (!candidate) {
     return null;
   }
 
   if (candidate === "run") {
-    const scriptName = tokens[2];
+    const scriptName = commandTokens[1];
     return isValidScriptName(scriptName) ? scriptName : null;
   }
 
@@ -339,22 +419,161 @@ function parseMakeReference(cleanedLine: string): string | null {
 }
 
 function isValidScriptName(value: string | undefined): value is string {
-  return typeof value === "string" && SCRIPT_NAME_PATTERN.test(value);
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  if (isPlaceholderToken(value)) {
+    return false;
+  }
+
+  return SCRIPT_NAME_PATTERN.test(value);
 }
 
-function loadNearestPackageScripts(root: string, fileAbsolutePath: string): Set<string> {
+function extractPositionalCommandTokens(tokens: string[]): string[] {
+  const positional: string[] = [];
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+
+    if (!token || token === "--") {
+      break;
+    }
+
+    if (token.startsWith("-")) {
+      if (token.includes("=")) {
+        continue;
+      }
+
+      if (PACKAGE_MANAGER_OPTIONS_WITH_VALUE.has(token)) {
+        index += 1;
+      }
+
+      continue;
+    }
+
+    positional.push(token);
+  }
+
+  return positional;
+}
+
+function isPlaceholderToken(token: string): boolean {
+  if (token.length === 0 || token === "...") {
+    return true;
+  }
+
+  if (/[<>{}\[\]]/.test(token)) {
+    return true;
+  }
+
+  return false;
+}
+
+function lineHasOptionalityMarker(lines: string[], line: number): boolean {
+  const rawLine = lines[line - 1];
+
+  if (typeof rawLine !== "string") {
+    return false;
+  }
+
+  const normalized = rawLine.toLowerCase();
+  return OPTIONALITY_MARKERS.some((marker) => normalized.includes(marker));
+}
+
+function loadNearestPackageScripts(root: string, fileAbsolutePath: string): PackageScriptContext {
   const packagePath = findNearestFile(root, path.dirname(fileAbsolutePath), ["package.json"]);
 
   if (!packagePath) {
-    return new Set();
+    return {
+      packagePath: null,
+      scripts: new Set()
+    };
   }
 
   try {
     const raw = JSON.parse(fs.readFileSync(packagePath, "utf8")) as { scripts?: Record<string, unknown> };
-    return new Set(Object.keys(raw.scripts ?? {}));
+    return {
+      packagePath,
+      scripts: new Set(Object.keys(raw.scripts ?? {}))
+    };
   } catch {
-    return new Set();
+    return {
+      packagePath,
+      scripts: new Set()
+    };
   }
+}
+
+function findWorkspaceScriptMatches(root: string, scriptName: string, nearestPackagePath: string | null): string[] {
+  const packagePaths = findWorkspacePackageJsonFiles(root);
+  const matches: string[] = [];
+
+  for (const packagePath of packagePaths) {
+    if (nearestPackagePath && path.resolve(packagePath) === path.resolve(nearestPackagePath)) {
+      continue;
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(packagePath, "utf8")) as { scripts?: Record<string, unknown> };
+      const scripts = raw.scripts ?? {};
+
+      if (!Object.prototype.hasOwnProperty.call(scripts, scriptName)) {
+        continue;
+      }
+
+      matches.push(normalizeRelativePath(path.relative(root, packagePath)));
+    } catch {
+      continue;
+    }
+  }
+
+  return matches.sort();
+}
+
+function findWorkspacePackageJsonFiles(root: string): string[] {
+  const results: string[] = [];
+  const queue: string[] = [root];
+  const ignoredDirectoryNames = new Set([".git", "node_modules", "dist", "build", "coverage"]);
+
+  while (queue.length > 0) {
+    const directory = queue.shift();
+    if (!directory) {
+      continue;
+    }
+
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        if (ignoredDirectoryNames.has(entry.name)) {
+          continue;
+        }
+
+        queue.push(entryPath);
+        continue;
+      }
+
+      if (!entry.isFile() || entry.name !== "package.json") {
+        continue;
+      }
+
+      results.push(entryPath);
+    }
+  }
+
+  return results;
 }
 
 function loadNearestMakeTargets(root: string, fileAbsolutePath: string): Set<string> {

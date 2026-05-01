@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Deterministic CLI/CI checker for AGENTS.md agent instruction files.",
   "type": "module",
   "bin": {
@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "benchmark": "node scripts/benchmark/run-benchmark.mjs",
     "smoke": "node tests/smoke/cli-smoke.mjs",
     "smoke:pack": "node tests/smoke/pack-smoke.mjs",
     "test": "vitest run",

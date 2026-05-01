@@ -20,8 +20,11 @@ export interface CheckPathReferencesOptions {
   severity?: Severity;
 }
 
+const OPTIONALITY_MARKERS = ["if present", "if available", "if it exists", "when available", "optional"];
+
 export function checkPathReferences(options: CheckPathReferencesOptions): Finding[] {
   const elements = extractMarkdownElements(options.content);
+  const contentLines = options.content.split(/\r?\n/);
   const candidates = [
     ...elements.filter((element) => element.type === "link").map((element) => ({
       path: sanitizeLinkPath(element.url),
@@ -51,6 +54,10 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
     const resolvedPath = resolveCandidatePath(options.root, options.fileAbsolutePath, candidate.path);
 
     if (!isPathInsideRoot(options.root, resolvedPath)) {
+      if (lineHasOptionalityMarker(contentLines, candidate.line)) {
+        continue;
+      }
+
       findings.push({
         ruleId: pathReferenceMissingRuleDefinition.id,
         severity: options.severity ?? pathReferenceMissingRuleDefinition.defaultSeverity,
@@ -66,6 +73,10 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
     }
 
     if (!fs.existsSync(resolvedPath)) {
+      if (lineHasOptionalityMarker(contentLines, candidate.line)) {
+        continue;
+      }
+
       findings.push({
         ruleId: pathReferenceMissingRuleDefinition.id,
         severity: options.severity ?? pathReferenceMissingRuleDefinition.defaultSeverity,
@@ -84,16 +95,20 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
 }
 
 function sanitizeLinkPath(rawUrl: string): string | null {
+  const trimmedRaw = rawUrl.trim();
+
   if (
-    rawUrl.startsWith("#") ||
-    rawUrl.startsWith("http://") ||
-    rawUrl.startsWith("https://") ||
-    rawUrl.startsWith("mailto:")
+    trimmedRaw.startsWith("#") ||
+    trimmedRaw.startsWith("http://") ||
+    trimmedRaw.startsWith("https://") ||
+    trimmedRaw.startsWith("mailto:") ||
+    trimmedRaw.startsWith("//") ||
+    isDomainLikeReference(trimmedRaw)
   ) {
     return null;
   }
 
-  const withoutFragment = rawUrl.split("#")[0] ?? "";
+  const withoutFragment = trimmedRaw.split("#")[0] ?? "";
   const withoutQuery = withoutFragment.split("?")[0] ?? "";
   const trimmed = withoutQuery.trim();
 
@@ -107,6 +122,14 @@ function sanitizeLinkPath(rawUrl: string): string | null {
 function sanitizeInlinePath(value: string): string | null {
   const trimmed = value.trim();
 
+  if (isLikelySystemAbsolutePath(trimmed)) {
+    return null;
+  }
+
+  if (isLikelyModuleSpecifier(trimmed)) {
+    return null;
+  }
+
   if (!looksLikePath(trimmed)) {
     return null;
   }
@@ -119,6 +142,10 @@ function looksLikePath(value: string): boolean {
     return false;
   }
 
+  if (/^\.[A-Za-z0-9]+$/.test(value)) {
+    return false;
+  }
+
   if (value.startsWith("./") || value.startsWith("../") || value.startsWith("/")) {
     return true;
   }
@@ -128,6 +155,114 @@ function looksLikePath(value: string): boolean {
   }
 
   return /\.(md|txt|json|yaml|yml|toml|ts|tsx|js|mjs|cjs|sh|ps1|py)$/i.test(value);
+}
+
+const COMMON_FILESYSTEM_ROOT_SEGMENTS = new Set([
+  "app",
+  "apps",
+  "asset",
+  "assets",
+  "bin",
+  "config",
+  "configs",
+  "content",
+  "doc",
+  "docs",
+  "example",
+  "examples",
+  "lib",
+  "package",
+  "packages",
+  "public",
+  "script",
+  "scripts",
+  "src",
+  "test",
+  "tests",
+  "tool",
+  "tools"
+]);
+
+function isLikelyModuleSpecifier(value: string): boolean {
+  if (value.includes(" ") || value.includes("\\")) {
+    return false;
+  }
+
+  if (value.startsWith("./") || value.startsWith("../") || value.startsWith("/")) {
+    return false;
+  }
+
+  const normalized = value.trim();
+
+  if (/^@[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/.test(normalized)) {
+    return true;
+  }
+
+  if (!normalized.includes("/")) {
+    return false;
+  }
+
+  const segments = normalized.split("/");
+
+  if (segments.length < 2 || segments.some((segment) => segment.length === 0)) {
+    return false;
+  }
+
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return false;
+  }
+
+  if (segments.some((segment) => segment.includes("."))) {
+    return false;
+  }
+
+  if (COMMON_FILESYSTEM_ROOT_SEGMENTS.has(segments[0]?.toLowerCase() ?? "")) {
+    return false;
+  }
+
+  return segments.every((segment) => /^[A-Za-z0-9_-]+$/.test(segment));
+}
+
+function isLikelySystemAbsolutePath(value: string): boolean {
+  const normalized = value.replace(/\\/g, "/").trim().toLowerCase();
+
+  if (normalized.startsWith("%") && normalized.includes("%")) {
+    return true;
+  }
+
+  if (/^\$[a-z_][a-z0-9_]*\//.test(normalized)) {
+    return true;
+  }
+
+  const linuxSystemPrefixes = [
+    "/etc/",
+    "/usr/",
+    "/var/",
+    "/tmp/",
+    "/proc/",
+    "/sys/",
+    "/dev/",
+    "/home/",
+    "/root/",
+    "/opt/",
+    "/mnt/",
+    "/sbin/",
+    "/bin/"
+  ];
+
+  if (linuxSystemPrefixes.some((prefix) => normalized.startsWith(prefix))) {
+    return true;
+  }
+
+  if (/^[a-z]:\//.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isDomainLikeReference(value: string): boolean {
+  return /^[a-z0-9.-]+\.[a-z]{2,}(?:\/|$)/i.test(value);
 }
 
 function resolveCandidatePath(root: string, fileAbsolutePath: string, referencePath: string): string {
@@ -169,4 +304,15 @@ function isPlaceholderPathReference(referencePath: string): boolean {
   }
 
   return false;
+}
+
+function lineHasOptionalityMarker(lines: string[], line: number): boolean {
+  const rawLine = lines[line - 1];
+
+  if (typeof rawLine !== "string") {
+    return false;
+  }
+
+  const normalized = rawLine.toLowerCase();
+  return OPTIONALITY_MARKERS.some((marker) => normalized.includes(marker));
 }

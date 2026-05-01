@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "description": "Minimum deterministic expectations for benchmark repositories.",
+  "expectations": [
+    {
+      "repoId": "octocat-hello-world",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": true,
+      "expectedLabel": "TP",
+      "notes": "Repository intentionally has no AGENTS.md file."
+    },
+    {
+      "repoId": "nodejs-node",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": true,
+      "expectedLabel": "TP",
+      "notes": "Repository intentionally has no AGENTS.md file."
+    },
+    {
+      "repoId": "openai-agents-md",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": false,
+      "expectedLabel": "FP",
+      "notes": "Root AGENTS.md is expected at the pinned commit."
+    },
+    {
+      "repoId": "microsoft-typescript",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": false,
+      "expectedLabel": "FP",
+      "notes": "Root AGENTS.md is expected at the pinned commit."
+    },
+    {
+      "repoId": "nvm-sh-nvm",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": false,
+      "expectedLabel": "FP",
+      "notes": "Root AGENTS.md is expected at the pinned commit."
+    },
+    {
+      "repoId": "langchainjs",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": false,
+      "expectedLabel": "FP",
+      "notes": "Root AGENTS.md is expected at the pinned commit."
+    },
+    {
+      "repoId": "vercel-nextjs",
+      "command": "verify",
+      "ruleId": "coverage.no_agents_file",
+      "expectedSeverity": "warning",
+      "expectPresence": false,
+      "expectedLabel": "FP",
+      "notes": "Root AGENTS.md is expected at the pinned commit."
+    }
+  ]
+}
