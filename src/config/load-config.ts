@@ -25,7 +25,8 @@ export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
   "**/GEMINI.md",
   "**/.claude/**/*.md",
   "**/.github/copilot-instructions.md",
-  "**/.cursor/rules/**/*.md"
+  "**/.cursor/rules/**/*.md",
+  "**/.cursor/rules/**/*.mdc"
 ];
 
 const InstructionGraphConfigSchema = z

@@ -22,7 +22,8 @@ Missing config is valid and uses defaults.
       "**/GEMINI.md",
       "**/.claude/**/*.md",
       "**/.github/copilot-instructions.md",
-      "**/.cursor/rules/**/*.md"
+      "**/.cursor/rules/**/*.md",
+      "**/.cursor/rules/**/*.mdc"
     ]
   },
   "rules": {

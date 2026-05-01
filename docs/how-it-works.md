@@ -73,7 +73,7 @@ The instruction graph is opt-in through `.agents-doctor.json`. When enabled,
 `verify` and `explain` follow explicit local Markdown links and inline-code
 references that look like agent instruction files, such as
 `docs/agent/testing.md`, `.claude/commands/review.md`, or
-`.cursor/rules/react.md`.
+`.cursor/rules/react.mdc`.
 
 The graph builder does not scan all documentation, follow remote URLs, follow
 symlinks, or read files outside the repository boundary.

@@ -165,7 +165,8 @@ disabled by default and must be enabled explicitly.
       "**/GEMINI.md",
       "**/.claude/**/*.md",
       "**/.github/copilot-instructions.md",
-      "**/.cursor/rules/**/*.md"
+      "**/.cursor/rules/**/*.md",
+      "**/.cursor/rules/**/*.mdc"
     ]
   }
 }

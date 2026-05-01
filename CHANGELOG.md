@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 - 2026-05-01
+
+### Changed
+- Include explicit `.cursor/rules/**/*.mdc` references in opt-in instruction graph defaults for modern Cursor Project Rules.
+
 ## 0.2.2 - 2026-05-01
 
 ### Added

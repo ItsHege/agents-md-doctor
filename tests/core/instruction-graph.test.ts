@@ -18,28 +18,34 @@ describe("buildInstructionGraph", () => {
     writeFile(
       root,
       "AGENTS.md",
-      "# Root\n\nRead [agent guide](docs/agent/testing.md), `.claude/commands/review.md`, and `.cursor/rules/react.md`.\n"
+      "# Root\n\nRead [agent guide](docs/agent/testing.md), `.claude/commands/review.md`, and `.cursor/rules/react.mdc`.\n"
     );
     writeFile(root, "docs/agent/testing.md", "# Testing\n");
     writeFile(root, ".claude/commands/review.md", "# Review\n");
-    writeFile(root, ".cursor/rules/react.md", "# React\n");
+    writeFile(root, ".cursor/rules/react.mdc", "# React\n");
 
     const graph = buildInstructionGraph({
       root,
       entryFiles: [loadEntry(root, "AGENTS.md")],
       maxDepth: 2,
-      include: ["**/AGENTS.md", "**/docs/agent/**/*.md", "**/.claude/**/*.md", "**/.cursor/rules/**/*.md"]
+      include: [
+        "**/AGENTS.md",
+        "**/docs/agent/**/*.md",
+        "**/.claude/**/*.md",
+        "**/.cursor/rules/**/*.md",
+        "**/.cursor/rules/**/*.mdc"
+      ]
     });
 
     expect(graph.nodes.map((node) => node.id)).toEqual([
       ".claude/commands/review.md",
-      ".cursor/rules/react.md",
+      ".cursor/rules/react.mdc",
       "AGENTS.md",
       "docs/agent/testing.md"
     ]);
     expect(graph.edges.map((edge) => edge.to).sort()).toEqual([
       ".claude/commands/review.md",
-      ".cursor/rules/react.md",
+      ".cursor/rules/react.mdc",
       "docs/agent/testing.md"
     ]);
     expect(graph.diagnostics).toEqual([]);

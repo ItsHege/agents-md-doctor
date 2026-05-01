@@ -30,7 +30,8 @@ describe("loadConfig", () => {
           "**/GEMINI.md",
           "**/.claude/**/*.md",
           "**/.github/copilot-instructions.md",
-          "**/.cursor/rules/**/*.md"
+          "**/.cursor/rules/**/*.md",
+          "**/.cursor/rules/**/*.mdc"
         ]
       },
       rules: {}
