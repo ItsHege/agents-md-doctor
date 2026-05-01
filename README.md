@@ -137,6 +137,7 @@ disabled by default and must be enabled explicitly.
       "**/docs/agent/**/*.md",
       "**/CLAUDE.md",
       "**/GEMINI.md",
+      "**/.claude/**/*.md",
       "**/.github/copilot-instructions.md",
       "**/.cursor/rules/**/*.md"
     ]

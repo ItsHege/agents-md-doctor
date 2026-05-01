@@ -23,6 +23,7 @@ export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
   "**/docs/agent/**/*.md",
   "**/CLAUDE.md",
   "**/GEMINI.md",
+  "**/.claude/**/*.md",
   "**/.github/copilot-instructions.md",
   "**/.cursor/rules/**/*.md"
 ];

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-05-01
+
+### Changed
+- Include explicit `.claude/**/*.md` instruction references in opt-in instruction graph defaults.
+
 ## 0.2.0 - 2026-05-01
 
 ### Added

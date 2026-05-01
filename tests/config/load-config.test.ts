@@ -28,6 +28,7 @@ describe("loadConfig", () => {
           "**/docs/agent/**/*.md",
           "**/CLAUDE.md",
           "**/GEMINI.md",
+          "**/.claude/**/*.md",
           "**/.github/copilot-instructions.md",
           "**/.cursor/rules/**/*.md"
         ]

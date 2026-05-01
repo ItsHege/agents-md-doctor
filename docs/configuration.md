@@ -20,6 +20,7 @@ Missing config is valid and uses defaults.
       "**/docs/agent/**/*.md",
       "**/CLAUDE.md",
       "**/GEMINI.md",
+      "**/.claude/**/*.md",
       "**/.github/copilot-instructions.md",
       "**/.cursor/rules/**/*.md"
     ]

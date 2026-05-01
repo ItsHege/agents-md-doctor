@@ -15,23 +15,33 @@ afterEach(() => {
 describe("buildInstructionGraph", () => {
   it("loads matching referenced instruction files from links and inline code", () => {
     const root = makeTempRoot();
-    writeFile(root, "AGENTS.md", "# Root\n\nRead [agent guide](docs/agent/testing.md) and `.cursor/rules/react.md`.\n");
+    writeFile(
+      root,
+      "AGENTS.md",
+      "# Root\n\nRead [agent guide](docs/agent/testing.md), `.claude/commands/review.md`, and `.cursor/rules/react.md`.\n"
+    );
     writeFile(root, "docs/agent/testing.md", "# Testing\n");
+    writeFile(root, ".claude/commands/review.md", "# Review\n");
     writeFile(root, ".cursor/rules/react.md", "# React\n");
 
     const graph = buildInstructionGraph({
       root,
       entryFiles: [loadEntry(root, "AGENTS.md")],
       maxDepth: 2,
-      include: ["**/AGENTS.md", "**/docs/agent/**/*.md", "**/.cursor/rules/**/*.md"]
+      include: ["**/AGENTS.md", "**/docs/agent/**/*.md", "**/.claude/**/*.md", "**/.cursor/rules/**/*.md"]
     });
 
     expect(graph.nodes.map((node) => node.id)).toEqual([
+      ".claude/commands/review.md",
       ".cursor/rules/react.md",
       "AGENTS.md",
       "docs/agent/testing.md"
     ]);
-    expect(graph.edges.map((edge) => edge.to).sort()).toEqual([".cursor/rules/react.md", "docs/agent/testing.md"]);
+    expect(graph.edges.map((edge) => edge.to).sort()).toEqual([
+      ".claude/commands/review.md",
+      ".cursor/rules/react.md",
+      "docs/agent/testing.md"
+    ]);
     expect(graph.diagnostics).toEqual([]);
   });
 
