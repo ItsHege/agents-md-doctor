@@ -7,8 +7,8 @@ public milestones.
 ## Near Term
 
 - Expand instruction graph benchmarks with more nested and monorepo targets.
-- Publish GitHub Actions examples, including clear CI annotation patterns.
-- Add optional SARIF output for code scanning integrations.
+- Harden CI adoption docs, including wrapper guidance for annotation patterns.
+- Harden optional GitHub annotation and SARIF output based on CI feedback.
 
 ## Next
 

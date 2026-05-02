@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 - Unreleased
+
+### Added
+- Add CI adoption documentation for `verify --json`, strict warning failure,
+  source-checkout validation, GitHub annotations, SARIF output, and trust
+  boundaries.
+- Add `--format github` and `--format sarif` output modes for `lint` and
+  `verify`.
+- Add benchmark `qualitySummary` output with finding labels, per-rule totals,
+  critical false-positive counts, and false-positive error counts.
+
+### Changed
+- Clarify benchmark labels as review metadata that do not affect CLI severity,
+  exit codes, or rule behavior.
+- Reorganize the rules catalog so rule findings and report/context findings are
+  easier to distinguish.
+
 ## 0.2.3 - 2026-05-01
 
 ### Changed

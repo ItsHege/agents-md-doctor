@@ -64,6 +64,35 @@ describe("runVerifyCommand", () => {
     expect(result.stdout).toContain("agents-doctor verify:");
   });
 
+  it("returns GitHub annotation output with a verify summary when format is github", () => {
+    const result = runVerifyCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "github"
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).toContain("agents-doctor verify:");
+  });
+
+  it("returns SARIF JSON when format is sarif", () => {
+    const result = runVerifyCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "sarif"
+    });
+    const sarif = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(sarif.version).toBe("2.1.0");
+    expect(sarif.runs[0].results.some((result: { ruleId?: string }) => result.ruleId === "coverage.discovery_summary")).toBe(
+      true
+    );
+  });
+
   it("does not include instruction graph findings when disabled", () => {
     const root = makeTempRoot();
     writeFile(root, "AGENTS.md", "# Root\n\nRead [agent guide](docs/agent/testing.md).\n");

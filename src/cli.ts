@@ -2,6 +2,7 @@
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { runExplainCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
+import type { OutputFormat } from "./render/index.js";
 
 export function runCli(argv = process.argv): CommandResult {
   const program = new Command();
@@ -26,6 +27,7 @@ export function runCli(argv = process.argv): CommandResult {
     .command("lint")
     .description("Lint AGENTS.md instruction files.")
     .argument("[repo]", "repository root")
+    .option("--format <format>", "emit output as human, json, github, or sarif")
     .option("--json", "emit JSON report")
     .option("--strict", "exit 1 when warnings are present")
     .option("--fail-on-warning", "exit 1 when warnings are present")
@@ -36,6 +38,7 @@ export function runCli(argv = process.argv): CommandResult {
         repo: string | undefined,
         options: {
           failOnWarning?: boolean;
+          format?: string;
           ignore?: string[];
           json?: boolean;
           maxLines?: string;
@@ -44,6 +47,7 @@ export function runCli(argv = process.argv): CommandResult {
       ) => {
       result = runLintCommand({
         root: repo,
+        format: options.format ? parseOutputFormat(options.format) : undefined,
         json: options.json === true,
         strict: options.strict === true,
         failOnWarning: options.failOnWarning === true,
@@ -57,6 +61,7 @@ export function runCli(argv = process.argv): CommandResult {
     .command("verify")
     .description("Run lint plus inheritance/coverage sanity checks for AGENTS.md.")
     .argument("[repo]", "repository root")
+    .option("--format <format>", "emit output as human, json, github, or sarif")
     .option("--json", "emit JSON report")
     .option("--strict", "exit 1 when warnings are present")
     .option("--fail-on-warning", "exit 1 when warnings are present")
@@ -67,6 +72,7 @@ export function runCli(argv = process.argv): CommandResult {
         repo: string | undefined,
         options: {
           failOnWarning?: boolean;
+          format?: string;
           ignore?: string[];
           json?: boolean;
           maxLines?: string;
@@ -75,6 +81,7 @@ export function runCli(argv = process.argv): CommandResult {
       ) => {
         result = runVerifyCommand({
           root: repo,
+          format: options.format ? parseOutputFormat(options.format) : undefined,
           json: options.json === true,
           strict: options.strict === true,
           failOnWarning: options.failOnWarning === true,
@@ -175,4 +182,12 @@ function parsePositiveIntegerOption(optionName: string, value: string): number {
   }
 
   return parsedValue;
+}
+
+function parseOutputFormat(value: string): OutputFormat {
+  if (value === "human" || value === "json" || value === "github" || value === "sarif") {
+    return value;
+  }
+
+  throw new Error("--format must be one of: human, json, github, sarif");
 }

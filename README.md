@@ -66,12 +66,18 @@ Command surface:
 ```bash
 agents-doctor lint [repo]
 agents-doctor lint --json [repo]
+agents-doctor lint --format json [repo]
+agents-doctor lint --format github [repo]
+agents-doctor lint --format sarif [repo]
 agents-doctor lint --strict [repo]
 agents-doctor lint --fail-on-warning [repo]
 agents-doctor lint --ignore "tests/fixtures/**" [repo]
 agents-doctor lint --max-lines 400 [repo]
 agents-doctor verify [repo]
 agents-doctor verify --json [repo]
+agents-doctor verify --format json [repo]
+agents-doctor verify --format github [repo]
+agents-doctor verify --format sarif [repo]
 agents-doctor verify --strict [repo]
 agents-doctor verify --fail-on-warning [repo]
 agents-doctor explain <path> [repo]
@@ -94,6 +100,9 @@ defaults to the current directory.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
 packed-package smoke test.
+
+For repository CI setup examples and current output-format limits, see
+`docs/ci.md`.
 
 ## How It Works (10 Seconds)
 
@@ -129,6 +138,8 @@ A typical loop:
 5. Leave semantic or product decisions to human review.
 
 See `examples/codex-skill/SKILL.md` for a Codex skill example.
+For the benchmark labeling vocabulary behind this workflow, see
+`docs/benchmark-methodology.md`.
 
 ## Configuration
 
@@ -182,7 +193,9 @@ For full configuration details, see `docs/configuration.md`.
 ### Lint
 
 Current behavior checks all active lint rules and reports deterministic findings.
-Human-readable output is the default, and JSON output is available with `--json`.
+Human-readable output is the default. JSON output is available with `--json` or
+`--format json`; GitHub annotation and SARIF output are available with
+`--format github` and `--format sarif`.
 
 - `size.file_too_long`
 - `structure.required_sections`
@@ -318,8 +331,8 @@ Exit codes:
 - `1`: error findings, or warning findings when `--strict` is used.
 - `2`: usage, config, or runtime failure.
 
-Successful human and JSON output is written to stdout. Usage, config, and
-runtime failures are written to stderr.
+Successful human, JSON, GitHub annotation, and SARIF output is written to
+stdout. Usage, config, and runtime failures are written to stderr.
 
 ## Positioning
 
@@ -334,8 +347,8 @@ Short version:
 See `docs/roadmap.md` for the full public roadmap.
 
 - Strengthen deterministic conflict checks for nested `AGENTS.md` inheritance.
-- Publish GitHub Actions examples with CI-friendly annotations.
-- Add optional SARIF output for code scanning integrations.
+- Harden CI adoption docs and annotation examples based on real usage.
+- Harden optional GitHub annotation and SARIF output based on CI feedback.
 - Add `agents-doctor init` to bootstrap starter configuration.
 - Expand real-world fixtures from public repositories.
 

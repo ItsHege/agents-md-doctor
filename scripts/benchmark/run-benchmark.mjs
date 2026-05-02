@@ -48,6 +48,7 @@ try {
 }
 
 const failedExpectations = expectationResults.filter((result) => result.ok === false);
+const qualitySummary = labelBenchmarkFindings(repoResults, expectations.expectations ?? []);
 const report = {
   schemaVersion: "1.0.0",
   generatedAt: new Date().toISOString(),
@@ -60,6 +61,7 @@ const report = {
   ],
   repoCount: repoResults.length,
   operationalFailures,
+  qualitySummary,
   expectationSummary: {
     total: expectationResults.length,
     passed: expectationResults.length - failedExpectations.length,
@@ -74,7 +76,12 @@ fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
 
 printSummary(report, outputPath);
 
-if (operationalFailures > 0 || failedExpectations.length > 0) {
+if (
+  operationalFailures > 0 ||
+  failedExpectations.length > 0 ||
+  qualitySummary.criticalFPCount > 0 ||
+  qualitySummary.falsePositiveErrorCount > 0
+) {
   process.exitCode = 1;
 }
 
@@ -251,6 +258,9 @@ function evaluateExpectations(repoResult, repoExpectations) {
       expectedSeverity: expected.expectedSeverity,
       expectPresence: expected.expectPresence,
       expectedLabel: expected.expectedLabel,
+      matchedFindingCount: findings.filter(
+        (finding) => finding.ruleId === expected.ruleId && finding.severity === expected.expectedSeverity
+      ).length,
       notes: expected.notes,
       ok
     });
@@ -335,6 +345,197 @@ function countByRule(findings) {
   return counts;
 }
 
+function labelBenchmarkFindings(repoResults, expectedFindings) {
+  const labelableExpectations = expectedFindings.filter(
+    (expected) =>
+      ["TP", "FP", "Needs-Config", "Unclear"].includes(expected.expectedLabel) &&
+      typeof expected.repoId === "string" &&
+      typeof expected.command === "string" &&
+      typeof expected.ruleId === "string" &&
+      typeof expected.expectedSeverity === "string"
+  );
+  const expectedByKey = groupExpectationsByMatchKey(labelableExpectations);
+  /** @type {Array<object>} */
+  const labeledFindings = [];
+  /** @type {Record<string, object>} */
+  const rules = {};
+  const labels = {
+    TP: 0,
+    FP: 0,
+    "Needs-Config": 0,
+    Unclear: 0
+  };
+  let totalFindingCount = 0;
+  let matchedFindingCount = 0;
+  let unmatchedFindingCount = 0;
+
+  for (const repo of repoResults) {
+    for (const command of ["lint", "verify"]) {
+      const commandResult = repo[command];
+      if (!Array.isArray(commandResult?.findings)) {
+        continue;
+      }
+
+      commandResult.findings = commandResult.findings.map((finding) => {
+        totalFindingCount += 1;
+        const rule = ensureRuleSummary(rules, finding.ruleId);
+        rule.total += 1;
+
+        const matchKey = makeExpectationMatchKey(repo.id, command, finding.ruleId, finding.severity);
+        const expected = expectedByKey.get(matchKey);
+        if (!expected) {
+          const labeledFinding = {
+            repoId: repo.id,
+            command,
+            ruleId: finding.ruleId,
+            severity: finding.severity,
+            label: "Unclear",
+            critical: false,
+            expectationNotes: "No reviewed benchmark label matched this finding."
+          };
+
+          labels.Unclear += 1;
+          rule.labels.Unclear += 1;
+          labeledFindings.push(labeledFinding);
+          rule.unmatched += 1;
+          unmatchedFindingCount += 1;
+          return {
+            ...finding,
+            benchmarkLabel: "Unclear",
+            benchmarkExpectation: {
+              expectedLabel: "Unclear",
+              critical: false,
+              notes: "No reviewed benchmark label matched this finding."
+            }
+          };
+        }
+
+        matchedFindingCount += 1;
+        labels[expected.expectedLabel] += 1;
+        rule.labels[expected.expectedLabel] += 1;
+
+        const labeledFinding = {
+          repoId: repo.id,
+          command,
+          ruleId: finding.ruleId,
+          severity: finding.severity,
+          label: expected.expectedLabel,
+          critical: false,
+          expectationNotes: expected.notes
+        };
+        labeledFindings.push(labeledFinding);
+
+        return {
+          ...finding,
+          benchmarkLabel: expected.expectedLabel,
+          benchmarkExpectation: {
+            expectPresence: expected.expectPresence,
+            expectedLabel: expected.expectedLabel,
+            critical: expected.critical === true,
+            notes: expected.notes
+          }
+        };
+      });
+    }
+  }
+
+  const fpRepoCountsByRule = countFpReposByRule(labeledFindings);
+  let criticalFPCount = 0;
+  let falsePositiveErrorCount = 0;
+
+  for (const labeledFinding of labeledFindings) {
+    if (labeledFinding.label !== "FP") {
+      continue;
+    }
+
+    const matchKey = makeExpectationMatchKey(
+      labeledFinding.repoId,
+      labeledFinding.command,
+      labeledFinding.ruleId,
+      labeledFinding.severity
+    );
+    const expected = expectedByKey.get(matchKey);
+    const repeatedAcrossRepos = (fpRepoCountsByRule.get(labeledFinding.ruleId) ?? 0) > 1;
+    const falsePositiveError = labeledFinding.severity === "error";
+    const critical = expected?.critical === true || falsePositiveError || repeatedAcrossRepos;
+
+    if (falsePositiveError) {
+      falsePositiveErrorCount += 1;
+    }
+    if (critical) {
+      criticalFPCount += 1;
+      labeledFinding.critical = true;
+      ensureRuleSummary(rules, labeledFinding.ruleId).criticalFP += 1;
+    }
+  }
+
+  return {
+    reviewedExpectationCount: labelableExpectations.length,
+    totalFindingCount,
+    matchedFindingCount,
+    unmatchedFindingCount,
+    labels,
+    falsePositiveErrorCount,
+    criticalFPCount,
+    rules,
+    labeledFindings
+  };
+}
+
+function groupExpectationsByMatchKey(expectationList) {
+  /** @type {Map<string, object>} */
+  const grouped = new Map();
+
+  for (const expected of expectationList) {
+    grouped.set(makeExpectationMatchKey(expected.repoId, expected.command, expected.ruleId, expected.expectedSeverity), expected);
+  }
+
+  return grouped;
+}
+
+function makeExpectationMatchKey(repoId, command, ruleId, severity) {
+  return `${repoId}\0${command}\0${ruleId}\0${severity}`;
+}
+
+function ensureRuleSummary(rules, ruleId) {
+  if (!rules[ruleId]) {
+    rules[ruleId] = {
+      total: 0,
+      labels: {
+        TP: 0,
+        FP: 0,
+        "Needs-Config": 0,
+        Unclear: 0
+      },
+      unmatched: 0,
+      criticalFP: 0
+    };
+  }
+
+  return rules[ruleId];
+}
+
+function countFpReposByRule(labeledFindings) {
+  /** @type {Map<string, Set<string>>} */
+  const reposByRule = new Map();
+  for (const labeledFinding of labeledFindings) {
+    if (labeledFinding.label !== "FP") {
+      continue;
+    }
+
+    const repos = reposByRule.get(labeledFinding.ruleId) ?? new Set();
+    repos.add(labeledFinding.repoId);
+    reposByRule.set(labeledFinding.ruleId, repos);
+  }
+
+  /** @type {Map<string, number>} */
+  const counts = new Map();
+  for (const [ruleId, repos] of reposByRule.entries()) {
+    counts.set(ruleId, repos.size);
+  }
+  return counts;
+}
+
 function runProcess(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
@@ -366,9 +567,15 @@ function safePreview(text) {
 function printSummary(report, reportPath) {
   const repoOk = report.repoCount - report.operationalFailures;
   const expectation = report.expectationSummary;
+  const quality = report.qualitySummary;
 
   console.log(`Benchmark complete: ${repoOk}/${report.repoCount} repos ran without runtime errors.`);
   console.log(`Expectation checks: ${expectation.passed}/${expectation.total} passed.`);
+  console.log(
+    `Finding labels: ${quality.labels.TP} TP, ${quality.labels.FP} FP, ` +
+      `${quality.labels["Needs-Config"]} Needs-Config, ${quality.labels.Unclear} Unclear.`
+  );
+  console.log(`Critical FP: ${quality.criticalFPCount}; false-positive errors: ${quality.falsePositiveErrorCount}.`);
   console.log(`Report: ${reportPath}`);
 }
 

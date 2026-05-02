@@ -8,7 +8,7 @@ import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { normalizeRelativePath } from "../path-utils.js";
 import { buildReport } from "../report/index.js";
-import { renderHumanLintReport, renderJsonReport } from "../render/index.js";
+import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
 import type { Finding, ExitCode } from "../types/index.js";
@@ -16,6 +16,7 @@ import type { Finding, ExitCode } from "../types/index.js";
 export interface VerifyCommandOptions {
   root?: string;
   json: boolean;
+  format?: OutputFormat;
   strict?: boolean;
   failOnWarning?: boolean;
   ignore?: string[];
@@ -85,11 +86,11 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
 
     return {
       exitCode: report.exitCode,
-      stdout: options.json
-        ? renderJsonReport(report)
-        : renderHumanLintReport(report, {
-            strict: failOnWarnings
-          }).replace("agents-doctor lint:", "agents-doctor verify:"),
+      stdout: renderReport(report, {
+        command: "verify",
+        format: resolveOutputFormat(options),
+        strict: failOnWarnings
+      }),
       stderr: ""
     };
   } catch (error) {

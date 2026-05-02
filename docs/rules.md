@@ -2,6 +2,11 @@
 
 This catalog lists AGENTS.md Doctor rule and report finding IDs.
 
+## Rule Findings
+
+Rule findings describe instruction file problems detected by `lint` and by
+commands that include lint behavior, such as `verify`.
+
 ## `size.file_too_long`
 
 - Category: `size`
@@ -157,7 +162,7 @@ have a root `AGENTS.md`.
 Reports which `AGENTS.md` files apply to the requested target path, plus any
 deterministic conflict notes.
 
-## `inheritance.instruction_graph_summary`
+### `inheritance.instruction_graph_summary`
 
 - Category: `inheritance`
 - Default severity: `info`
@@ -166,7 +171,7 @@ deterministic conflict notes.
 Emitted by `verify` and `explain` when `instructionGraph.enabled` is true.
 Summarizes instruction graph node, edge, diagnostic, and referenced-file counts.
 
-## `inheritance.referenced_instruction_missing`
+### `inheritance.referenced_instruction_missing`
 
 - Category: `inheritance`
 - Default severity: `warning`
@@ -183,7 +188,7 @@ warning inheritance.referenced_instruction_missing AGENTS.md:12
 AGENTS.md references a missing instruction file: docs/agent/testing.md.
 ```
 
-## `inheritance.instruction_graph_cycle`
+### `inheritance.instruction_graph_cycle`
 
 - Category: `inheritance`
 - Default severity: `warning`
@@ -192,7 +197,7 @@ AGENTS.md references a missing instruction file: docs/agent/testing.md.
 Reports cycles in opt-in referenced instruction files, such as
 `AGENTS.md -> docs/agent/testing.md -> AGENTS.md`.
 
-## `inheritance.instruction_graph_depth_exceeded`
+### `inheritance.instruction_graph_depth_exceeded`
 
 - Category: `inheritance`
 - Default severity: `warning`

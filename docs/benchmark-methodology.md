@@ -46,6 +46,8 @@ The runner does not execute scripts from benchmarked repositories.
 - Includes:
   - per-repo lint/verify summaries
   - findings grouped by rule
+  - reviewed finding labels and per-rule label totals
+  - critical FP and false-positive error counts
   - graph target explain summaries
   - expectation pass/fail summary
   - operational failures (clone, checkout, runtime)
@@ -62,12 +64,32 @@ commits. They do not depend on human CLI output or prose wording.
 
 ## Labeling Rules
 
-Use these labels when reviewing findings:
+Use these labels when reviewing findings or setting `expectedLabel` in
+`benchmarks/expected-findings.json`:
 
 - `TP`: valid and useful finding.
 - `FP`: incorrect finding; should be fixed in rules/heuristics.
 - `Needs-Config`: expected repo-local policy noise that should be handled by configuration.
 - `Unclear`: needs manual judgment or more evidence.
+
+Benchmark labels are review metadata. They do not change CLI severities, exit
+codes, or rule behavior.
+
+`expectedLabel` is consumed by the benchmark report as reviewed context for
+matched findings. Findings without a matching reviewed expectation are labeled
+`Unclear` in `qualitySummary` so the report stays honest about unreviewed
+signal.
+
+Expectation pass/fail behavior is based on the configured rule id, command,
+severity, presence expectation, and graph applied-chain assertions.
+
+## Output Formats
+
+Current benchmark output is written to `benchmarks/out/latest.json`. The
+benchmark runner also prints a short terminal summary with repository runtime
+status, expectation pass/fail counts, and the report path.
+
+No alternate benchmark output formats are implemented yet.
 
 ## Precision and FP Tracking
 
@@ -87,3 +109,7 @@ A finding is treated as critical FP when any of these are true:
 - finding causes likely CI gating pain in normal non-strict workflows.
 
 Critical FPs block rule promotion and should be fixed before wider CI annotation rollout.
+
+The benchmark runner writes these counts to `qualitySummary` in
+`benchmarks/out/latest.json`. `npm run benchmark` fails when a reviewed finding
+is a critical FP or an FP with severity `error`.

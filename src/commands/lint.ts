@@ -5,7 +5,7 @@ import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { buildReport } from "../report/index.js";
-import { renderHumanLintReport, renderJsonReport } from "../render/index.js";
+import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
 import type { ExitCode } from "../types/index.js";
@@ -13,6 +13,7 @@ import type { ExitCode } from "../types/index.js";
 export interface LintCommandOptions {
   root?: string;
   json: boolean;
+  format?: OutputFormat;
   strict?: boolean;
   failOnWarning?: boolean;
   ignore?: string[];
@@ -57,13 +58,15 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
       failOnWarnings: options.strict === true || options.failOnWarning === true || config.failOnWarning
     });
 
+    const strict = options.strict === true || options.failOnWarning === true || config.failOnWarning;
+
     return {
       exitCode: report.exitCode,
-      stdout: options.json
-        ? renderJsonReport(report)
-        : renderHumanLintReport(report, {
-            strict: options.strict === true || options.failOnWarning === true || config.failOnWarning
-          }),
+      stdout: renderReport(report, {
+        command: "lint",
+        format: resolveOutputFormat(options),
+        strict
+      }),
       stderr: ""
     };
   } catch (error) {

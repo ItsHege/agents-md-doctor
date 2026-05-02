@@ -76,6 +76,24 @@ Exit codes:
 Strict mode changes only the report `exitCode`; it does not change
 `findings[].severity`.
 
+## Output Formats
+
+`lint` and `verify` support these output selectors:
+
+- default human output;
+- `--json`, equivalent to `--format json`;
+- `--format github`, which emits GitHub workflow annotations plus a human
+  summary;
+- `--format sarif`, which emits SARIF 2.1.0.
+
+When both `--json` and `--format` are provided, JSON report output wins.
+
+`explain` currently supports default human output and `--json`.
+
+The JSON `Report` schema above remains the stable AGENTS.md Doctor report
+schema. SARIF output follows the SARIF 2.1.0 shape and maps AGENTS.md Doctor
+finding severities as `error`, `warning`, or `note`.
+
 ## Instruction Graph Details
 
 Instruction graph output in the `0.2.0` release line is represented as normal

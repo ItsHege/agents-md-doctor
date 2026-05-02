@@ -41,6 +41,52 @@ describe("runCli", () => {
     expect(report.command).toBe("verify");
   });
 
+  it("dispatches lint --format json", () => {
+    const result = runCli(["node", "dist/cli.js", "lint", "--format", "json", path.join(fixtureRoot, "short-agents-file")]);
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(report.command).toBe("lint");
+  });
+
+  it("dispatches lint --format github", () => {
+    const result = runCli(["node", "dist/cli.js", "lint", "--format", "github", path.join(fixtureRoot, "long-agents-file")]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).toContain("agents-doctor lint: 1 warning");
+  });
+
+  it("dispatches verify --format sarif", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--format", "sarif", path.join(fixtureRoot, "long-agents-file")]);
+    const sarif = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(sarif.version).toBe("2.1.0");
+    expect(sarif.runs[0].results.some((result: { ruleId?: string }) => result.ruleId === "size.file_too_long")).toBe(true);
+  });
+
+  it("keeps --json as JSON output when --format asks for another format", () => {
+    const result = runCli([
+      "node",
+      "dist/cli.js",
+      "lint",
+      "--json",
+      "--format",
+      "github",
+      path.join(fixtureRoot, "long-agents-file")
+    ]);
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(report.command).toBe("lint");
+    expect(result.stdout).not.toContain("::warning");
+  });
+
   it("dispatches lint --json with default cwd", () => {
     const previousCwd = process.cwd();
 
@@ -109,6 +155,7 @@ describe("runCli", () => {
     expect(result.stdout).toContain("Usage: agents-doctor lint");
     expect(result.stdout).toContain("[repo]");
     expect(result.stdout).toContain("--json");
+    expect(result.stdout).toContain("--format");
     expect(result.stdout).toContain("--strict");
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
@@ -133,6 +180,7 @@ describe("runCli", () => {
     expect(result.stdout).toContain("Usage: agents-doctor verify");
     expect(result.stdout).toContain("[repo]");
     expect(result.stdout).toContain("--json");
+    expect(result.stdout).toContain("--format");
     expect(result.stdout).toContain("--strict");
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
@@ -161,6 +209,14 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--max-lines must be a positive integer");
+  });
+
+  it("returns exit 2 for invalid format values", () => {
+    const result = runCli(["node", "dist/cli.js", "lint", "--format", "xml"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--format must be one of: human, json, github, sarif");
   });
 
   it("returns exit 2 when no command is provided", () => {

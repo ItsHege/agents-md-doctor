@@ -79,6 +79,33 @@ describe("runLintCommand", () => {
     });
   });
 
+  it("returns GitHub annotation output when format is github", () => {
+    const result = runLintCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "github"
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).toContain("agents-doctor lint: 1 warning");
+  });
+
+  it("returns SARIF JSON when format is sarif", () => {
+    const result = runLintCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "sarif"
+    });
+    const sarif = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(sarif.version).toBe("2.1.0");
+    expect(sarif.runs[0].results[0].ruleId).toBe("size.file_too_long");
+  });
+
   it("defaults repo root to process.cwd when root is omitted", () => {
     const previousCwd = process.cwd();
     const repoRoot = path.join(fixtureRoot, "short-agents-file");
