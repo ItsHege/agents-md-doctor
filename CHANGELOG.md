@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-05-02
 
 ### Added
 - Add CI adoption documentation for `verify --json`, strict warning failure,
