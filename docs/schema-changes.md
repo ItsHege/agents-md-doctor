@@ -4,6 +4,10 @@ Record user-visible JSON output schema changes here.
 
 ## Unreleased
 
+No unreleased JSON schema changes.
+
+## 0.2.0
+
 - Instruction graph output is represented through existing findings and
   additive `details`; the report schema remains `1.0.0`.
 

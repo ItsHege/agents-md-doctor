@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import picomatch from "picomatch";
 import { extractMarkdownElements, type MarkdownSourceLocation } from "./markdown.js";
+import { DEFAULT_MAX_READ_BYTES } from "../io/read-file.js";
 import { isPathInsideRoot, normalizeRelativePath } from "../path-utils.js";
 
-export type InstructionGraphNodeStatus = "loaded" | "missing" | "outside_repo" | "symlink" | "unreadable";
+export type InstructionGraphNodeStatus = "loaded" | "missing" | "outside_repo" | "symlink" | "unreadable" | "too_large";
 
 export type InstructionGraphReferenceKind = "link" | "inlineCode" | "entry";
 
@@ -18,7 +19,8 @@ export type InstructionGraphDiagnosticReason =
   | "missing"
   | "outside_repo"
   | "symlink"
-  | "unreadable";
+  | "unreadable"
+  | "too_large";
 
 export type InstructionGraphDiagnosticCode =
   | "instruction_graph_cycle"
@@ -401,6 +403,15 @@ function readInstructionFile(
       };
     }
 
+    if (stats.size > DEFAULT_MAX_READ_BYTES) {
+      return {
+        absolutePath: realPath,
+        relativePath,
+        status: "too_large",
+        content: ""
+      };
+    }
+
     return {
       absolutePath: realPath,
       relativePath,
@@ -586,6 +597,10 @@ function getReadDiagnosticCode(status: Exclude<InstructionGraphNodeStatus, "load
   }
 
   if (status === "unreadable") {
+    return "instruction_reference_unreadable";
+  }
+
+  if (status === "too_large") {
     return "instruction_reference_unreadable";
   }
 

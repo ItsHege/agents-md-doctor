@@ -54,6 +54,11 @@ Rule severity can be `error`, `warning`, `info`, or `off`.
 CLI flags override matching config values for ignore patterns, max-line
 thresholds, and warning failure behavior.
 
+Rule severity overrides apply to normal missing command findings. The
+`commands.mentioned_command_missing` `scope_ambiguous` case stays
+warning-only when the referenced script exists in a workspace package but not
+the local package, because the result needs human package-scope review.
+
 Graph mechanics findings use the same rule override mechanism:
 
 ```json

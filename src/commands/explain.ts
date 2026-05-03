@@ -4,6 +4,7 @@ import { loadConfig } from "../config/index.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import { AppError, isAppError } from "../errors.js";
+import { readTextFileWithinRoot } from "../io/index.js";
 import { normalizeRelativePath, isPathInsideRoot } from "../path-utils.js";
 import { buildReport } from "../report/index.js";
 import { renderJsonReport } from "../render/index.js";
@@ -223,7 +224,10 @@ function loadAppliedFiles(root: string, appliedFiles: string[]): Array<{ absolut
     return {
       absolutePath,
       relativePath,
-      content: fs.readFileSync(absolutePath, "utf8")
+      content: readTextFileWithinRoot({
+        root,
+        filePath: absolutePath
+      })
     };
   });
 }
@@ -267,7 +271,10 @@ function detectExplainConflicts(root: string, appliedFiles: string[]): ExplainCo
     const absolutePath = path.join(root, relativePath);
     return {
       file: relativePath,
-      content: fs.readFileSync(absolutePath, "utf8")
+      content: readTextFileWithinRoot({
+        root,
+        filePath: absolutePath
+      })
     };
   });
 

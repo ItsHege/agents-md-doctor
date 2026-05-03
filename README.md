@@ -94,9 +94,12 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
-declared. CI failure behavior can also be tightened with `--strict`,
-`--fail-on-warning`, or `failOnWarning` config. The optional `[repo]` argument
-defaults to the current directory.
+declared. If a script is missing only from the local package but exists in a
+workspace package, `commands.mentioned_command_missing` uses
+`details.reason: "scope_ambiguous"` and remains warning-only. CI failure
+behavior can also be tightened with `--strict`, `--fail-on-warning`, or
+`failOnWarning` config. The optional `[repo]` argument defaults to the current
+directory.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
 packed-package smoke test.
@@ -251,9 +254,20 @@ Non-goals:
   "summary": {
     "errorCount": 1,
     "warningCount": 2,
-    "infoCount": 0
+    "infoCount": 1
   },
   "findings": [
+    {
+      "ruleId": "coverage.discovery_summary",
+      "severity": "info",
+      "message": "Scanned 1 AGENTS.md file for lint and inheritance sanity.",
+      "file": "AGENTS.md",
+      "line": 1,
+      "details": {
+        "agentsFileCount": 1,
+        "hasRootAgents": true
+      }
+    },
     {
       "ruleId": "paths.reference_missing",
       "severity": "warning",
@@ -316,7 +330,7 @@ warning commands.mentioned_command_missing AGENTS.md:32
 AGENTS.md references script "dev" that is missing in the local package but present in workspace package(s): apps/web/package.json.
 ```
 
-Error:
+Abbreviated verify error example:
 
 ```text
 agents-doctor verify: 1 error, 2 warnings
@@ -324,6 +338,9 @@ agents-doctor verify: 1 error, 2 warnings
 error commands.mentioned_command_missing AGENTS.md:45
 AGENTS.md references a missing Makefile target: lint.
 ```
+
+Real `verify` reports also include an `info coverage.discovery_summary` finding
+unless output is filtered by a downstream tool.
 
 Exit codes:
 

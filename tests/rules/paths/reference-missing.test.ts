@@ -87,6 +87,40 @@ describe("paths.reference_missing", () => {
     });
   });
 
+  it("reports symlink or junction references that resolve outside the repo", () => {
+    const root = makeTempRoot();
+    const outsideRoot = makeTempRoot();
+    fs.mkdirSync(path.join(outsideRoot, "secret"), { recursive: true });
+    fs.writeFileSync(path.join(outsideRoot, "secret", "env.txt"), "SECRET=1\n");
+
+    try {
+      fs.symlinkSync(path.join(outsideRoot, "secret"), path.join(root, "linked"), "junction");
+    } catch {
+      return;
+    }
+
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRead `linked/env.txt`.\n");
+
+    const findings = checkPathReferences({
+      root,
+      fileAbsolutePath: agentsPath,
+      fileRelativePath: "AGENTS.md",
+      content: fs.readFileSync(agentsPath, "utf8")
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      ruleId: "paths.reference_missing",
+      file: "AGENTS.md",
+      line: 3,
+      details: {
+        reference: "linked/env.txt",
+        reason: "outside_repo"
+      }
+    });
+  });
+
   it("ignores obvious placeholder and glob-style path references", () => {
     const root = makeTempRoot();
     const agentsPath = path.join(root, "AGENTS.md");

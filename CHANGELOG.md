@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.1 - 2026-05-03
+
+### Fixed
+- Harden `explain` so applicable `AGENTS.md` files are read through the safe
+  repository-boundary reader.
+- Report path references that resolve through symlinks or junctions outside the
+  repository instead of treating them as valid.
+- Apply the safe 1 MB read limit to opt-in instruction graph referenced files.
+
+### Changed
+- Declare Node.js `>=20` in package metadata.
+- Clarify `verify` examples and `scope_ambiguous` command findings in docs.
+
+### Tests
+- Add hostile fixtures for symlink/junction escapes, oversized instruction
+  graph files, and no-command-execution safety.
+
 ## 0.3.0 - 2026-05-02
 
 ### Added

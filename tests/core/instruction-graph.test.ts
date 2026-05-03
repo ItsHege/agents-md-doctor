@@ -153,6 +153,30 @@ describe("buildInstructionGraph", () => {
     expect(graph.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(["instruction_reference_symlink"]);
     expect(graph.nodes.find((node) => node.id === "docs/agent/linked.md")?.status).toBe("symlink");
   });
+
+  it("does not read referenced instruction files larger than the safe byte limit", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Root\n\nRead [large agent](docs/agent/large.md).\n");
+    writeFile(root, "docs/agent/large.md", `# Large\n\n${"a".repeat(1_000_001)}\n`);
+
+    const graph = buildInstructionGraph({
+      root,
+      entryFiles: [loadEntry(root, "AGENTS.md")],
+      maxDepth: 2,
+      include: ["**/AGENTS.md", "**/docs/agent/**/*.md"]
+    });
+
+    expect(graph.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "instruction_reference_unreadable",
+        reason: "too_large",
+        file: "AGENTS.md",
+        reference: "docs/agent/large.md",
+        target: "docs/agent/large.md"
+      })
+    ]);
+    expect(graph.nodes.find((node) => node.id === "docs/agent/large.md")?.status).toBe("too_large");
+  });
 });
 
 function makeTempRoot(): string {

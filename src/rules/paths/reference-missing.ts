@@ -23,6 +23,9 @@ export interface CheckPathReferencesOptions {
 const OPTIONALITY_MARKERS = ["if present", "if available", "if it exists", "when available", "optional"];
 
 export function checkPathReferences(options: CheckPathReferencesOptions): Finding[] {
+  const root = fs.existsSync(options.root)
+    ? fs.realpathSync.native(path.resolve(options.root))
+    : path.resolve(options.root);
   const elements = extractMarkdownElements(options.content);
   const contentLines = options.content.split(/\r?\n/);
   const candidates = [
@@ -51,9 +54,9 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
     }
 
     seen.add(dedupeKey);
-    const resolvedPath = resolveCandidatePath(options.root, options.fileAbsolutePath, candidate.path);
+    const resolvedPath = resolveCandidatePath(root, options.fileAbsolutePath, candidate.path);
 
-    if (!isPathInsideRoot(options.root, resolvedPath)) {
+    if (!isPathInsideRoot(root, resolvedPath)) {
       if (lineHasOptionalityMarker(contentLines, candidate.line)) {
         continue;
       }
@@ -86,6 +89,47 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
         details: {
           reference: candidate.path,
           reason: "not_found"
+        }
+      });
+      continue;
+    }
+
+    let realPath: string;
+    try {
+      realPath = fs.realpathSync.native(resolvedPath);
+    } catch {
+      if (lineHasOptionalityMarker(contentLines, candidate.line)) {
+        continue;
+      }
+
+      findings.push({
+        ruleId: pathReferenceMissingRuleDefinition.id,
+        severity: options.severity ?? pathReferenceMissingRuleDefinition.defaultSeverity,
+        message: `${options.fileRelativePath} references an unreadable path: ${candidate.path}.`,
+        file: options.fileRelativePath,
+        line: candidate.line,
+        details: {
+          reference: candidate.path,
+          reason: "unreadable"
+        }
+      });
+      continue;
+    }
+
+    if (!isPathInsideRoot(root, realPath)) {
+      if (lineHasOptionalityMarker(contentLines, candidate.line)) {
+        continue;
+      }
+
+      findings.push({
+        ruleId: pathReferenceMissingRuleDefinition.id,
+        severity: options.severity ?? pathReferenceMissingRuleDefinition.defaultSeverity,
+        message: `${options.fileRelativePath} references a path outside the repo: ${candidate.path}.`,
+        file: options.fileRelativePath,
+        line: candidate.line,
+        details: {
+          reference: candidate.path,
+          reason: "outside_repo"
         }
       });
     }

@@ -98,6 +98,13 @@ AGENTS.md references a missing path: ./docs/missing.md.
 Reports command references found in inline code or fenced code blocks when the
 referenced package script or Makefile target is not declared.
 
+When a script is missing from the local package but exists in another workspace
+package, AGENTS.md Doctor reports the same rule id with
+`details.reason: "scope_ambiguous"`. That scope-ambiguous case is
+warning-only, even if the rule severity is configured to `error`, because the
+tool cannot prove that the instruction is wrong without a clearer package
+scope.
+
 Example finding:
 
 ```text

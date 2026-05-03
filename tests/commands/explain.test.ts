@@ -62,6 +62,29 @@ describe("runExplainCommand", () => {
     expect(result.stderr).toContain("outside root");
   });
 
+  it("does not read symlinked applicable AGENTS.md files outside the repo", () => {
+    const root = makeTempRoot();
+    const outsideRoot = makeTempRoot();
+    fs.writeFileSync(path.join(outsideRoot, "AGENTS.md"), "# Outside\n\nUse npm.\n");
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+
+    try {
+      fs.symlinkSync(path.join(outsideRoot, "AGENTS.md"), path.join(root, "AGENTS.md"));
+    } catch {
+      return;
+    }
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("outside root");
+  });
+
   it("reports deterministic conflict markers in JSON and human output", () => {
     const root = makeTempRoot();
     fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
