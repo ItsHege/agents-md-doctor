@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0 - Unreleased
+
+### Added
+- Add a GitHub Actions release workflow that runs the full release gate and
+  publishes to npm with provenance.
+- Add committed CodeQL, dependency review, and Dependabot automation for
+  JavaScript/TypeScript, GitHub Actions, npm dependencies, and workflow
+  dependencies.
+- Add a benchmark quality budget so new unreviewed findings fail the benchmark
+  gate until they are classified.
+
+### Changed
+- Expand reviewed benchmark labels for coverage summaries, command findings,
+  structure policy findings, and recurring path-reference findings from pinned
+  real-repository benchmarks.
+- Improve Makefile target detection for simple variable-expanded `.PHONY`
+  target lists such as `$(SHELL_TARGETS)`.
+- Harden packed-package smoke checks with an allowlist for public package
+  contents, private/workspace path rejection, local absolute path detection, and
+  secret-like token scanning.
+
+### Notes
+- No new CLI commands or flags.
+- No JSON, SARIF, or GitHub annotation schema changes.
+- Instruction graph validation remains opt-in by default.
+
 ## 0.3.1 - 2026-05-03
 
 ### Fixed

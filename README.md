@@ -101,8 +101,10 @@ behavior can also be tightened with `--strict`, `--fail-on-warning`, or
 `failOnWarning` config. The optional `[repo]` argument defaults to the current
 directory.
 
-GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and a
-packed-package smoke test.
+GitHub Actions currently runs typecheck, tests, build, CLI smoke checks,
+packed-package smoke checks, benchmarks, CodeQL, dependency review, and
+Dependabot update checks where applicable. The maintainer release workflow
+publishes through npm provenance after the full release gate passes.
 
 For repository CI setup examples and current output-format limits, see
 `docs/ci.md`.

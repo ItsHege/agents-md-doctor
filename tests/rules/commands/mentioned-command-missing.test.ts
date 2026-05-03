@@ -311,6 +311,59 @@ describe("commands.mentioned_command_missing", () => {
       })
     ).toEqual([]);
   });
+
+  it("parses Makefile phony targets declared through simple variables", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: {} }));
+    fs.writeFileSync(
+      path.join(root, "Makefile"),
+      [
+        "SHELL_TARGETS = test-sh test-bash test-dash test-zsh",
+        "",
+        ".PHONY: $(SHELL_TARGETS)",
+        "$(SHELL_TARGETS):",
+        "\t@echo ok"
+      ].join("\n")
+    );
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `make test-sh` and `make test-zsh`.\n");
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("parses Makefile phony targets declared through addprefix variables", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: {} }));
+    fs.writeFileSync(
+      path.join(root, "Makefile"),
+      [
+        "SHELLS := sh bash dash zsh # ksh",
+        "SHELL_TARGETS := $(addprefix test-,$(SHELLS))",
+        "",
+        ".PHONY: $(SHELL_TARGETS)",
+        "$(SHELL_TARGETS):",
+        "\t@echo ok"
+      ].join("\n")
+    );
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `make test-sh` and `make test-zsh`.\n");
+
+    expect(
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
 });
 
 function makeTempRoot(): string {

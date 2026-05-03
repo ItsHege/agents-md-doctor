@@ -74,7 +74,7 @@ build before running the CLI.
 ```
 
 The project CI currently runs typecheck, tests, build, built-CLI smoke checks,
-and packed-package smoke checks.
+packed-package smoke checks, and benchmark checks.
 
 ## Annotation Patterns
 
@@ -118,6 +118,58 @@ AGENTS.md Doctor is a repository inspection tool, not a command runner.
 - It does not upload repository contents.
 - It treats JSON output as the CI contract; prose output is for humans.
 - It reports deterministic findings from files and repository metadata.
+
+## Maintainer Release Workflow
+
+Releases are intended to publish from GitHub Actions, not from local machine
+state. The release workflow runs on `v*` tag pushes and manual dispatch. It
+performs the release gate before publishing:
+
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm test`
+4. `npm run build`
+5. `npm run smoke`
+6. `npm run smoke:pack`
+7. `npm run benchmark`
+8. `npm publish --provenance --access public`
+
+The workflow uses `NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret and
+requests `id-token: write` for npm provenance. It does not bump versions; the
+version, changelog, commit, and tag must already agree before the release
+workflow is triggered.
+
+Local `npm publish` is a maintainer fallback only. Prefer the release workflow
+when publishing public versions.
+
+## Package Tarball Policy
+
+`npm run smoke:pack` validates both install behavior and package contents. It
+parses `npm pack --json` and allows only the public package surface:
+
+- `dist/`
+- `docs/`
+- `examples/`
+- `README.md`
+- `CHANGELOG.md`
+- `AGENTS.md`
+- `LICENSE`
+- `package.json`
+
+The smoke check rejects workspace-only material such as `agents/`, `notes/`,
+`PROJECT_MEMORY_REFERENCE.md`, and `benchmarks/out/`. It also scans packed
+public text files for local absolute paths and token/secret-looking strings.
+The packed package size is printed as part of the smoke output.
+
+## Security Automation
+
+The repository includes automation for:
+
+- CodeQL analysis for JavaScript/TypeScript and GitHub Actions workflows.
+- Dependency review on pull requests.
+- Dependabot update pull requests for npm and GitHub Actions dependencies.
+
+These checks are review gates, not auto-merge rules.
 
 ## Optional Formats
 

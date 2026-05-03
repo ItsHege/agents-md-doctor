@@ -48,7 +48,8 @@ try {
 }
 
 const failedExpectations = expectationResults.filter((result) => result.ok === false);
-const qualitySummary = labelBenchmarkFindings(repoResults, expectations.expectations ?? []);
+const qualityBudget = expectations.qualityBudget ?? {};
+const qualitySummary = labelBenchmarkFindings(repoResults, expectations.expectations ?? [], qualityBudget);
 const report = {
   schemaVersion: "1.0.0",
   generatedAt: new Date().toISOString(),
@@ -80,7 +81,8 @@ if (
   operationalFailures > 0 ||
   failedExpectations.length > 0 ||
   qualitySummary.criticalFPCount > 0 ||
-  qualitySummary.falsePositiveErrorCount > 0
+  qualitySummary.falsePositiveErrorCount > 0 ||
+  qualitySummary.budgetStatus?.ok === false
 ) {
   process.exitCode = 1;
 }
@@ -246,9 +248,8 @@ function evaluateExpectations(repoResult, repoExpectations) {
   for (const expected of repoExpectations) {
     const commandResult = expected.command === "lint" ? repoResult.lint : repoResult.verify;
     const findings = Array.isArray(commandResult.findings) ? commandResult.findings : [];
-    const matched = findings.some(
-      (finding) => finding.ruleId === expected.ruleId && finding.severity === expected.expectedSeverity
-    );
+    const matchedFindings = findings.filter((finding) => doesExpectationMatchFinding(expected, finding));
+    const matched = matchedFindings.length > 0;
     const ok = expected.expectPresence ? matched : !matched;
 
     results.push({
@@ -258,9 +259,13 @@ function evaluateExpectations(repoResult, repoExpectations) {
       expectedSeverity: expected.expectedSeverity,
       expectPresence: expected.expectPresence,
       expectedLabel: expected.expectedLabel,
-      matchedFindingCount: findings.filter(
-        (finding) => finding.ruleId === expected.ruleId && finding.severity === expected.expectedSeverity
-      ).length,
+      file: expected.file,
+      line: expected.line,
+      reference: expected.reference,
+      reason: expected.reason,
+      scriptName: expected.scriptName,
+      targetName: expected.targetName,
+      matchedFindingCount: matchedFindings.length,
       notes: expected.notes,
       ok
     });
@@ -345,7 +350,7 @@ function countByRule(findings) {
   return counts;
 }
 
-function labelBenchmarkFindings(repoResults, expectedFindings) {
+function labelBenchmarkFindings(repoResults, expectedFindings, qualityBudget) {
   const labelableExpectations = expectedFindings.filter(
     (expected) =>
       ["TP", "FP", "Needs-Config", "Unclear"].includes(expected.expectedLabel) &&
@@ -382,7 +387,7 @@ function labelBenchmarkFindings(repoResults, expectedFindings) {
         rule.total += 1;
 
         const matchKey = makeExpectationMatchKey(repo.id, command, finding.ruleId, finding.severity);
-        const expected = expectedByKey.get(matchKey);
+        const expected = findMatchingLabelExpectation(expectedByKey.get(matchKey) ?? [], finding);
         if (!expected) {
           const labeledFinding = {
             repoId: repo.id,
@@ -420,7 +425,7 @@ function labelBenchmarkFindings(repoResults, expectedFindings) {
           ruleId: finding.ruleId,
           severity: finding.severity,
           label: expected.expectedLabel,
-          critical: false,
+          critical: expected.critical === true,
           expectationNotes: expected.notes
         };
         labeledFindings.push(labeledFinding);
@@ -454,10 +459,10 @@ function labelBenchmarkFindings(repoResults, expectedFindings) {
       labeledFinding.ruleId,
       labeledFinding.severity
     );
-    const expected = expectedByKey.get(matchKey);
+    const expected = expectedByKey.get(matchKey)?.find((candidate) => candidate.notes === labeledFinding.expectationNotes);
     const repeatedAcrossRepos = (fpRepoCountsByRule.get(labeledFinding.ruleId) ?? 0) > 1;
     const falsePositiveError = labeledFinding.severity === "error";
-    const critical = expected?.critical === true || falsePositiveError || repeatedAcrossRepos;
+    const critical = labeledFinding.critical === true || expected?.critical === true || falsePositiveError || repeatedAcrossRepos;
 
     if (falsePositiveError) {
       falsePositiveErrorCount += 1;
@@ -478,19 +483,86 @@ function labelBenchmarkFindings(repoResults, expectedFindings) {
     falsePositiveErrorCount,
     criticalFPCount,
     rules,
-    labeledFindings
+    labeledFindings,
+    budgetStatus: evaluateQualityBudget(labels, {
+      criticalFPCount,
+      falsePositiveErrorCount,
+      unmatchedFindingCount
+    }, qualityBudget)
   };
 }
 
 function groupExpectationsByMatchKey(expectationList) {
-  /** @type {Map<string, object>} */
+  /** @type {Map<string, Array<object>>} */
   const grouped = new Map();
 
   for (const expected of expectationList) {
-    grouped.set(makeExpectationMatchKey(expected.repoId, expected.command, expected.ruleId, expected.expectedSeverity), expected);
+    const key = makeExpectationMatchKey(expected.repoId, expected.command, expected.ruleId, expected.expectedSeverity);
+    const list = grouped.get(key) ?? [];
+    list.push(expected);
+    grouped.set(key, list);
   }
 
   return grouped;
+}
+
+function findMatchingLabelExpectation(candidates, finding) {
+  const matching = candidates.filter((candidate) => doesExpectationMatchFinding(candidate, finding));
+  if (matching.length === 0) {
+    return undefined;
+  }
+
+  return matching.sort((left, right) => getExpectationSpecificity(right) - getExpectationSpecificity(left))[0];
+}
+
+function doesExpectationMatchFinding(expected, finding) {
+  if (finding.ruleId !== expected.ruleId || finding.severity !== expected.expectedSeverity) {
+    return false;
+  }
+  if (expected.file && expected.file !== finding.file) {
+    return false;
+  }
+  if (Number.isInteger(expected.line) && expected.line !== finding.line) {
+    return false;
+  }
+  if (expected.reference && expected.reference !== finding.details?.reference) {
+    return false;
+  }
+  if (expected.reason && expected.reason !== finding.details?.reason) {
+    return false;
+  }
+  if (expected.scriptName && expected.scriptName !== finding.details?.scriptName) {
+    return false;
+  }
+  if (expected.targetName && expected.targetName !== finding.details?.targetName) {
+    return false;
+  }
+
+  return true;
+}
+
+function getExpectationSpecificity(expected) {
+  return ["file", "line", "reference", "reason", "scriptName", "targetName"].filter((field) => expected[field] !== undefined).length;
+}
+
+function evaluateQualityBudget(labels, counts, qualityBudget) {
+  const maxUnclear = qualityBudget.maxUnclearFindingCount;
+  const ok = !Number.isInteger(maxUnclear) || labels.Unclear <= maxUnclear;
+  const warnings = [];
+
+  if (Number.isInteger(maxUnclear) && labels.Unclear > maxUnclear) {
+    warnings.push(`Unclear finding count ${labels.Unclear} exceeds budget ${maxUnclear}.`);
+  }
+
+  return {
+    ok,
+    maxUnclearFindingCount: Number.isInteger(maxUnclear) ? maxUnclear : null,
+    unclearFindingCount: labels.Unclear,
+    criticalFPCount: counts.criticalFPCount,
+    falsePositiveErrorCount: counts.falsePositiveErrorCount,
+    unmatchedFindingCount: counts.unmatchedFindingCount,
+    warnings
+  };
 }
 
 function makeExpectationMatchKey(repoId, command, ruleId, severity) {
@@ -576,6 +648,14 @@ function printSummary(report, reportPath) {
       `${quality.labels["Needs-Config"]} Needs-Config, ${quality.labels.Unclear} Unclear.`
   );
   console.log(`Critical FP: ${quality.criticalFPCount}; false-positive errors: ${quality.falsePositiveErrorCount}.`);
+  if (quality.budgetStatus?.maxUnclearFindingCount !== null) {
+    console.log(
+      `Unclear budget: ${quality.budgetStatus.unclearFindingCount}/${quality.budgetStatus.maxUnclearFindingCount}.`
+    );
+  }
+  for (const warning of quality.budgetStatus?.warnings ?? []) {
+    console.warn(`Benchmark quality budget: ${warning}`);
+  }
   console.log(`Report: ${reportPath}`);
 }
 

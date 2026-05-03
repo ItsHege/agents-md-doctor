@@ -7,8 +7,9 @@ public milestones.
 ## Near Term
 
 - Expand instruction graph benchmarks with more nested and monorepo targets.
-- Harden CI adoption docs, including wrapper guidance for annotation patterns.
 - Harden optional GitHub annotation and SARIF output based on CI feedback.
+- Improve path context for monorepos and generated-file references based on
+  reviewed benchmark labels.
 
 ## Next
 

@@ -585,6 +585,7 @@ function loadNearestMakeTargets(root: string, fileAbsolutePath: string): Set<str
 
   const targets = new Set<string>();
   const lines = fs.readFileSync(makePath, "utf8").split(/\r?\n/);
+  const variables = collectMakeVariables(lines);
 
   for (const rawLine of lines) {
     if (rawLine.startsWith("\t")) {
@@ -610,7 +611,10 @@ function loadNearestMakeTargets(root: string, fileAbsolutePath: string): Set<str
       continue;
     }
 
-    const candidates = head.split(/\s+/);
+    const candidates =
+      head === ".PHONY"
+        ? expandMakeTokens(line.slice(ruleSeparatorIndex + 1).trim().split(/\s+/), variables)
+        : expandMakeTokens(head.split(/\s+/), variables);
 
     for (const candidate of candidates) {
       if (!MAKE_TARGET_PATTERN.test(candidate)) {
@@ -626,6 +630,83 @@ function loadNearestMakeTargets(root: string, fileAbsolutePath: string): Set<str
   }
 
   return targets;
+}
+
+function collectMakeVariables(lines: string[]): Map<string, string[]> {
+  const variables = new Map<string, string[]>();
+  let logicalLine = "";
+
+  for (const rawLine of lines) {
+    const trimmedRight = rawLine.replace(/\s+$/u, "");
+    const continued = trimmedRight.endsWith("\\");
+    logicalLine += continued ? `${trimmedRight.slice(0, -1)} ` : trimmedRight;
+
+    if (continued) {
+      continue;
+    }
+
+    const line = logicalLine.split("#", 1)[0]?.trim();
+    logicalLine = "";
+
+    if (!line || line.startsWith("\t")) {
+      continue;
+    }
+
+    const assignment = /^([A-Za-z_][A-Za-z0-9_]*)\s*(:=|\?=|\+=|=)\s*(.*)$/u.exec(line);
+    if (!assignment) {
+      continue;
+    }
+
+    const [, name, operator, value = ""] = assignment;
+    const tokens = expandMakeValue(value, variables).filter((token) => MAKE_TARGET_PATTERN.test(token));
+
+    if (operator === "+=") {
+      variables.set(name, [...(variables.get(name) ?? []), ...tokens]);
+      continue;
+    }
+
+    if (operator === "?=" && variables.has(name)) {
+      continue;
+    }
+
+    variables.set(name, tokens);
+  }
+
+  return variables;
+}
+
+function expandMakeTokens(tokens: string[], variables: Map<string, string[]>): string[] {
+  const expanded: string[] = [];
+
+  for (const token of tokens) {
+    if (!token) {
+      continue;
+    }
+
+    const variableReference = /^\$\(([^)]+)\)$|^\$\{([^}]+)\}$/u.exec(token);
+    const variableName = variableReference?.[1] ?? variableReference?.[2];
+
+    if (variableName) {
+      expanded.push(...(variables.get(variableName) ?? []));
+      continue;
+    }
+
+    expanded.push(token);
+  }
+
+  return expanded;
+}
+
+function expandMakeValue(value: string, variables: Map<string, string[]>): string[] {
+  const trimmedValue = value.trim();
+  const addPrefix = /^\$\(addprefix\s+([^,]+),\s*\$\(([^)]+)\)\)$/u.exec(trimmedValue);
+
+  if (addPrefix) {
+    const [, prefix = "", variableName = ""] = addPrefix;
+    return (variables.get(variableName) ?? []).map((token) => `${prefix}${token}`);
+  }
+
+  return expandMakeTokens(trimmedValue.split(/\s+/), variables);
 }
 
 function findNearestFile(root: string, startDirectory: string, fileNames: string[]): string | null {

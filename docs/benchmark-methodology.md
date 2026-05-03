@@ -20,6 +20,7 @@ This document defines the real-repository benchmark process for AGENTS.md Doctor
   - deterministic rule assertions per repo/command
   - expected severity
   - expected TP/FP label intent
+  - reviewed quality budget for unclassified findings
 
 ## Execution
 
@@ -82,6 +83,26 @@ signal.
 
 Expectation pass/fail behavior is based on the configured rule id, command,
 severity, presence expectation, and graph applied-chain assertions.
+
+## Quality Budget
+
+The benchmark runner enforces a reviewed quality budget from
+`benchmarks/expected-findings.json`.
+
+Current hard gates:
+
+- operational clone/checkout/runtime failures fail the benchmark;
+- deterministic expectation failures fail the benchmark;
+- `criticalFPCount > 0` fails the benchmark;
+- `falsePositiveErrorCount > 0` fails the benchmark;
+- `labels.Unclear` above `qualityBudget.maxUnclearFindingCount` fails the
+  benchmark.
+
+The 0.4.0 baseline classifies the current pinned benchmark findings so the
+unclear budget is intentionally strict. New findings should be reviewed and
+labeled as `TP`, `FP`, `Needs-Config`, or `Unclear` instead of being hidden by
+rule changes. These labels remain benchmark metadata only; they do not alter
+CLI severity, exit codes, JSON reports, SARIF output, or GitHub annotations.
 
 ## Output Formats
 
