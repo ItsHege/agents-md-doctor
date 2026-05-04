@@ -394,6 +394,11 @@ function labelBenchmarkFindings(repoResults, expectedFindings, qualityBudget) {
             command,
             ruleId: finding.ruleId,
             severity: finding.severity,
+            file: finding.file,
+            line: finding.line,
+            reference: finding.details?.reference,
+            reason: finding.details?.reason,
+            message: finding.message,
             label: "Unclear",
             critical: false,
             expectationNotes: "No reviewed benchmark label matched this finding."
@@ -655,6 +660,25 @@ function printSummary(report, reportPath) {
   }
   for (const warning of quality.budgetStatus?.warnings ?? []) {
     console.warn(`Benchmark quality budget: ${warning}`);
+  }
+  const unclearFindings = quality.labeledFindings.filter((finding) => finding.label === "Unclear");
+  for (const finding of unclearFindings.slice(0, 20)) {
+    console.warn(
+      [
+        "Unclear finding:",
+        `repo=${finding.repoId}`,
+        `command=${finding.command}`,
+        `rule=${finding.ruleId}`,
+        `severity=${finding.severity}`,
+        finding.file ? `file=${finding.file}` : undefined,
+        finding.line ? `line=${finding.line}` : undefined,
+        finding.reference ? `reference=${finding.reference}` : undefined,
+        finding.reason ? `reason=${finding.reason}` : undefined,
+        finding.message ? `message=${finding.message}` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
+    );
   }
   console.log(`Report: ${reportPath}`);
 }
