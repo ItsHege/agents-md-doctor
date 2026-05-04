@@ -7,6 +7,24 @@ This catalog lists AGENTS.md Doctor rule and report finding IDs.
 Rule findings describe instruction file problems detected by `lint` and by
 commands that include lint behavior, such as `verify`.
 
+## Finding Triage
+
+AGENTS.md Doctor reports deterministic findings; it does not know every
+repository policy decision. During review, classify findings before editing:
+
+- `TP`: valid and useful finding. Fix stale instructions, missing files, missing
+  command declarations, oversized guidance, or risky wording.
+- `FP`: objectively incorrect finding. Keep the file, line, and command output
+  as evidence for an upstream rule fix.
+- `Needs-Config`: expected repo-local policy noise. Use `.agents-doctor.json`
+  to ignore intentional fixtures, adjust required headings, tune max lines, or
+  change severity.
+- `Unclear`: needs human context. Do not silence it just to make the report
+  clean.
+
+These labels are review vocabulary. They do not change CLI severities, exit
+codes, JSON reports, GitHub annotations, or SARIF output.
+
 ## `size.file_too_long`
 
 - Category: `size`

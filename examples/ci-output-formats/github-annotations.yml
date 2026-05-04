@@ -1,0 +1,22 @@
+name: Agent Instructions
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agents-doctor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Verify AGENTS.md instructions with annotations
+        run: npx agents-doctor@latest verify --format github .
+

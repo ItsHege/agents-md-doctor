@@ -96,8 +96,8 @@ finding severities as `error`, `warning`, or `note`.
 
 ## Instruction Graph Details
 
-Instruction graph output in the `0.2.0` release line is represented as normal
-findings with additive `details` fields. The top-level report schema remains
+Instruction graph output is represented as normal findings with additive
+`details` fields. The top-level report schema remains
 `schemaVersion: "1.0.0"`.
 
 When `instructionGraph.enabled` is true:

@@ -47,6 +47,9 @@ jobs:
       - name: Benchmark
         run: npm run benchmark
 
+      - name: Release preflight
+        run: npm run release:preflight
+
       - name: Publish to npm
         run: npm publish --provenance --access public
         env:

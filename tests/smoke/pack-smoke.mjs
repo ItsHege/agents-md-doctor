@@ -48,18 +48,68 @@ try {
     [installedCliPath, "lint", "--json", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
     tempRoot
   );
-  const report = JSON.parse(lintResult.stdout);
-  assert.equal(report.schemaVersion, "1.0.0");
-  assert.equal(report.tool, "agents-doctor");
-  assert.equal(report.command, "lint");
-  assert.equal(report.exitCode, 0);
-  assert.deepEqual(report.findings, []);
+  const lintReport = parseCliReport(lintResult.stdout, "lint");
+  assert.equal(lintReport.exitCode, 0);
+  assert.deepEqual(lintReport.findings, []);
+
+  const verifyJsonResult = run(
+    process.execPath,
+    [installedCliPath, "verify", "--json", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
+    tempRoot
+  );
+  const verifyReport = parseCliReport(verifyJsonResult.stdout, "verify");
+  assert.equal(verifyReport.exitCode, 0);
+  assert.equal(
+    verifyReport.findings.some((finding) => finding.ruleId === "coverage.discovery_summary"),
+    true
+  );
+
+  const explainJsonResult = run(
+    process.execPath,
+    [
+      installedCliPath,
+      "explain",
+      ".",
+      "--json",
+      path.join(projectRoot, "tests", "fixtures", "short-agents-file")
+    ],
+    tempRoot
+  );
+  const explainReport = parseCliReport(explainJsonResult.stdout, "explain");
+  assert.equal(explainReport.exitCode, 0);
+  assert.equal(explainReport.findings[0]?.ruleId, "inheritance.applied_chain");
+
+  const githubResult = run(
+    process.execPath,
+    [installedCliPath, "verify", "--format", "github", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
+    tempRoot
+  );
+  assert.match(githubResult.stdout, /::notice file=AGENTS\.md,line=1,title=coverage\.discovery_summary::/);
+  assert.match(githubResult.stdout, /agents-doctor verify:/);
+
+  const sarifResult = run(
+    process.execPath,
+    [installedCliPath, "verify", "--format", "sarif", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],
+    tempRoot
+  );
+  const sarifReport = JSON.parse(sarifResult.stdout);
+  assert.equal(sarifReport.version, "2.1.0");
+  assert.equal(sarifReport.runs[0]?.tool?.driver?.name, "agents-doctor");
+  assert.equal(sarifReport.runs[0]?.results[0]?.ruleId, "coverage.discovery_summary");
 } finally {
   if (tarballPath) {
     fs.rmSync(tarballPath, { force: true });
   }
 
   fs.rmSync(tempRoot, { recursive: true, force: true });
+}
+
+function parseCliReport(stdout, command) {
+  const report = JSON.parse(stdout);
+  assert.equal(report.schemaVersion, "1.0.0");
+  assert.equal(report.tool, "agents-doctor");
+  assert.equal(report.command, command);
+  return report;
 }
 
 function parsePackOutput(stdout) {

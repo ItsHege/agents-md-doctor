@@ -20,6 +20,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "benchmark": "node scripts/benchmark/run-benchmark.mjs",
+    "release:preflight": "node scripts/release-preflight.mjs",
     "smoke": "node tests/smoke/cli-smoke.mjs",
     "smoke:pack": "node tests/smoke/pack-smoke.mjs",
     "test": "vitest run",

@@ -1,0 +1,7 @@
+{
+  "instructionGraph": {
+    "enabled": true,
+    "maxDepth": 2
+  }
+}
+

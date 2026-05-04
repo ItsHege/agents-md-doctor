@@ -76,8 +76,8 @@ Graph mechanics findings use the same rule override mechanism:
 
 ## Instruction Graph Defaults
 
-Instruction graph traversal is disabled by default in the `0.2.0` release line
-to avoid surprising users with findings from documentation fragments.
+Instruction graph traversal is disabled by default to avoid surprising users
+with findings from documentation fragments.
 
 When enabled, AGENTS.md Doctor follows only explicit local Markdown links and
 inline-code references that look like agent instruction files. It does not scan

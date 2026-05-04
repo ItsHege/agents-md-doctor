@@ -1,0 +1,28 @@
+name: Agent Instructions SARIF
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  agents-doctor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Generate AGENTS.md Doctor SARIF
+        run: npx agents-doctor@latest verify --format sarif . > agents-doctor.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: agents-doctor.sarif
+

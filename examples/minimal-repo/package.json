@@ -1,0 +1,8 @@
+{
+  "name": "agents-doctor-minimal-example",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}
+

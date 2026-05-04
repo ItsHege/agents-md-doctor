@@ -1,0 +1,9 @@
+{
+  "name": "@example/web",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run"
+  }
+}
+

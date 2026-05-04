@@ -1,0 +1,8 @@
+{
+  "name": "agents-doctor-monorepo-example",
+  "private": true,
+  "scripts": {
+    "test": "pnpm -r test"
+  }
+}
+

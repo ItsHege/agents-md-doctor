@@ -10,6 +10,11 @@
   dependencies.
 - Add a benchmark quality budget so new unreviewed findings fail the benchmark
   gate until they are classified.
+- Add a release preflight guard that checks version/tag/changelog alignment and
+  refuses to publish a package version that already exists on npm.
+- Add first-run onboarding examples for minimal repositories, monorepo command
+  scope ambiguity, missing paths, opt-in instruction graphs, GitHub
+  annotations, and SARIF output.
 
 ### Changed
 - Expand reviewed benchmark labels for coverage summaries, command findings,
@@ -20,6 +25,10 @@
 - Harden packed-package smoke checks with an allowlist for public package
   contents, private/workspace path rejection, local absolute path detection, and
   secret-like token scanning.
+- Expand packed-package smoke checks to exercise installed `verify --json`,
+  `explain --json`, GitHub annotation output, and SARIF output.
+- Clarify first-adoption finding triage with `TP`, `FP`, `Needs-Config`, and
+  `Unclear` labels.
 
 ### Notes
 - No new CLI commands or flags.

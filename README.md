@@ -50,6 +50,42 @@ npx agents-doctor@latest verify --json .
 npx agents-doctor@latest explain src
 ```
 
+## First Five Minutes
+
+Use this flow when adding AGENTS.md Doctor to a repository for the first time:
+
+1. Run a broad readiness check:
+
+   ```bash
+   npx agents-doctor@latest verify --json .
+   ```
+
+2. If the output is hard to scan, run the human view:
+
+   ```bash
+   npx agents-doctor@latest verify .
+   ```
+
+3. Classify each finding before editing instructions:
+
+   - `TP`: the finding is valid and useful; fix the instruction or the repo.
+   - `FP`: the finding is objectively wrong; keep the evidence for an upstream bug report.
+   - `Needs-Config`: the finding is expected for this repo; add explicit `.agents-doctor.json` config.
+   - `Unclear`: more human context is needed before changing anything.
+
+4. Fix only `TP` findings and intentional `Needs-Config` cases.
+5. Re-run the same command and keep the JSON output as the CI contract.
+
+## Command Chooser
+
+- Use `lint` for fast local checks of AGENTS.md size, structure, paths, command references, and risky instructions.
+- Use `verify` for CI and adoption checks. It includes lint findings plus repository coverage sanity findings.
+- Use `explain <path>` when you need to know which AGENTS.md files apply to a file or directory.
+- Use `--json` for scripts and CI wrappers.
+- Use `--format github` for GitHub workflow annotations plus a human summary.
+- Use `--format sarif` for SARIF consumers that ingest SARIF 2.1.0.
+- Use `--strict` or `--fail-on-warning` only after the team has reviewed the warning baseline.
+
 Install alternatives:
 
 ```bash
@@ -143,6 +179,9 @@ A typical loop:
 5. Leave semantic or product decisions to human review.
 
 See `examples/codex-skill/SKILL.md` for a Codex skill example.
+See `examples/README.md` for public onboarding examples covering a minimal
+repo, monorepo scope ambiguity, missing paths, instruction graph opt-in,
+GitHub annotations, and SARIF output.
 For the benchmark labeling vocabulary behind this workflow, see
 `docs/benchmark-methodology.md`.
 
@@ -151,8 +190,8 @@ For the benchmark labeling vocabulary behind this workflow, see
 AGENTS.md Doctor reads `.agents-doctor.json` from the repository root when it
 exists.
 
-Instruction graph validation is part of the `0.2.0` release line. It is
-disabled by default and must be enabled explicitly.
+Instruction graph validation is disabled by default and must be enabled
+explicitly.
 
 ```json
 {

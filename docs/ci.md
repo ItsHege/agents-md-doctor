@@ -44,6 +44,25 @@ Exit code behavior:
 - `1`: error findings, or warnings when strict warning failure is enabled.
 - `2`: usage, config, or runtime failure.
 
+## First Adoption Pass
+
+Before enabling strict warning failure, review the first report and classify
+findings:
+
+- `TP`: valid and useful finding; fix the instruction or repository drift.
+- `FP`: objectively incorrect finding; keep a small reproduction for an
+  upstream issue.
+- `Needs-Config`: expected repo-local policy noise; configure it explicitly.
+- `Unclear`: needs human context before changing instructions or config.
+
+Recommended rollout:
+
+1. Run `npx agents-doctor@latest verify --json .` locally.
+2. Review all errors and surprising warnings.
+3. Fix `TP` findings and add intentional config for `Needs-Config` findings.
+4. Add the CI gate without `--fail-on-warning`.
+5. Enable `--fail-on-warning` only after the warning baseline is understood.
+
 ## Stricter Warning Policy
 
 Use `--strict`, `--fail-on-warning`, or `"failOnWarning": true` when warnings
@@ -109,6 +128,21 @@ Recommended custom mapping:
 - `warning` -> GitHub `warning`
 - `info` -> GitHub `notice`
 
+See `examples/ci-output-formats/github-annotations.yml` for a minimal workflow.
+
+## SARIF Pattern
+
+Use `--format sarif` when your CI system ingests SARIF 2.1.0.
+
+```yaml
+      - name: Generate AGENTS.md Doctor SARIF
+        run: npx agents-doctor@latest verify --format sarif . > agents-doctor.sarif
+```
+
+For GitHub code scanning upload, the workflow also needs
+`security-events: write` permission and `github/codeql-action/upload-sarif`.
+See `examples/ci-output-formats/sarif-upload.yml` for a minimal workflow.
+
 ## Trust Boundaries
 
 AGENTS.md Doctor is a repository inspection tool, not a command runner.
@@ -132,12 +166,14 @@ performs the release gate before publishing:
 5. `npm run smoke`
 6. `npm run smoke:pack`
 7. `npm run benchmark`
-8. `npm publish --provenance --access public`
+8. `npm run release:preflight`
+9. `npm publish --provenance --access public`
 
 The workflow uses `NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret and
 requests `id-token: write` for npm provenance. It does not bump versions; the
 version, changelog, commit, and tag must already agree before the release
-workflow is triggered.
+workflow is triggered. The preflight step also checks npm registry state and
+refuses to publish a version that already exists.
 
 Local `npm publish` is a maintainer fallback only. Prefer the release workflow
 when publishing public versions.
@@ -159,7 +195,9 @@ parses `npm pack --json` and allows only the public package surface:
 The smoke check rejects workspace-only material such as `agents/`, `notes/`,
 `PROJECT_MEMORY_REFERENCE.md`, and `benchmarks/out/`. It also scans packed
 public text files for local absolute paths and token/secret-looking strings.
-The packed package size is printed as part of the smoke output.
+The installed tarball is exercised through help, `lint --json`, `verify --json`,
+`explain --json`, GitHub annotation output, and SARIF output. The packed package
+size is printed as part of the smoke output.
 
 ## Security Automation
 
