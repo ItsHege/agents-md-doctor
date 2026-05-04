@@ -370,6 +370,38 @@ describe("paths.reference_missing", () => {
     ]);
   });
 
+  it("reports path references with mismatched casing", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(path.join(root, "readme.md"), "# Lowercase readme\n");
+    fs.writeFileSync(agentsPath, ["# Instructions", "", "Read `README.md` before editing."].join("\n"));
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        file: finding.file,
+        line: finding.line,
+        reference: finding.details?.reference,
+        reason: finding.details?.reason
+      }))
+    ).toEqual([
+      {
+        ruleId: "paths.reference_missing",
+        severity: "warning",
+        file: "AGENTS.md",
+        line: 3,
+        reference: "README.md",
+        reason: "not_found"
+      }
+    ]);
+  });
+
   it("ignores missing path findings with optionality markers", () => {
     const root = makeTempRoot();
     const agentsPath = path.join(root, "AGENTS.md");

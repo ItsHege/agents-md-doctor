@@ -28,6 +28,8 @@
 - Reduce `paths.reference_missing` noise from example/template file names,
   generated output directories, and architectural bare source-file names while
   preserving explicit missing root config and source-path signals.
+- Make `paths.reference_missing` case-aware so Windows runs catch references
+  that would fail on case-sensitive CI filesystems.
 - Harden packed-package smoke checks with an allowlist for public package
   contents, private/workspace path rejection, local absolute path detection, and
   secret-like token scanning.

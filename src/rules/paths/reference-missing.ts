@@ -130,7 +130,7 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
       continue;
     }
 
-    if (!fs.existsSync(resolvedPath)) {
+    if (!fs.existsSync(resolvedPath) || !pathExistsWithExactCase(root, resolvedPath)) {
       if (lineHasOptionalityMarker(contentLines, candidate.line)) {
         continue;
       }
@@ -478,4 +478,36 @@ function isBareSourceBasename(referencePath: string): boolean {
 
 function lineHasAnyMarker(normalizedLine: string, markers: string[]): boolean {
   return markers.some((marker) => normalizedLine.includes(marker));
+}
+
+function pathExistsWithExactCase(root: string, resolvedPath: string): boolean {
+  const relativePath = path.relative(root, resolvedPath);
+
+  if (relativePath.length === 0) {
+    return true;
+  }
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return false;
+  }
+
+  const segments = relativePath.split(path.sep).filter((segment) => segment.length > 0);
+  let currentPath = root;
+
+  for (const segment of segments) {
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(currentPath);
+    } catch {
+      return false;
+    }
+
+    if (!entries.includes(segment)) {
+      return false;
+    }
+
+    currentPath = path.join(currentPath, segment);
+  }
+
+  return true;
 }
