@@ -40,7 +40,8 @@ The package is published on npm as `agents-doctor`.
 
 This README describes the current `main` branch. npm `agents-doctor@latest`
 may lag unreleased `main` features; see `CHANGELOG.md` for the exact released
-feature set.
+feature set. For normal repository checks, prefer `agents-doctor@latest`. Use a
+local checkout only when validating unreleased behavior or preparing a release.
 
 Quick usage:
 
@@ -140,7 +141,8 @@ directory.
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks,
 packed-package smoke checks, benchmarks, CodeQL, dependency review, and
 Dependabot update checks where applicable. The maintainer release workflow
-publishes through npm provenance after the full release gate passes.
+publishes through npm provenance after the full release gate passes and the
+preflight check confirms version, tag, changelog, and npm registry state.
 
 For repository CI setup examples and current output-format limits, see
 `docs/ci.md`.
@@ -160,6 +162,10 @@ Run agents-doctor (lint / verify / explain)
 
 AGENTS.md Doctor does not execute commands from AGENTS.md. It only inspects
 instructions, paths, command references, and policy signals.
+
+For maintainer release work, the release safety checks also validate packed
+package contents, reject private workspace paths or secret-like strings in
+public package text, and exercise installed CLI output formats from the tarball.
 
 For the full architecture flow, see `docs/how-it-works.md`.
 

@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Deterministic CLI/CI checker for AGENTS.md agent instruction files.",
   "type": "module",
   "engines": {

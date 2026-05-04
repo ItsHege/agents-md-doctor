@@ -79,7 +79,9 @@ finding severities in JSON output.
 ## Source-Checkout Validation
 
 When validating this repository from source instead of the published package,
-build before running the CLI.
+build before running the CLI. Use this path for unreleased branch behavior or
+maintainer release work. For normal checks of other repositories, prefer
+`npx agents-doctor@latest`.
 
 ```yaml
       - name: Install dependencies
@@ -172,8 +174,9 @@ performs the release gate before publishing:
 The workflow uses `NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret and
 requests `id-token: write` for npm provenance. It does not bump versions; the
 version, changelog, commit, and tag must already agree before the release
-workflow is triggered. The preflight step also checks npm registry state and
-refuses to publish a version that already exists.
+workflow is triggered. The preflight step also checks package-lock alignment,
+requires a dated changelog entry for the package version, checks npm registry
+state, and refuses to publish a version that already exists.
 
 Local `npm publish` is a maintainer fallback only. Prefer the release workflow
 when publishing public versions.

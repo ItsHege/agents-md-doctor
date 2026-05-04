@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 - Unreleased
+## 0.4.0 - 2026-05-04
 
 ### Added
 - Add a GitHub Actions release workflow that runs the full release gate and
@@ -15,6 +15,9 @@
 - Add first-run onboarding examples for minimal repositories, monorepo command
   scope ambiguity, missing paths, opt-in instruction graphs, GitHub
   annotations, and SARIF output.
+- Clarify Codex skill guidance so normal checks use the published latest CLI,
+  while local checkout runs are reserved for unreleased behavior and release
+  validation.
 
 ### Changed
 - Expand reviewed benchmark labels for coverage summaries, command findings,
@@ -32,6 +35,9 @@
   `explain --json`, GitHub annotation output, and SARIF output.
 - Clarify first-adoption finding triage with `TP`, `FP`, `Needs-Config`, and
   `Unclear` labels.
+- Clarify release documentation for package-lock alignment, dated changelog
+  entries, registry-state checks, package contents scanning, and installed
+  tarball smoke coverage.
 
 ### Notes
 - No new CLI commands or flags.
