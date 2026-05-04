@@ -224,6 +224,152 @@ describe("paths.reference_missing", () => {
     ]);
   });
 
+  it("keeps missing package-lock.json references as real missing-path signal", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, ["# Instructions", "", "Run install after checking `package-lock.json`."].join("\n"));
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        file: finding.file,
+        line: finding.line,
+        reference: finding.details?.reference,
+        reason: finding.details?.reason
+      }))
+    ).toEqual([
+      {
+        ruleId: "paths.reference_missing",
+        severity: "warning",
+        file: "AGENTS.md",
+        line: 3,
+        reference: "package-lock.json",
+        reason: "not_found"
+      }
+    ]);
+  });
+
+  it("keeps missing .travis.yml references as real missing-path signal", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, ["# Instructions", "", "Mirror CI behavior from `.travis.yml`."].join("\n"));
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        file: finding.file,
+        line: finding.line,
+        reference: finding.details?.reference,
+        reason: finding.details?.reason
+      }))
+    ).toEqual([
+      {
+        ruleId: "paths.reference_missing",
+        severity: "warning",
+        file: "AGENTS.md",
+        line: 3,
+        reference: ".travis.yml",
+        reason: "not_found"
+      }
+    ]);
+  });
+
+  it("ignores bare example and template filenames in prose", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "For examples, pretend `my_module.ts` exports helpers.",
+        "Templates may call files `index.ts` and `types.ts`."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores generated and output directory names in prose", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Generated outputs may appear under `dist/`, `node_modules/`, `.next/`, or `target/`."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores architectural bare source basenames while reporting explicit src paths", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Architecture notes mention `entry-base.ts` and `app-render.tsx` as component names.",
+        "But explicit repo paths such as `src/missing.ts` must still be checked."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        file: finding.file,
+        line: finding.line,
+        reference: finding.details?.reference,
+        reason: finding.details?.reason
+      }))
+    ).toEqual([
+      {
+        ruleId: "paths.reference_missing",
+        severity: "warning",
+        file: "AGENTS.md",
+        line: 4,
+        reference: "src/missing.ts",
+        reason: "not_found"
+      }
+    ]);
+  });
+
   it("ignores missing path findings with optionality markers", () => {
     const root = makeTempRoot();
     const agentsPath = path.join(root, "AGENTS.md");

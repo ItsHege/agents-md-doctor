@@ -21,6 +21,61 @@ export interface CheckPathReferencesOptions {
 }
 
 const OPTIONALITY_MARKERS = ["if present", "if available", "if it exists", "when available", "optional"];
+const EXPLICIT_ROOT_FILES = new Set(["package-lock.json", ".travis.yml"]);
+const GENERATED_OUTPUT_SEGMENTS = new Set([
+  ".next",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "target"
+]);
+const GENERATED_OUTPUT_CONTEXT_MARKERS = [
+  "compiled output",
+  "do not edit",
+  "don't edit",
+  "don't read",
+  "generated",
+  "generated files",
+  "generates",
+  "mirrors src",
+  "output",
+  "search only"
+];
+const EXAMPLE_TEMPLATE_CONTEXT_MARKERS = [
+  "convention",
+  "conventions",
+  "e.g.",
+  "example",
+  "examples",
+  "index files",
+  "regular modules",
+  "sample",
+  "template",
+  "test files",
+  "type definitions"
+];
+const ARCHITECTURAL_BARE_SOURCE_CONTEXT_MARKERS = [
+  "affects user bundling",
+  "architecture notes",
+  "boundaries",
+  "build template",
+  "component names",
+  "compile-time",
+  "config/schema",
+  "consume via",
+  "consumed in",
+  "debugging",
+  "export new helpers",
+  "feature-flag",
+  "imports",
+  "runtime",
+  "schema in",
+  "type in",
+  "vendoring",
+  "wire runtime",
+  "wiring"
+];
 
 export function checkPathReferences(options: CheckPathReferencesOptions): Finding[] {
   const root = fs.existsSync(options.root)
@@ -80,6 +135,10 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
         continue;
       }
 
+      if (shouldIgnoreMissingReferenceNoise(contentLines, candidate.line, candidate.path)) {
+        continue;
+      }
+
       findings.push({
         ruleId: pathReferenceMissingRuleDefinition.id,
         severity: options.severity ?? pathReferenceMissingRuleDefinition.defaultSeverity,
@@ -99,6 +158,10 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
       realPath = fs.realpathSync.native(resolvedPath);
     } catch {
       if (lineHasOptionalityMarker(contentLines, candidate.line)) {
+        continue;
+      }
+
+      if (shouldIgnoreMissingReferenceNoise(contentLines, candidate.line, candidate.path)) {
         continue;
       }
 
@@ -359,4 +422,60 @@ function lineHasOptionalityMarker(lines: string[], line: number): boolean {
 
   const normalized = rawLine.toLowerCase();
   return OPTIONALITY_MARKERS.some((marker) => normalized.includes(marker));
+}
+
+function shouldIgnoreMissingReferenceNoise(lines: string[], line: number, referencePath: string): boolean {
+  const rawLine = lines[line - 1];
+
+  if (typeof rawLine !== "string") {
+    return false;
+  }
+
+  const normalizedLine = rawLine.toLowerCase();
+
+  if (isExplicitRootFileReference(referencePath)) {
+    return false;
+  }
+
+  if (isGeneratedOutputReference(referencePath) && lineHasAnyMarker(normalizedLine, GENERATED_OUTPUT_CONTEXT_MARKERS)) {
+    return true;
+  }
+
+  if (isBareSourceBasename(referencePath)) {
+    return (
+      lineHasAnyMarker(normalizedLine, EXAMPLE_TEMPLATE_CONTEXT_MARKERS) ||
+      lineHasAnyMarker(normalizedLine, ARCHITECTURAL_BARE_SOURCE_CONTEXT_MARKERS)
+    );
+  }
+
+  return false;
+}
+
+function isExplicitRootFileReference(referencePath: string): boolean {
+  const normalized = referencePath.replace(/\\/g, "/").trim().toLowerCase();
+  return EXPLICIT_ROOT_FILES.has(normalized);
+}
+
+function isGeneratedOutputReference(referencePath: string): boolean {
+  const normalized = referencePath.replace(/\\/g, "/").trim().replace(/^\.?\//, "");
+  const segments = normalized
+    .split("/")
+    .map((segment) => segment.toLowerCase())
+    .filter((segment) => segment.length > 0);
+
+  return segments.some((segment) => GENERATED_OUTPUT_SEGMENTS.has(segment));
+}
+
+function isBareSourceBasename(referencePath: string): boolean {
+  const normalized = referencePath.replace(/\\/g, "/").trim();
+
+  if (normalized.includes("/") || normalized.startsWith(".")) {
+    return false;
+  }
+
+  return /\.(?:d\.)?(?:ts|tsx|js|jsx|mjs|cjs)$/i.test(normalized);
+}
+
+function lineHasAnyMarker(normalizedLine: string, markers: string[]): boolean {
+  return markers.some((marker) => normalizedLine.includes(marker));
 }

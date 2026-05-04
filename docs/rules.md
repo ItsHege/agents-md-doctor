@@ -100,6 +100,12 @@ Rule severity can be `error`, `warning`, `info`, or `off`.
 Reports missing or outside-repo path references found in Markdown links and
 path-like inline code.
 
+The rule intentionally ignores common non-repository-path prose, including
+obvious placeholders, URLs, module specifiers, system absolute paths, generated
+output directory mentions, and contextual example/template bare filenames. It
+still reports explicit root config references such as `package-lock.json` and
+`.travis.yml`, plus explicit path-like references such as `src/missing.ts`.
+
 Example finding:
 
 ```text

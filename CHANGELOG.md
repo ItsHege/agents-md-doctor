@@ -22,6 +22,9 @@
   real-repository benchmarks.
 - Improve Makefile target detection for simple variable-expanded `.PHONY`
   target lists such as `$(SHELL_TARGETS)`.
+- Reduce `paths.reference_missing` noise from example/template file names,
+  generated output directories, and architectural bare source-file names while
+  preserving explicit missing root config and source-path signals.
 - Harden packed-package smoke checks with an allowlist for public package
   contents, private/workspace path rejection, local absolute path detection, and
   secret-like token scanning.
