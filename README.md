@@ -138,11 +138,13 @@ behavior can also be tightened with `--strict`, `--fail-on-warning`, or
 `failOnWarning` config. The optional `[repo]` argument defaults to the current
 directory.
 
-GitHub Actions currently runs typecheck, tests, build, CLI smoke checks,
-packed-package smoke checks, benchmarks, CodeQL, dependency review, and
-Dependabot update checks where applicable. The maintainer release workflow
-publishes through npm provenance after the full release gate passes and the
-preflight check confirms version, tag, changelog, and npm registry state.
+GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and
+packed-package smoke checks on push and pull request. Release automation adds
+benchmarks and release preflight. Repository security automation can use GitHub
+CodeQL default setup, dependency review, and Dependabot update checks where
+applicable. The maintainer release workflow publishes through npm provenance
+when the repository `NPM_TOKEN` secret is configured; otherwise it completes the
+release gate and warns that npm publish was skipped.
 
 For repository CI setup examples and current output-format limits, see
 `docs/ci.md`.

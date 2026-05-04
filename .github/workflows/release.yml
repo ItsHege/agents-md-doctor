@@ -14,6 +14,8 @@ jobs:
   publish:
     name: Publish npm package
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout
@@ -51,6 +53,13 @@ jobs:
         run: npm run release:preflight
 
       - name: Publish to npm
+        if: env.NPM_TOKEN != ''
         run: npm publish --provenance --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+
+      - name: Skip npm publish without NPM_TOKEN
+        if: env.NPM_TOKEN == ''
+        run: |
+          echo "::warning::NPM_TOKEN secret is not configured. Release gate passed, but npm publish was skipped."
+          echo "Publish locally only as an explicit maintainer fallback, then add NPM_TOKEN before the next automated release."

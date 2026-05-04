@@ -9,6 +9,10 @@ JSON output from `lint`, `verify`, and `explain`.
 For most repositories, start with `verify --json`. It includes lint findings and
 repository coverage sanity checks in one report.
 
+Use `agents-doctor@latest` for quick local trials. For a stable CI gate, pin the
+package version or install `agents-doctor` as a project dependency so unrelated
+future releases do not change merge behavior unexpectedly.
+
 ```yaml
 name: Agent Instructions
 
@@ -35,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Verify AGENTS.md instructions
-        run: npx agents-doctor@latest verify --json .
+        run: npx agents-doctor@0.4.1 verify --json .
 ```
 
 Exit code behavior:
@@ -57,10 +61,10 @@ findings:
 
 Recommended rollout:
 
-1. Run `npx agents-doctor@latest verify --json .` locally.
+1. Run `npx agents-doctor@latest verify --json .` locally for the first trial.
 2. Review all errors and surprising warnings.
 3. Fix `TP` findings and add intentional config for `Needs-Config` findings.
-4. Add the CI gate without `--fail-on-warning`.
+4. Add a pinned CI gate without `--fail-on-warning`.
 5. Enable `--fail-on-warning` only after the warning baseline is understood.
 
 ## Stricter Warning Policy
@@ -70,7 +74,7 @@ should fail CI.
 
 ```yaml
       - name: Verify AGENTS.md instructions strictly
-        run: npx agents-doctor@latest verify --json --fail-on-warning .
+        run: npx agents-doctor@0.4.1 verify --json --fail-on-warning .
 ```
 
 Strict mode changes the process/report exit code only. It does not rewrite
@@ -95,7 +99,8 @@ maintainer release work. For normal checks of other repositories, prefer
 ```
 
 The project CI currently runs typecheck, tests, build, built-CLI smoke checks,
-packed-package smoke checks, and benchmark checks.
+and packed-package smoke checks. The maintainer release workflow runs the
+fuller release gate, including benchmarks and release preflight.
 
 ## Annotation Patterns
 
@@ -104,7 +109,7 @@ annotations before the human summary.
 
 ```yaml
       - name: Verify AGENTS.md instructions with annotations
-        run: npx agents-doctor@latest verify --format github .
+        run: npx agents-doctor@0.4.1 verify --format github .
 ```
 
 `--format github` maps severities as:
@@ -138,7 +143,7 @@ Use `--format sarif` when your CI system ingests SARIF 2.1.0.
 
 ```yaml
       - name: Generate AGENTS.md Doctor SARIF
-        run: npx agents-doctor@latest verify --format sarif . > agents-doctor.sarif
+        run: npx agents-doctor@0.4.1 verify --format sarif . > agents-doctor.sarif
 ```
 
 For GitHub code scanning upload, the workflow also needs
@@ -157,9 +162,9 @@ AGENTS.md Doctor is a repository inspection tool, not a command runner.
 
 ## Maintainer Release Workflow
 
-Releases are intended to publish from GitHub Actions, not from local machine
-state. The release workflow runs on `v*` tag pushes and manual dispatch. It
-performs the release gate before publishing:
+Releases are intended to publish from GitHub Actions when the repository
+`NPM_TOKEN` secret is configured. The release workflow runs on `v*` tag pushes
+and manual dispatch. It performs the release gate before publishing:
 
 1. `npm ci`
 2. `npm run typecheck`
@@ -172,11 +177,14 @@ performs the release gate before publishing:
 9. `npm publish --provenance --access public`
 
 The workflow uses `NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret and
-requests `id-token: write` for npm provenance. It does not bump versions; the
-version, changelog, commit, and tag must already agree before the release
-workflow is triggered. The preflight step also checks package-lock alignment,
-requires a dated changelog entry for the package version, checks npm registry
-state, and refuses to publish a version that already exists.
+requests `id-token: write` for npm provenance. If `NPM_TOKEN` is missing, the
+workflow still runs the release gate and exits successfully with a warning, but
+skips npm publish. Local `npm publish` is then an explicit maintainer fallback,
+not the preferred path. The workflow does not bump versions; the version,
+changelog, commit, and tag must already agree before the release workflow is
+triggered. The preflight step also checks package-lock alignment, requires a
+dated changelog entry for the package version, checks npm registry state, and
+refuses to publish a version that already exists.
 
 Local `npm publish` is a maintainer fallback only. Prefer the release workflow
 when publishing public versions.
@@ -206,7 +214,7 @@ size is printed as part of the smoke output.
 
 The repository includes automation for:
 
-- CodeQL analysis for JavaScript/TypeScript and GitHub Actions workflows.
+- GitHub CodeQL default setup, when enabled in repository security settings.
 - Dependency review on pull requests.
 - Dependabot update pull requests for npm and GitHub Actions dependencies.
 

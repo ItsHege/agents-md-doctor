@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1 - 2026-05-04
+
+### Changed
+- Remove the committed CodeQL workflow so the repository can rely on GitHub
+  CodeQL default setup without duplicate advanced-configuration failures.
+- Make the release workflow complete the release gate cleanly when `NPM_TOKEN`
+  is not configured, while warning that npm publish was skipped and must be
+  handled explicitly by the maintainer.
+- Clarify CI docs so trial usage can use `agents-doctor@latest`, while stable
+  CI gates should pin a package version or install the package as a dependency.
+
+### Notes
+- No CLI behavior changes.
+- No JSON, SARIF, or GitHub annotation schema changes.
+
 ## 0.4.0 - 2026-05-04
 
 ### Added
