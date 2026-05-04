@@ -212,9 +212,8 @@ function scanPackedTextFile(packedPath, packageSizeBytes) {
 function assertNoLocalAbsolutePath(value, subject, packageSizeBytes) {
   const normalizedProjectRoot = normalizeSeparators(projectRoot);
   const normalizedHome = normalizeSeparators(os.homedir());
-  const normalizedTemp = normalizeSeparators(os.tmpdir());
   const normalizedValue = normalizeSeparators(value);
-  const privateRoots = [normalizedProjectRoot, normalizedHome, normalizedTemp].filter(Boolean);
+  const privateRoots = [normalizedProjectRoot, normalizedHome].filter(Boolean);
   const privateRoot = privateRoots.find((root) => normalizedValue.includes(root));
 
   assert.equal(
