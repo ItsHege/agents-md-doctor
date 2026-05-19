@@ -116,6 +116,29 @@ Example `inheritance.applied_chain` details:
   "targetPath": "packages/app/src/index.ts",
   "appliedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
   "conflicts": [],
+  "toolEvidence": [
+    {
+      "tool": "Codex CLI",
+      "nativeDiscovery": true,
+      "surface": "AGENTS.md ancestry",
+      "manualActivationRequired": false,
+      "knownLossyBehavior": []
+    },
+    {
+      "tool": "Cursor",
+      "nativeDiscovery": false,
+      "surface": "AGENTS.md compatibility layer; .cursor/rules are not represented by this command",
+      "manualActivationRequired": false,
+      "knownLossyBehavior": ["cursor-rules-not-modeled", "always-on-vs-ancestry-semantics"]
+    },
+    {
+      "tool": "Claude Code",
+      "nativeDiscovery": false,
+      "surface": "AGENTS.md compatibility layer; CLAUDE.md and .claude/skills are not represented by this command",
+      "manualActivationRequired": false,
+      "knownLossyBehavior": ["claude-md-not-modeled", "skill-discovery-not-modeled"]
+    }
+  ],
   "instructionGraph": {
     "referencedInstructionFiles": ["docs/agent/testing.md"],
     "instructionEdges": [

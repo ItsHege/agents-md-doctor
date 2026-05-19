@@ -47,6 +47,14 @@ interface ExplainGraphDetails {
   }>;
 }
 
+interface ToolEvidence {
+  tool: string;
+  nativeDiscovery: boolean;
+  surface: string;
+  manualActivationRequired: boolean;
+  knownLossyBehavior: string[];
+}
+
 export function runExplainCommand(options: ExplainCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
@@ -65,6 +73,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
         })
       : undefined;
     const graphDetails = instructionGraph ? buildExplainGraphDetails(instructionGraph) : undefined;
+    const toolEvidence = buildToolEvidence(appliedFiles);
     const findings: Finding[] = [
       {
         ruleId: "inheritance.applied_chain" as const,
@@ -79,6 +88,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
           targetPath: targetRelativePath,
           appliedFiles,
           conflicts,
+          toolEvidence,
           ...(graphDetails ? { instructionGraph: graphDetails } : {})
         }
       }
@@ -96,7 +106,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
       exitCode: report.exitCode,
       stdout: options.json
         ? renderJsonReport(report)
-        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, graphDetails),
+        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, graphDetails, toolEvidence),
       stderr: ""
     };
   } catch (error) {
@@ -173,7 +183,8 @@ function renderHumanExplainOutput(
   targetPath: string,
   appliedFiles: string[],
   conflicts: ExplainConflict[],
-  graphDetails?: ExplainGraphDetails
+  graphDetails?: ExplainGraphDetails,
+  toolEvidence: ToolEvidence[] = []
 ): string {
   if (appliedFiles.length === 0) {
     return `agents-doctor explain: 0 files apply\ntarget: ${targetPath}\nNo AGENTS.md files found in target ancestry.\n`;
@@ -196,6 +207,16 @@ function renderHumanExplainOutput(
     for (const [index, conflict] of conflicts.entries()) {
       lines.push(`${index + 1}. [${conflict.conflictId}] ${conflict.message}`);
       lines.push(`   files: ${conflict.files.join(", ")}`);
+    }
+  }
+
+  if (toolEvidence.length > 0) {
+    lines.push("Tool evidence:");
+
+    for (const evidence of toolEvidence) {
+      const activation = evidence.manualActivationRequired ? "manual activation may be required" : "auto-discovered";
+      const lossy = evidence.knownLossyBehavior.length > 0 ? `; lossy: ${evidence.knownLossyBehavior.join(", ")}` : "";
+      lines.push(`- ${evidence.tool}: ${evidence.surface} (${activation}${lossy})`);
     }
   }
 
@@ -230,6 +251,34 @@ function loadAppliedFiles(root: string, appliedFiles: string[]): Array<{ absolut
       })
     };
   });
+}
+
+function buildToolEvidence(appliedFiles: string[]): ToolEvidence[] {
+  const hasAgentsFile = appliedFiles.length > 0;
+
+  return [
+    {
+      tool: "Codex CLI",
+      nativeDiscovery: hasAgentsFile,
+      surface: "AGENTS.md ancestry",
+      manualActivationRequired: false,
+      knownLossyBehavior: []
+    },
+    {
+      tool: "Cursor",
+      nativeDiscovery: false,
+      surface: "AGENTS.md compatibility layer; .cursor/rules are not represented by this command",
+      manualActivationRequired: false,
+      knownLossyBehavior: ["cursor-rules-not-modeled", "always-on-vs-ancestry-semantics"]
+    },
+    {
+      tool: "Claude Code",
+      nativeDiscovery: false,
+      surface: "AGENTS.md compatibility layer; CLAUDE.md and .claude/skills are not represented by this command",
+      manualActivationRequired: false,
+      knownLossyBehavior: ["claude-md-not-modeled", "skill-discovery-not-modeled"]
+    }
+  ];
 }
 
 function buildExplainGraphDetails(graph: InstructionGraph): ExplainGraphDetails {

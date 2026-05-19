@@ -27,11 +27,31 @@ describe("runCli", () => {
       path.join(fixtureRoot, "nested-agents")
     ]);
     const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const toolEvidence = report.findings[0]?.details?.toolEvidence;
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(report.command).toBe("explain");
     expect(report.findings[0]?.ruleId).toBe("inheritance.applied_chain");
+    expect(toolEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tool: "Codex CLI",
+          nativeDiscovery: true,
+          surface: "AGENTS.md ancestry"
+        }),
+        expect.objectContaining({
+          tool: "Cursor",
+          nativeDiscovery: false,
+          knownLossyBehavior: expect.arrayContaining(["cursor-rules-not-modeled"])
+        }),
+        expect.objectContaining({
+          tool: "Claude Code",
+          nativeDiscovery: false,
+          knownLossyBehavior: expect.arrayContaining(["claude-md-not-modeled"])
+        })
+      ])
+    );
   });
 
   it("dispatches verify --json", () => {
