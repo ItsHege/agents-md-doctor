@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGENTS.md Doctor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <img class="brand-mark" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>AGENTS.md Doctor</h1>
+            <p>Local instruction checks</p>
+          </div>
+        </div>
+
+        <section class="control-group">
+          <label class="label" for="project-path">Project folder</label>
+          <div class="path-row">
+            <input id="project-path" type="text" readonly placeholder="No folder selected" />
+            <button id="select-project" class="icon-button" type="button" title="Select project folder" aria-label="Select project folder">
+              <span aria-hidden="true">...</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="control-group">
+          <span class="label">Mode</span>
+          <div class="segmented" role="radiogroup" aria-label="Check mode">
+            <button class="segment active" type="button" data-command="verify">Verify</button>
+            <button class="segment" type="button" data-command="lint">Lint</button>
+            <button class="segment" type="button" data-command="explain">Explain</button>
+          </div>
+        </section>
+
+        <section id="target-group" class="control-group hidden">
+          <label class="label" for="target-path">Explain target</label>
+          <input id="target-path" type="text" value="." spellcheck="false" />
+        </section>
+
+        <section class="control-group inline-control">
+          <input id="strict-mode" type="checkbox" />
+          <label for="strict-mode">Fail on warnings</label>
+        </section>
+
+        <button id="run-check" class="primary-button" type="button">Run check</button>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Current report</p>
+            <h2 id="report-title">Ready</h2>
+          </div>
+          <div id="summary-pills" class="summary-pills" aria-live="polite">
+            <span class="pill neutral">No report</span>
+          </div>
+        </header>
+
+        <section id="empty-state" class="empty-state">
+          <div class="empty-icon">AG</div>
+          <h3>Select a project and run Verify</h3>
+          <p>The report stays local and uses the same deterministic checks as the CLI.</p>
+        </section>
+
+        <section id="error-state" class="error-state hidden" role="alert">
+          <h3>Run failed</h3>
+          <p id="error-message"></p>
+        </section>
+
+        <section id="results" class="results hidden">
+          <section id="issue-state" class="issue-state" aria-live="polite">
+            <strong id="issue-title">No issues found</strong>
+            <span id="issue-copy">The selected check completed without errors or warnings.</span>
+          </section>
+
+          <div class="run-ledger" aria-label="Run details">
+            <div>
+              <span>Command</span>
+              <strong id="ledger-command">-</strong>
+            </div>
+            <div>
+              <span>Project root</span>
+              <strong id="ledger-root">-</strong>
+            </div>
+            <div>
+              <span>Generated</span>
+              <strong id="ledger-generated">-</strong>
+            </div>
+            <div>
+              <span>Exit code</span>
+              <strong id="ledger-exit">-</strong>
+            </div>
+            <div>
+              <span>AGENTS.md scanned</span>
+              <strong id="ledger-scanned">-</strong>
+            </div>
+            <div>
+              <span>Findings returned</span>
+              <strong id="ledger-findings">-</strong>
+            </div>
+            <div class="ledger-wide">
+              <span>Scanned files</span>
+              <strong id="ledger-files">-</strong>
+            </div>
+            <div class="ledger-wide">
+              <span>Checks run</span>
+              <div id="ledger-pipeline" class="check-chips"></div>
+            </div>
+          </div>
+
+          <section id="explain-view" class="explain-view hidden" aria-label="Applied instruction chain">
+            <div>
+              <span class="section-label">Explain target</span>
+              <strong id="explain-target">-</strong>
+            </div>
+            <ol id="explain-chain" class="chain-list"></ol>
+            <div id="explain-conflicts" class="conflict-list hidden"></div>
+          </section>
+
+          <section id="findings-panel">
+            <div class="results-toolbar">
+              <div class="filter-row" role="group" aria-label="Severity filters">
+                <button class="filter active" type="button" data-filter="all">All</button>
+                <button class="filter" type="button" data-filter="error">Errors</button>
+                <button class="filter" type="button" data-filter="warning">Warnings</button>
+                <button class="filter" type="button" data-filter="info">Info</button>
+              </div>
+              <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
+            </div>
+
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Rule</th>
+                    <th>Location</th>
+                    <th>Message</th>
+                  </tr>
+                </thead>
+                <tbody id="findings-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
