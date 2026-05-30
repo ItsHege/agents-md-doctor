@@ -491,7 +491,9 @@ function pathExistsWithExactCase(root: string, resolvedPath: string): boolean {
     return false;
   }
 
-  const segments = relativePath.split(path.sep).filter((segment) => segment.length > 0);
+  const segments = relativePath
+    .split(path.sep)
+    .filter((segment: string) => segment.length > 0);
   let currentPath = root;
 
   for (const segment of segments) {
