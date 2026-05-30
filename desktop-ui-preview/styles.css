@@ -388,6 +388,10 @@ h2 {
   width: min(390px, 100%);
 }
 
+.results-toolbar .secondary-button {
+  margin-left: auto;
+}
+
 .table-shell {
   overflow: auto;
   max-height: calc(100vh - 150px);

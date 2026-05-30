@@ -35,6 +35,7 @@ const elements = {
   explainTarget: document.querySelector("#explain-target"),
   explainChain: document.querySelector("#explain-chain"),
   explainConflicts: document.querySelector("#explain-conflicts"),
+  severityFilters: document.querySelector("#severity-filters"),
   findingsPanel: document.querySelector("#findings-panel"),
   findingsBody: document.querySelector("#findings-body"),
   copyJson: document.querySelector("#copy-json")
@@ -135,10 +136,12 @@ function renderReport(report) {
   renderIssueState(report);
   renderRunLedger(report);
   if (report.command === "explain") {
+    elements.severityFilters.classList.add("hidden");
     elements.findingsPanel.classList.add("hidden");
     elements.explainView.classList.remove("hidden");
     renderExplainView(report);
   } else {
+    elements.severityFilters.classList.remove("hidden");
     elements.explainView.classList.add("hidden");
     elements.findingsPanel.classList.remove("hidden");
     renderFindings();
@@ -153,6 +156,7 @@ function renderError(message) {
   elements.results.classList.add("hidden");
   elements.errorState.classList.remove("hidden");
   elements.explainView.classList.add("hidden");
+  elements.severityFilters.classList.remove("hidden");
   elements.findingsPanel.classList.add("hidden");
   elements.reportTitle.textContent = "Run failed";
   elements.summaryPills.innerHTML = renderPill("error", "exit 2");

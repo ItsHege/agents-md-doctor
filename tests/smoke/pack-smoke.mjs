@@ -7,6 +7,7 @@ import path from "node:path";
 const projectRoot = process.cwd();
 const npmCliPath = process.env.npm_execpath;
 assert.equal(typeof npmCliPath, "string", "npm_execpath must be available when running package smoke through npm");
+const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-pack-smoke-"));
 let tarballPath;
 
@@ -42,6 +43,9 @@ try {
   const installedCliPath = resolveInstalledCliPath(tempRoot);
   const helpResult = run(process.execPath, [installedCliPath, "--help"], tempRoot);
   assert.match(helpResult.stdout, /Usage: agents-doctor/);
+
+  const versionResult = run(process.execPath, [installedCliPath, "--version"], tempRoot);
+  assert.equal(versionResult.stdout, `${packageVersion}\n`);
 
   const lintResult = run(
     process.execPath,

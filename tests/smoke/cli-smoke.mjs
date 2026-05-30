@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 const projectRoot = process.cwd();
 const cliPath = path.join(projectRoot, "dist/cli.js");
+const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 
 assertSuccessfulHelp(["--help"]);
 assertSuccessfulHelp(["lint", "--help"]);
 assertSuccessfulHelp(["verify", "--help"]);
+
+const versionResult = runCli(["--version"]);
+assert.equal(versionResult.status, 0, versionResult.stderr);
+assert.equal(versionResult.stderr, "");
+assert.equal(versionResult.stdout, `${packageVersion}\n`);
 
 const shortReport = runLint(["lint", "--json", "tests/fixtures/short-agents-file"]);
 assert.equal(shortReport.exitCode, 0);

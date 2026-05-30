@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.1 - 2026-05-30
+
+### Added
+- Add top-level `agents-doctor --version` CLI output.
+- Add a Windows x64 desktop UI packaging script that creates a portable zip
+  release asset from the source preview.
+- Add GitHub release automation to create or update the tagged GitHub Release
+  and upload the desktop UI zip after npm publish succeeds.
+
+### Changed
+- Document the desktop UI handoff workflow more directly: run a check, copy the
+  JSON report, and hand it to the responsible coding agent for scoped fixes.
+- Document the Windows portable download path while keeping the desktop source
+  outside the published npm package.
+
+### Notes
+- No JSON, SARIF, or GitHub annotation schema changes.
+- The desktop UI remains separate from the npm CLI package.
+
 ## 0.5.0 - 2026-05-30
 
 ### Added

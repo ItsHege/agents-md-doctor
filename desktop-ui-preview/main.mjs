@@ -1,12 +1,14 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } from "electron";
-import { runDoctorReport } from "../dist/api.js";
-import { loadConfig } from "../dist/config/index.js";
-import { findAgentsFiles } from "../dist/discovery/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const doctorDistRoot = resolveDoctorDistRoot();
+const { runDoctorReport } = await import(pathToFileURL(path.join(doctorDistRoot, "api.js")).href);
+const { loadConfig } = await import(pathToFileURL(path.join(doctorDistRoot, "config", "index.js")).href);
+const { findAgentsFiles } = await import(pathToFileURL(path.join(doctorDistRoot, "discovery", "index.js")).href);
 const isSmokeMode = process.env.AGENTS_DOCTOR_UI_SMOKE === "1";
 const appIconPath = path.join(__dirname, "assets", "agents-doctor.ico");
 
@@ -207,6 +209,24 @@ function runSmokeWhenReady(window) {
             const explainChain = Array.from(document.querySelectorAll("#explain-chain li")).map((item) => item.textContent ?? "");
             const explainVisible = !document.querySelector("#explain-view")?.classList.contains("hidden");
             const findingsPanelHidden = document.querySelector("#findings-panel")?.classList.contains("hidden");
+            const severityFiltersHidden = document.querySelector("#severity-filters")?.classList.contains("hidden");
+            const copyJsonButton = document.querySelector("#copy-json");
+            if (!copyJsonButton) {
+              throw new Error("Copy JSON button was not rendered.");
+            }
+            const copyJsonVisible = copyJsonButton
+              ? (copyJsonButton.checkVisibility?.() ?? getComputedStyle(copyJsonButton).display !== "none")
+              : false;
+            copyJsonButton.click();
+            await waitFor("copy explain json", () => {
+              if (window.__agentsDoctorCopyError) {
+                throw new Error("Copy explain JSON failed: " + window.__agentsDoctorCopyError);
+              }
+
+              return (window.__agentsDoctorLastCopiedJson ?? "").includes('"command": "explain"');
+            });
+
+            const copiedExplainJson = window.__agentsDoctorLastCopiedJson ?? "";
 
             const invalidResult = await window.agentsDoctor.runCheck({
               command: "verify",
@@ -242,6 +262,9 @@ function runSmokeWhenReady(window) {
               explainChain,
               explainVisible,
               findingsPanelHidden,
+              severityFiltersHidden,
+              copyJsonVisible,
+              copiedExplainJson,
               invalidExitCode: invalidResult.exitCode,
               errorTitle: document.querySelector("#report-title")?.textContent ?? "",
               errorMessage: document.querySelector("#error-message")?.textContent ?? "",
@@ -308,6 +331,17 @@ function runFromPayload(payload) {
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resolveDoctorDistRoot() {
+  const packagedDistRoot = path.join(__dirname, "dist");
+  const sourceCheckoutDistRoot = path.resolve(__dirname, "..", "dist");
+
+  if (fs.existsSync(path.join(packagedDistRoot, "api.js"))) {
+    return packagedDistRoot;
+  }
+
+  return sourceCheckoutDistRoot;
 }
 
 function withUiMetadata(result) {

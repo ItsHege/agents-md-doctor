@@ -112,6 +112,16 @@
             </div>
           </div>
 
+          <div class="results-toolbar">
+            <div id="severity-filters" class="filter-row" role="group" aria-label="Severity filters">
+              <button class="filter active" type="button" data-filter="all">All</button>
+              <button class="filter" type="button" data-filter="error">Errors</button>
+              <button class="filter" type="button" data-filter="warning">Warnings</button>
+              <button class="filter" type="button" data-filter="info">Info</button>
+            </div>
+            <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
+          </div>
+
           <section id="explain-view" class="explain-view hidden" aria-label="Applied instruction chain">
             <div>
               <span class="section-label">Explain target</span>
@@ -122,16 +132,6 @@
           </section>
 
           <section id="findings-panel">
-            <div class="results-toolbar">
-              <div class="filter-row" role="group" aria-label="Severity filters">
-                <button class="filter active" type="button" data-filter="all">All</button>
-                <button class="filter" type="button" data-filter="error">Errors</button>
-                <button class="filter" type="button" data-filter="warning">Warnings</button>
-                <button class="filter" type="button" data-filter="info">Info</button>
-              </div>
-              <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
-            </div>
-
             <div class="table-shell">
               <table>
                 <thead>
