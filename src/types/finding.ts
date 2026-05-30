@@ -8,8 +8,7 @@ export const FindingSchema = z.object({
   file: z.string().min(1).optional(),
   line: z.number().int().positive().optional(),
   column: z.number().int().positive().optional(),
-  details: z.record(z.unknown()).optional()
+  details: z.record(z.string(), z.unknown()).optional()
 });
 
 export type Finding = z.infer<typeof FindingSchema>;
-

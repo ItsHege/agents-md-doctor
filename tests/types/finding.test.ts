@@ -15,6 +15,23 @@ describe("FindingSchema", () => {
     expect(finding.ruleId).toBe("commands.missing_script");
   });
 
+  it("accepts structured details", () => {
+    const finding = FindingSchema.parse({
+      ruleId: "coverage.discovery_summary",
+      severity: "info",
+      message: "Scanned 1 AGENTS.md file for lint and inheritance sanity.",
+      details: {
+        agentsFileCount: 1,
+        hasRootAgents: true
+      }
+    });
+
+    expect(finding.details).toEqual({
+      agentsFileCount: 1,
+      hasRootAgents: true
+    });
+  });
+
   it("rejects empty messages", () => {
     expect(() =>
       FindingSchema.parse({
@@ -37,4 +54,3 @@ describe("FindingSchema", () => {
     ).toThrow();
   });
 });
-
