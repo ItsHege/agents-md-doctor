@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runExplainCommand } from "../../src/commands/index.js";
+import { ToolEvidenceListSchema } from "../../src/core/tool-evidence.js";
 import { ReportSchema } from "../../src/types/index.js";
 
 const fixtureRoot = path.resolve("tests/fixtures");
@@ -26,7 +27,9 @@ describe("runExplainCommand", () => {
       appliedFiles: string[];
       targetPath: string;
       conflicts: Array<{ conflictId: string }>;
+      toolEvidence: unknown;
     };
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
@@ -34,6 +37,35 @@ describe("runExplainCommand", () => {
     expect(details.appliedFiles).toEqual(["AGENTS.md", "packages/app/AGENTS.md"]);
     expect(details.targetPath).toBe("packages/app");
     expect(details.conflicts).toEqual([]);
+    expect(toolEvidence).toEqual([
+      {
+        toolId: "codex",
+        label: "Codex",
+        discoveryStatus: "native",
+        surface: "AGENTS.md ancestry",
+        checkedSurfaces: ["AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: []
+      },
+      {
+        toolId: "cursor",
+        label: "Cursor",
+        discoveryStatus: "compatible",
+        surface: "AGENTS.md compatibility signal",
+        checkedSurfaces: [".cursor/rules/**/*.mdc", ".cursorrules", "AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: ["cursor-native-rules-not-found", "cursor-agents-md-runtime-semantics-not-attested"]
+      },
+      {
+        toolId: "claude-code",
+        label: "Claude Code",
+        discoveryStatus: "not_found",
+        surface: "CLAUDE.md and .claude/**/*.md",
+        checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+        matchedFiles: [],
+        limitations: ["claude-native-memory-not-found"]
+      }
+    ]);
   });
 
   it("returns human output when json is disabled", () => {
@@ -48,6 +80,82 @@ describe("runExplainCommand", () => {
     expect(result.stdout).toContain("agents-doctor explain: 2 files apply");
     expect(result.stdout).toContain("AGENTS.md");
     expect(result.stdout).toContain("packages/app/AGENTS.md");
+    expect(result.stdout).toContain("Tool evidence:");
+    expect(result.stdout).toContain("Codex: native via AGENTS.md ancestry");
+    expect(result.stdout).toContain("Cursor: compatible via AGENTS.md compatibility signal");
+    expect(result.stdout).not.toContain("auto-discovered");
+  });
+
+  it("reports not_found tool evidence when no instruction surfaces apply", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "packages", "app", "README.md"), "# App\n");
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app/README.md",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = report.findings[0]?.details as {
+      appliedFiles: string[];
+      toolEvidence: unknown;
+    };
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual([]);
+    expect(toolEvidence.map((entry) => [entry.toolId, entry.discoveryStatus])).toEqual([
+      ["codex", "not_found"],
+      ["cursor", "not_found"],
+      ["claude-code", "not_found"]
+    ]);
+  });
+
+  it("reports partial tool evidence for Cursor and Claude native surfaces without modeling runtime semantics", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".cursor", "rules"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".claude", "rules"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.md"), "# App\n");
+    fs.writeFileSync(path.join(root, ".cursorrules"), "Legacy Cursor rules.\n");
+    fs.writeFileSync(path.join(root, ".cursor", "rules", "typescript.mdc"), "---\nglobs: **/*.ts\n---\nUse strict TS.\n");
+    fs.writeFileSync(path.join(root, "CLAUDE.md"), "@AGENTS.md\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "CLAUDE.md"), "@../../AGENTS.md\n");
+    fs.writeFileSync(path.join(root, ".claude", "rules", "workflow.md"), "# Claude workflow\n");
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = report.findings[0]?.details as {
+      toolEvidence: unknown;
+    };
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+    const cursor = toolEvidence.find((entry) => entry.toolId === "cursor");
+    const claude = toolEvidence.find((entry) => entry.toolId === "claude-code");
+
+    expect(cursor).toEqual({
+      toolId: "cursor",
+      label: "Cursor",
+      discoveryStatus: "partial",
+      surface: ".cursor/rules/*.mdc and legacy .cursorrules",
+      checkedSurfaces: [".cursor/rules/**/*.mdc", ".cursorrules"],
+      matchedFiles: [".cursorrules", ".cursor/rules/typescript.mdc"],
+      limitations: ["cursor-rule-glob-semantics-not-modeled"]
+    });
+    expect(claude).toEqual({
+      toolId: "claude-code",
+      label: "Claude Code",
+      discoveryStatus: "partial",
+      surface: "CLAUDE.md and .claude/**/*.md",
+      checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+      matchedFiles: ["CLAUDE.md", "packages/app/CLAUDE.md", ".claude/rules/workflow.md"],
+      limitations: ["claude-import-semantics-not-modeled", "claude-memory-scope-not-attested"]
+    });
   });
 
   it("returns exit 2 when target is outside repo root", () => {

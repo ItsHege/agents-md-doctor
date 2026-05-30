@@ -4,7 +4,9 @@ Record user-visible JSON output schema changes here.
 
 ## Unreleased
 
-No unreleased JSON schema changes.
+- Add `toolEvidence` inside the existing `inheritance.applied_chain` finding
+  `details` for `explain --json`. This is additive and keeps top-level
+  `schemaVersion: "1.0.0"`.
 
 ## 0.2.0
 

@@ -437,6 +437,33 @@ h2 {
   background: #eef8f4;
 }
 
+.tool-evidence-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tool-evidence-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #f6fbfa;
+  border: 1px solid #cbe2dc;
+  border-radius: 8px;
+}
+
+.tool-evidence-title {
+  font-weight: 760;
+  color: #153f39;
+}
+
+.tool-evidence-meta,
+.tool-evidence-limits {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #51635f;
+  overflow-wrap: anywhere;
+}
+
 .conflict-list {
   display: grid;
   gap: 8px;

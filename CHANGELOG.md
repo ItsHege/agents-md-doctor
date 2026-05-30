@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Add conservative `explain` tool evidence for Codex, Cursor, and Claude Code
+  instruction surfaces. The JSON output reports local evidence and limitations
+  without claiming full external runtime context parity.
+- Render tool evidence in the desktop UI preview Explain view.
+
+### Notes
+- `toolEvidence` is additive under `inheritance.applied_chain.details`; the
+  top-level JSON report schema remains `1.0.0`.
+
 ## 0.5.1 - 2026-05-30
 
 ### Added

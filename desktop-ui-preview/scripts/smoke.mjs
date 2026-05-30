@@ -167,6 +167,14 @@ try {
     throw new Error(`Expected two-file explain chain, got ${smokeOutput.explainChain}.`);
   }
 
+  if (
+    !Array.isArray(smokeOutput.explainToolEvidence) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Codex: native")) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Cursor: compatible"))
+  ) {
+    throw new Error(`Expected explain tool evidence to render, got ${smokeOutput.explainToolEvidence}.`);
+  }
+
   if (smokeOutput.explainVisible !== true || smokeOutput.findingsPanelHidden !== true) {
     throw new Error("Expected explain view to render instead of the findings table.");
   }
@@ -178,6 +186,11 @@ try {
   const copiedExplainReport = JSON.parse(smokeOutput.copiedExplainJson);
   if (copiedExplainReport.command !== "explain") {
     throw new Error("Expected Copy JSON to copy the exact explain report.");
+  }
+
+  const copiedToolEvidence = copiedExplainReport.findings?.[0]?.details?.toolEvidence;
+  if (!Array.isArray(copiedToolEvidence) || !copiedToolEvidence.some((entry) => entry.toolId === "codex")) {
+    throw new Error("Expected copied explain JSON to include tool evidence.");
   }
 
   if (smokeOutput.invalidExitCode !== 2) {

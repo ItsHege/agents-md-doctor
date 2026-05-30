@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { runVerifyCommand } from "../../src/commands/index.js";
+import { runExplainCommand, runVerifyCommand } from "../../src/commands/index.js";
 
 const tempRoots: string[] = [];
 
@@ -33,6 +33,34 @@ describe("instruction command safety", () => {
 
     const result = runVerifyCommand({
       root,
+      json: true
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(fs.existsSync(markerPath)).toBe(false);
+  });
+
+  it("does not execute commands while explaining tool evidence", () => {
+    const root = makeTempRoot();
+    const markerPath = path.join(root, "marker-created-by-explain.txt");
+    const markerLiteral = JSON.stringify(markerPath);
+    fs.writeFileSync(
+      path.join(root, "AGENTS.md"),
+      [
+        "# Instructions",
+        "",
+        `Inline: \`node -e \"require('fs').writeFileSync(${markerLiteral}, 'owned')\"\`.`,
+        "",
+        "```bash",
+        `node -e "require('fs').writeFileSync(${markerLiteral}, 'owned')"`,
+        "```"
+      ].join("\n")
+    );
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "AGENTS.md",
       json: true
     });
 

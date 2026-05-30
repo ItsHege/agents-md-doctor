@@ -193,7 +193,10 @@ have a root `AGENTS.md`.
 - Emitted by: `explain`
 
 Reports which `AGENTS.md` files apply to the requested target path, plus any
-deterministic conflict notes.
+deterministic conflict notes. `explain --json` also includes `toolEvidence`
+inside this finding's `details` so callers can see local evidence for Codex,
+Cursor, and Claude Code instruction surfaces without treating that evidence as
+a runtime guarantee.
 
 ### `inheritance.instruction_graph_summary`
 

@@ -207,6 +207,9 @@ function runSmokeWhenReady(window) {
             const explainTitle = document.querySelector("#report-title")?.textContent ?? "";
             const explainTarget = document.querySelector("#explain-target")?.textContent ?? "";
             const explainChain = Array.from(document.querySelectorAll("#explain-chain li")).map((item) => item.textContent ?? "");
+            const explainToolEvidence = Array.from(document.querySelectorAll("#explain-tool-evidence .tool-evidence-item")).map(
+              (item) => item.textContent ?? ""
+            );
             const explainVisible = !document.querySelector("#explain-view")?.classList.contains("hidden");
             const findingsPanelHidden = document.querySelector("#findings-panel")?.classList.contains("hidden");
             const severityFiltersHidden = document.querySelector("#severity-filters")?.classList.contains("hidden");
@@ -260,6 +263,7 @@ function runSmokeWhenReady(window) {
               explainTitle,
               explainTarget,
               explainChain,
+              explainToolEvidence,
               explainVisible,
               findingsPanelHidden,
               severityFiltersHidden,
