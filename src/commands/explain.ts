@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadConfig } from "../config/index.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
+import { buildToolEvidence, type ToolEvidence } from "../core/tool-evidence.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { normalizeRelativePath, isPathInsideRoot } from "../path-utils.js";
@@ -65,6 +66,11 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
         })
       : undefined;
     const graphDetails = instructionGraph ? buildExplainGraphDetails(instructionGraph) : undefined;
+    const toolEvidence = buildToolEvidence({
+      root,
+      targetPath: resolvedTargetPath,
+      appliedAgentsFiles: appliedFiles
+    });
     const findings: Finding[] = [
       {
         ruleId: "inheritance.applied_chain" as const,
@@ -79,6 +85,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
           targetPath: targetRelativePath,
           appliedFiles,
           conflicts,
+          toolEvidence,
           ...(graphDetails ? { instructionGraph: graphDetails } : {})
         }
       }
@@ -96,7 +103,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
       exitCode: report.exitCode,
       stdout: options.json
         ? renderJsonReport(report)
-        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, graphDetails),
+        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, toolEvidence, graphDetails),
       stderr: ""
     };
   } catch (error) {
@@ -173,21 +180,28 @@ function renderHumanExplainOutput(
   targetPath: string,
   appliedFiles: string[],
   conflicts: ExplainConflict[],
+  toolEvidence: ToolEvidence[],
   graphDetails?: ExplainGraphDetails
 ): string {
+  const lines: string[] = [];
+
   if (appliedFiles.length === 0) {
-    return `agents-doctor explain: 0 files apply\ntarget: ${targetPath}\nNo AGENTS.md files found in target ancestry.\n`;
-  }
+    lines.push(
+      "agents-doctor explain: 0 files apply",
+      `target: ${targetPath}`,
+      "No AGENTS.md files found in target ancestry."
+    );
+  } else {
+    lines.push(
+      `agents-doctor explain: ${appliedFiles.length} ${appliedFiles.length === 1 ? "file" : "files"} apply`,
+      `target: ${targetPath}`,
+      "Applied AGENTS.md chain (root -> nearest):"
+    );
 
-  const lines = [
-    `agents-doctor explain: ${appliedFiles.length} ${appliedFiles.length === 1 ? "file" : "files"} apply`,
-    `target: ${targetPath}`,
-    "Applied AGENTS.md chain (root -> nearest):"
-  ];
-
-  for (const [index, file] of appliedFiles.entries()) {
-    const marker = index === appliedFiles.length - 1 ? " (nearest)" : "";
-    lines.push(`${index + 1}. ${file}${marker}`);
+    for (const [index, file] of appliedFiles.entries()) {
+      const marker = index === appliedFiles.length - 1 ? " (nearest)" : "";
+      lines.push(`${index + 1}. ${file}${marker}`);
+    }
   }
 
   if (conflicts.length > 0) {
@@ -215,7 +229,23 @@ function renderHumanExplainOutput(
     }
   }
 
+  if (toolEvidence.length > 0) {
+    lines.push("Tool evidence:");
+
+    for (const evidence of toolEvidence) {
+      const matched =
+        evidence.matchedFiles.length > 0 ? `; files: ${evidence.matchedFiles.join(", ")}` : "";
+      const limitations =
+        evidence.limitations.length > 0 ? `; limits: ${evidence.limitations.join(", ")}` : "";
+      lines.push(`- ${evidence.label}: ${formatDiscoveryStatus(evidence.discoveryStatus)} via ${evidence.surface}${matched}${limitations}`);
+    }
+  }
+
   return `${lines.join("\n")}\n`;
+}
+
+function formatDiscoveryStatus(status: ToolEvidence["discoveryStatus"]): string {
+  return status.replace(/_/g, " ");
 }
 
 function loadAppliedFiles(root: string, appliedFiles: string[]): Array<{ absolutePath: string; relativePath: string; content: string }> {

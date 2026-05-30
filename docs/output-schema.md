@@ -116,6 +116,29 @@ Example `inheritance.applied_chain` details:
   "targetPath": "packages/app/src/index.ts",
   "appliedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
   "conflicts": [],
+  "toolEvidence": [
+    {
+      "toolId": "codex",
+      "label": "Codex",
+      "discoveryStatus": "native",
+      "surface": "AGENTS.md ancestry",
+      "checkedSurfaces": ["AGENTS.md ancestry"],
+      "matchedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
+      "limitations": []
+    },
+    {
+      "toolId": "cursor",
+      "label": "Cursor",
+      "discoveryStatus": "compatible",
+      "surface": "AGENTS.md compatibility signal",
+      "checkedSurfaces": [".cursor/rules/**/*.mdc", ".cursorrules", "AGENTS.md ancestry"],
+      "matchedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
+      "limitations": [
+        "cursor-native-rules-not-found",
+        "cursor-agents-md-runtime-semantics-not-attested"
+      ]
+    }
+  ],
   "instructionGraph": {
     "referencedInstructionFiles": ["docs/agent/testing.md"],
     "instructionEdges": [
@@ -131,6 +154,42 @@ Example `inheritance.applied_chain` details:
   }
 }
 ```
+
+## Tool Evidence Details
+
+`explain --json` includes `toolEvidence` inside the
+`inheritance.applied_chain` finding details. This is a deterministic local
+repository inventory. It is not a runtime attestation that an external tool
+loaded the same bytes or interpreted them with identical semantics.
+
+Each entry has:
+
+- `toolId`: stable machine id, currently `codex`, `cursor`, or `claude-code`.
+- `label`: display name for humans.
+- `discoveryStatus`: one of:
+  - `native`: AGENTS.md Doctor modeled a native local discovery surface for the
+    target path.
+  - `compatible`: a shared/portable instruction surface was found, but native
+    runtime behavior is not attested.
+  - `partial`: native tool-specific files were detected, but tool-specific
+    activation, imports, globs, or memory semantics are not fully modeled.
+  - `detected_not_modeled`: files were detected for a future surface, but this
+    version does not interpret them.
+  - `not_found`: no matching local surface was found for that tool.
+- `surface`: short human-readable description of the evidence surface.
+- `checkedSurfaces`: path names or glob-like locations checked locally.
+- `matchedFiles`: repository-relative files that matched the checked surfaces.
+- `limitations`: stable machine-readable caveats.
+
+Current behavior:
+
+- Codex evidence is based on the target path's `AGENTS.md` ancestry chain.
+- Cursor evidence detects `.cursor/rules/**/*.mdc` and legacy `.cursorrules`.
+  If no Cursor-native rules are found but `AGENTS.md` applies, the entry is
+  marked `compatible`, not `native`.
+- Claude Code evidence detects `CLAUDE.md` files in the target ancestry and
+  `.claude/**/*.md` files. Imports and memory activation semantics are reported
+  as limitations rather than treated as fully modeled behavior.
 
 Example `inheritance.instruction_graph_summary` details:
 

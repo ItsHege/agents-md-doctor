@@ -34,6 +34,7 @@ const elements = {
   explainView: document.querySelector("#explain-view"),
   explainTarget: document.querySelector("#explain-target"),
   explainChain: document.querySelector("#explain-chain"),
+  explainToolEvidence: document.querySelector("#explain-tool-evidence"),
   explainConflicts: document.querySelector("#explain-conflicts"),
   severityFilters: document.querySelector("#severity-filters"),
   findingsPanel: document.querySelector("#findings-panel"),
@@ -243,6 +244,7 @@ function renderExplainView(report) {
   const targetPath = typeof details.targetPath === "string" ? details.targetPath : ".";
   const appliedFiles = Array.isArray(details.appliedFiles) ? details.appliedFiles.filter((file) => typeof file === "string") : [];
   const conflicts = Array.isArray(details.conflicts) ? details.conflicts.filter(isPlainObject) : [];
+  const toolEvidence = Array.isArray(details.toolEvidence) ? details.toolEvidence.filter(isPlainObject) : [];
 
   elements.explainTarget.textContent = targetPath;
   elements.explainChain.innerHTML = "";
@@ -260,6 +262,8 @@ function renderExplainView(report) {
     }
   }
 
+  renderToolEvidence(toolEvidence);
+
   elements.explainConflicts.innerHTML = "";
   elements.explainConflicts.classList.toggle("hidden", conflicts.length === 0);
 
@@ -270,6 +274,56 @@ function renderExplainView(report) {
     const message = typeof conflict.message === "string" ? conflict.message : "Conflict note.";
     item.textContent = `${conflictId}: ${message}`;
     elements.explainConflicts.append(item);
+  }
+}
+
+function renderToolEvidence(toolEvidence) {
+  elements.explainToolEvidence.innerHTML = "";
+
+  if (toolEvidence.length === 0) {
+    elements.explainToolEvidence.classList.add("hidden");
+    return;
+  }
+
+  elements.explainToolEvidence.classList.remove("hidden");
+
+  const heading = document.createElement("span");
+  heading.className = "section-label";
+  heading.textContent = "Tool evidence";
+  elements.explainToolEvidence.append(heading);
+
+  for (const evidence of toolEvidence) {
+    const item = document.createElement("div");
+    item.className = "tool-evidence-item";
+    const label = typeof evidence.label === "string" ? evidence.label : "Tool";
+    const status =
+      typeof evidence.discoveryStatus === "string" ? evidence.discoveryStatus.replace(/_/g, " ") : "unknown";
+    const surface = typeof evidence.surface === "string" ? evidence.surface : "surface not specified";
+    const matchedFiles = Array.isArray(evidence.matchedFiles)
+      ? evidence.matchedFiles.filter((file) => typeof file === "string")
+      : [];
+    const limitations = Array.isArray(evidence.limitations)
+      ? evidence.limitations.filter((limit) => typeof limit === "string")
+      : [];
+
+    const title = document.createElement("div");
+    title.className = "tool-evidence-title";
+    title.textContent = `${label}: ${status}`;
+
+    const meta = document.createElement("div");
+    meta.className = "tool-evidence-meta";
+    meta.textContent = matchedFiles.length > 0 ? `${surface} | ${matchedFiles.join(", ")}` : surface;
+
+    item.append(title, meta);
+
+    if (limitations.length > 0) {
+      const limits = document.createElement("div");
+      limits.className = "tool-evidence-limits";
+      limits.textContent = limitations.join(", ");
+      item.append(limits);
+    }
+
+    elements.explainToolEvidence.append(item);
   }
 }
 

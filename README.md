@@ -82,7 +82,7 @@ Use this flow when adding AGENTS.md Doctor to a repository for the first time:
 
 - Use `lint` for fast local checks of AGENTS.md size, structure, paths, command references, and risky instructions.
 - Use `verify` for CI and adoption checks. It includes lint findings plus repository coverage sanity findings.
-- Use `explain <path>` when you need to know which AGENTS.md files apply to a file or directory.
+- Use `explain <path>` when you need to know which AGENTS.md files apply to a file or directory, and which local agent-tool instruction surfaces were detected.
 - Use `--json` for scripts and CI wrappers.
 - Use `--format github` for GitHub workflow annotations plus a human summary.
 - Use `--format sarif` for SARIF consumers that ingest SARIF 2.1.0.
@@ -333,6 +333,9 @@ Current behavior: shows the effective instruction context for a target path.
 - Finds all inherited `AGENTS.md` files.
 - Explains which `AGENTS.md` files apply to a specific path.
 - Highlights chain order from root to nearest.
+- Adds local tool evidence for Codex, Cursor, and Claude Code instruction
+  surfaces. This is repository evidence, not a guarantee that every external
+  tool loaded the same context at runtime.
 - When `instructionGraph.enabled` is true, includes referenced instruction files reachable from the applied chain.
 - Adds deterministic conflict notes for:
   - package manager disagreement,
