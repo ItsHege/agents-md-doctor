@@ -144,10 +144,11 @@ function scanCursorSurfaces(root: string): SurfaceScan {
     directory: ".cursor/rules",
     extensions: [".mdc"]
   });
+  const combinedFiles = orderedUnique([...legacyFile, ...rules.files]);
 
   return {
-    files: truncateFiles(orderedUnique([...legacyFile, ...rules.files])),
-    truncated: rules.truncated
+    files: truncateFiles(combinedFiles),
+    truncated: rules.truncated || combinedFiles.length > MAX_SURFACE_FILES
   };
 }
 
@@ -158,10 +159,11 @@ function scanClaudeSurfaces(root: string, targetPath: string): SurfaceScan {
     directory: ".claude",
     extensions: [".md"]
   });
+  const combinedFiles = orderedUnique([...ancestryFiles, ...claudeMarkdown.files]);
 
   return {
-    files: truncateFiles(orderedUnique([...ancestryFiles, ...claudeMarkdown.files])),
-    truncated: claudeMarkdown.truncated
+    files: truncateFiles(combinedFiles),
+    truncated: claudeMarkdown.truncated || combinedFiles.length > MAX_SURFACE_FILES
   };
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 - 2026-05-30
+
+### Fixed
+- Preserve `surface-file-list-truncated` when tool evidence combines multiple
+  local surfaces before applying the matched-file cap.
+
 ## 0.6.0 - 2026-05-30
 
 ### Added

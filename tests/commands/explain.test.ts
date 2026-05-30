@@ -158,6 +158,62 @@ describe("runExplainCommand", () => {
     });
   });
 
+  it("marks Cursor tool evidence as truncated after combining legacy and rule surfaces", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".cursor", "rules"), { recursive: true });
+    fs.writeFileSync(path.join(root, "packages", "app", "README.md"), "# App\n");
+    fs.writeFileSync(path.join(root, ".cursorrules"), "Legacy Cursor rules.\n");
+
+    for (let index = 0; index < 100; index += 1) {
+      fs.writeFileSync(path.join(root, ".cursor", "rules", `rule-${String(index).padStart(3, "0")}.mdc`), "Rule.\n");
+    }
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app/README.md",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = report.findings[0]?.details as {
+      toolEvidence: unknown;
+    };
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+    const cursor = toolEvidence.find((entry) => entry.toolId === "cursor");
+
+    expect(cursor?.matchedFiles).toHaveLength(100);
+    expect(cursor?.matchedFiles[0]).toBe(".cursorrules");
+    expect(cursor?.limitations).toContain("surface-file-list-truncated");
+  });
+
+  it("marks Claude tool evidence as truncated after combining ancestry and .claude surfaces", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".claude", "rules"), { recursive: true });
+    fs.writeFileSync(path.join(root, "packages", "app", "README.md"), "# App\n");
+    fs.writeFileSync(path.join(root, "CLAUDE.md"), "# Root Claude\n");
+
+    for (let index = 0; index < 100; index += 1) {
+      fs.writeFileSync(path.join(root, ".claude", "rules", `rule-${String(index).padStart(3, "0")}.md`), "# Rule\n");
+    }
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app/README.md",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = report.findings[0]?.details as {
+      toolEvidence: unknown;
+    };
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+    const claude = toolEvidence.find((entry) => entry.toolId === "claude-code");
+
+    expect(claude?.matchedFiles).toHaveLength(100);
+    expect(claude?.matchedFiles[0]).toBe("CLAUDE.md");
+    expect(claude?.limitations).toContain("surface-file-list-truncated");
+  });
+
   it("returns exit 2 when target is outside repo root", () => {
     const result = runExplainCommand({
       root: path.join(fixtureRoot, "nested-agents"),
