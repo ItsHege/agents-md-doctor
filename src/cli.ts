@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { runExplainCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
@@ -13,6 +15,7 @@ export function runCli(argv = process.argv): CommandResult {
   program
     .name("agents-doctor")
     .description("Repo-aware CLI and CI tool for validating AGENTS.md instructions.")
+    .version(readPackageVersion(), "--version", "print agents-doctor version")
     .exitOverride()
     .configureOutput({
       writeOut: (message) => {
@@ -116,7 +119,7 @@ export function runCli(argv = process.argv): CommandResult {
   try {
     program.parse(argv);
   } catch (error) {
-    if (isCommanderHelp(error)) {
+    if (isCommanderSuccessExit(error)) {
       return {
         exitCode: 0,
         stdout,
@@ -153,13 +156,26 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main();
 }
 
-function isCommanderHelp(error: unknown): boolean {
+function isCommanderSuccessExit(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    (error as { code?: unknown }).code === "commander.helpDisplayed"
+    ((error as { code?: unknown }).code === "commander.helpDisplayed" ||
+      (error as { code?: unknown }).code === "commander.version")
   );
+}
+
+function readPackageVersion(): string {
+  const currentFilePath = fileURLToPath(import.meta.url);
+  const packageJsonPath = path.resolve(path.dirname(currentFilePath), "..", "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as { version?: unknown };
+
+  if (typeof packageJson.version !== "string" || packageJson.version.length === 0) {
+    throw new Error("package.json version must be a non-empty string");
+  }
+
+  return packageJson.version;
 }
 
 function formatCommanderError(message: string, capturedStderr: string): string {

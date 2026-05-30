@@ -4,6 +4,10 @@ Source preview for the local desktop UI. This folder is part of the GitHub
 repository for early testing, but it is not included in the published
 `agents-doctor` npm package.
 
+Tagged GitHub releases can attach a Windows x64 portable zip built from this
+folder. Download `AGENTS.md-Doctor-win32-x64-<version>.zip`, unzip it, and run
+`AGENTS.md Doctor.exe`.
+
 ## What it does
 
 - Opens a native folder picker.
@@ -23,12 +27,17 @@ repository for early testing, but it is not included in the published
 
 ## Local run
 
+Use Node.js 22.12 or newer for this preview workspace. The published CLI
+package still supports Node.js 20 or newer; this higher requirement is only for
+the Electron preview and packaging toolchain.
+
 ```powershell
 npm install
 npm run dev
 ```
 
-`npm run dev` first builds the parent CLI package, then starts Electron.
+`npm run dev` first ensures the parent CLI dependencies are installed, builds
+the parent CLI package, then starts Electron.
 
 On Windows, for first-time setup without a visible terminal, double-click:
 
@@ -37,7 +46,8 @@ Setup-AGENTS-Doctor-UI.vbs
 ```
 
 This installs local prototype dependencies and creates or refreshes the
-app-style launcher.
+app-style launcher. On first launch, the preview also ensures the parent CLI
+dependencies are installed before building the report API.
 
 If dependencies are already installed, create or refresh the launcher manually:
 
@@ -74,3 +84,14 @@ details, and scanned-file paths render, confirms invalid-root errors render,
 refreshes the Windows launcher shortcut, proves a marker-creating shell snippet
 from `AGENTS.md` was not executed, and runs a static scan over UI runtime files
 for command-execution patterns.
+
+## Windows release package
+
+```powershell
+npm run package:win
+```
+
+This builds the parent CLI, stages the UI with the compiled deterministic report
+API, installs only production runtime dependencies for the packaged app, creates
+`release/AGENTS.md Doctor-win32-x64/`, and writes
+`release/AGENTS.md-Doctor-win32-x64-<version>.zip`.

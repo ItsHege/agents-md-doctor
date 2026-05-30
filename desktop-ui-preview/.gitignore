@@ -1,2 +1,4 @@
 node_modules/
 AGENTS.md Doctor.lnk
+build-staging/
+release/

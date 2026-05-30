@@ -171,6 +171,15 @@ try {
     throw new Error("Expected explain view to render instead of the findings table.");
   }
 
+  if (smokeOutput.severityFiltersHidden !== true || smokeOutput.copyJsonVisible !== true) {
+    throw new Error("Expected explain view to hide severity filters while keeping Copy JSON visible.");
+  }
+
+  const copiedExplainReport = JSON.parse(smokeOutput.copiedExplainJson);
+  if (copiedExplainReport.command !== "explain") {
+    throw new Error("Expected Copy JSON to copy the exact explain report.");
+  }
+
   if (smokeOutput.invalidExitCode !== 2) {
     throw new Error(`Expected invalid root to return exit 2, got ${smokeOutput.invalidExitCode}.`);
   }

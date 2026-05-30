@@ -46,6 +46,7 @@ local checkout only when validating unreleased behavior or preparing a release.
 Quick usage:
 
 ```bash
+npx agents-doctor@latest --version
 npx agents-doctor@latest lint .
 npx agents-doctor@latest verify --json .
 npx agents-doctor@latest explain src
@@ -101,6 +102,7 @@ pnpm dlx agents-doctor lint .
 Command surface:
 
 ```bash
+agents-doctor --version
 agents-doctor lint [repo]
 agents-doctor lint --json [repo]
 agents-doctor lint --format json [repo]
@@ -196,8 +198,9 @@ For the benchmark labeling vocabulary behind this workflow, see
 ## Desktop UI Preview
 
 The repository also includes an early Windows-friendly desktop UI source preview
-in `desktop-ui-preview/`. It is not part of the published `agents-doctor` npm
-package yet; the npm package remains the small CLI/CI tool described above.
+in `desktop-ui-preview/`. The desktop source remains outside the published
+`agents-doctor` npm package, but tagged GitHub releases can attach a Windows
+x64 portable zip so people can try the UI without cloning the repository.
 
 ![AGENTS.md Doctor desktop UI warning report](docs/assets/desktop-ui-warning-report.png)
 
@@ -217,6 +220,13 @@ Use this AGENTS.md Doctor JSON report. Fix only valid instruction drift from
 the findings. Do not silence findings by deleting useful instructions, and do
 not change unrelated project files.
 ```
+
+Windows portable download from GitHub Releases:
+
+1. Open the latest GitHub Release.
+2. Download `AGENTS.md-Doctor-win32-x64-<version>.zip`.
+3. Unzip it.
+4. Run `AGENTS.md Doctor.exe`.
 
 Local preview install from a source checkout:
 

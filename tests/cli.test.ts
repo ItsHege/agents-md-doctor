@@ -1,9 +1,11 @@
 import path from "node:path";
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.js";
 import { ReportSchema } from "../src/types/index.js";
 
 const fixtureRoot = path.resolve("tests/fixtures");
+const packageVersion = JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf8")).version as string;
 
 describe("runCli", () => {
   it("dispatches lint --json", () => {
@@ -145,6 +147,14 @@ describe("runCli", () => {
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("Usage: agents-doctor");
     expect(result.stdout).toContain("lint");
+  });
+
+  it("returns package version as success", () => {
+    const result = runCli(["node", "dist/cli.js", "--version"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(`${packageVersion}\n`);
   });
 
   it("returns lint help as success", () => {
