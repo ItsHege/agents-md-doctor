@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor-desktop-preview",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "description": "Local desktop prototype for running AGENTS.md Doctor without a terminal.",
   "type": "module",
