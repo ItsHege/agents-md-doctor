@@ -32,6 +32,7 @@ function renderReportForFormat(report: Report, options: RenderReportOptions): st
 
   return renderHumanLintReport(report, {
     command: options.command,
-    strict: options.strict
+    strict: options.strict,
+    compactScopeAmbiguous: true
   });
 }

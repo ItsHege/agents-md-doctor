@@ -193,6 +193,58 @@ GitHub annotations, and SARIF output.
 For the benchmark labeling vocabulary behind this workflow, see
 `docs/benchmark-methodology.md`.
 
+## Desktop UI Preview
+
+The repository also includes an early Windows-friendly desktop UI source preview
+in `desktop-ui-preview/`. It is not part of the published `agents-doctor` npm
+package yet; the npm package remains the small CLI/CI tool described above.
+
+![AGENTS.md Doctor desktop UI warning report](docs/assets/desktop-ui-warning-report.png)
+
+The preview is useful when you want to run checks without typing terminal
+commands:
+
+1. Pick a project folder.
+2. Run `Verify`, `Lint`, or `Explain`.
+3. Review errors and warnings in the table.
+4. Click `Copy JSON` to copy the exact machine-readable report.
+5. Give that JSON to the responsible coding agent with a scoped fix request.
+
+Example handoff:
+
+```text
+Use this AGENTS.md Doctor JSON report. Fix only valid instruction drift from
+the findings. Do not silence findings by deleting useful instructions, and do
+not change unrelated project files.
+```
+
+Local preview install from a source checkout:
+
+```powershell
+cd desktop-ui-preview
+npm install
+npm run dev
+```
+
+On Windows, after `npm install`, you can create an app-style launcher:
+
+```powershell
+npm run launcher
+```
+
+Then double-click `AGENTS.md Doctor.lnk` in `desktop-ui-preview/`.
+
+For first-time setup without a visible terminal, double-click
+`desktop-ui-preview/Setup-AGENTS-Doctor-UI.vbs`. The preview smoke test is:
+
+```powershell
+npm run smoke
+```
+
+The desktop run path uses the same deterministic report API as the CLI. It does
+not execute commands from target `AGENTS.md` files, does not upload repository
+contents, and does not call `npx` or package managers to run checks.
+
 ## Configuration
 
 AGENTS.md Doctor reads `.agents-doctor.json` from the repository root when it

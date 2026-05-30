@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 - 2026-05-30
+
+### Added
+- Add a source-only desktop UI preview under `desktop-ui-preview/`, with a
+  README screenshot and local Windows launcher/setup scripts. The preview is
+  not included in the published npm package.
+
+### Changed
+- Add a Windows CLI smoke job to CI for build, built-CLI smoke, and packed-CLI
+  smoke coverage without adding desktop UI dependencies to the public package.
+- Compact long `scope_ambiguous` workspace package lists in default human
+  output while preserving JSON, GitHub annotation, SARIF, and exit-code
+  behavior.
+
+### Notes
+- No JSON, SARIF, or GitHub annotation schema changes.
+- Desktop UI prototype work remains outside the published npm package.
+
 ## 0.4.1 - 2026-05-04
 
 ### Changed

@@ -3,6 +3,7 @@ import type { Finding, Report } from "../types/index.js";
 export interface RenderHumanLintOptions {
   command?: "lint" | "verify";
   strict?: boolean;
+  compactScopeAmbiguous?: boolean;
 }
 
 export function renderHumanLintReport(report: Report, options: RenderHumanLintOptions = {}): string {
@@ -16,7 +17,7 @@ export function renderHumanLintReport(report: Report, options: RenderHumanLintOp
 
   for (const finding of report.findings) {
     lines.push(renderFindingHeader(finding));
-    lines.push(finding.message);
+    lines.push(renderFindingMessage(finding, options));
   }
 
   if (options.strict === true && report.summary.warningCount > 0) {
@@ -50,4 +51,32 @@ function renderFindingHeader(finding: Finding): string {
   const line = finding.line ?? "?";
 
   return `${finding.severity} ${finding.ruleId} ${file}:${line}`;
+}
+
+function renderFindingMessage(finding: Finding, options: RenderHumanLintOptions): string {
+  if (options.compactScopeAmbiguous !== true || finding.ruleId !== "commands.mentioned_command_missing") {
+    return finding.message;
+  }
+
+  const details = isPlainObject(finding.details) ? finding.details : {};
+  const matchedPackages = Array.isArray(details.matchedPackages)
+    ? details.matchedPackages.filter((value): value is string => typeof value === "string")
+    : [];
+
+  if (details.reason !== "scope_ambiguous" || matchedPackages.length <= 5) {
+    return finding.message;
+  }
+
+  const scriptName = typeof details.scriptName === "string" ? details.scriptName : "script";
+  const firstPackages = matchedPackages.slice(0, 5).join(", ");
+
+  return [
+    `AGENTS.md references script "${scriptName}" that exists in ${matchedPackages.length} workspace packages.`,
+    `First 5 matches: ${firstPackages}.`,
+    "Use --json for the full matchedPackages list."
+  ].join(" ");
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
