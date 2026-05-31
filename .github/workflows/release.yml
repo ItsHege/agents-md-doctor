@@ -56,6 +56,10 @@ jobs:
         if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
         run: npm --prefix desktop-ui-preview ci
 
+      - name: Smoke test desktop UI runtime
+        if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
+        run: xvfb-run -a npm --prefix desktop-ui-preview run smoke:ci
+
       - name: Package desktop UI for Windows
         if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
         run: npm --prefix desktop-ui-preview run package:win

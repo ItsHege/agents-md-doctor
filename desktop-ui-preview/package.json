@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor-desktop-preview",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Local desktop prototype for running AGENTS.md Doctor without a terminal.",
   "type": "module",
@@ -19,6 +19,7 @@
     "package:win": "node scripts/package-windows.mjs",
     "presmoke": "npm run icon && npm run parent:install && npm --prefix .. run build",
     "safety:scan": "node scripts/runtime-safety-scan.mjs",
+    "smoke:ci": "npm run safety:scan && node scripts/smoke.mjs",
     "smoke": "npm run safety:scan && node scripts/smoke.mjs && npm run launcher"
   },
   "devDependencies": {

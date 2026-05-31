@@ -39,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Verify AGENTS.md instructions
-        run: npx agents-doctor@0.4.1 verify --json .
+        run: npx agents-doctor@0.6.2 verify --json .
 ```
 
 Exit code behavior:
@@ -74,7 +74,7 @@ should fail CI.
 
 ```yaml
       - name: Verify AGENTS.md instructions strictly
-        run: npx agents-doctor@0.4.1 verify --json --fail-on-warning .
+        run: npx agents-doctor@0.6.2 verify --json --fail-on-warning .
 ```
 
 Strict mode changes the process/report exit code only. It does not rewrite
@@ -109,7 +109,7 @@ annotations before the human summary.
 
 ```yaml
       - name: Verify AGENTS.md instructions with annotations
-        run: npx agents-doctor@0.4.1 verify --format github .
+        run: npx agents-doctor@0.6.2 verify --format github .
 ```
 
 `--format github` maps severities as:
@@ -143,7 +143,7 @@ Use `--format sarif` when your CI system ingests SARIF 2.1.0.
 
 ```yaml
       - name: Generate AGENTS.md Doctor SARIF
-        run: npx agents-doctor@0.4.1 verify --format sarif . > agents-doctor.sarif
+        run: npx agents-doctor@0.6.2 verify --format sarif . > agents-doctor.sarif
 ```
 
 For GitHub code scanning upload, the workflow also needs
@@ -174,7 +174,10 @@ and manual dispatch. It performs the release gate before publishing:
 6. `npm run smoke:pack`
 7. `npm run benchmark`
 8. `npm run release:preflight`
-9. `npm publish --provenance --access public`
+9. `npm --prefix desktop-ui-preview ci`
+10. `xvfb-run -a npm --prefix desktop-ui-preview run smoke:ci`
+11. `npm --prefix desktop-ui-preview run package:win`
+12. `npm publish --provenance --access public`
 
 The workflow uses `NODE_AUTH_TOKEN` from the repository `NPM_TOKEN` secret and
 requests `id-token: write` for npm provenance. If `NPM_TOKEN` is missing, the
@@ -185,6 +188,12 @@ changelog, commit, and tag must already agree before the release workflow is
 triggered. The preflight step also checks package-lock alignment, requires a
 dated changelog entry for the package version, checks npm registry state, and
 refuses to publish a version that already exists.
+
+On tagged releases with `NPM_TOKEN` configured, the workflow also installs the
+desktop UI preview dependencies, runs the desktop runtime safety scan and
+Electron smoke test, packages the Windows x64 desktop zip, and uploads that zip
+to the matching GitHub Release after npm publish succeeds. These desktop checks
+do not add desktop dependencies to the published npm package.
 
 Local `npm publish` is a maintainer fallback only. Prefer the release workflow
 when publishing public versions.

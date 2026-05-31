@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.2 - 2026-05-31
+
+### Changed
+- Refresh CI documentation examples to the current 0.6.2 release line.
+- Move `toolEvidence` schema-change notes from unreleased to the shipped 0.6.0
+  entry.
+- Add a CI-friendly desktop UI smoke script and run it in the tagged release
+  workflow before packaging the Windows desktop zip.
+
+### Notes
+- No CLI behavior changes.
+- No JSON, SARIF, or GitHub annotation schema changes.
+
 ## 0.6.1 - 2026-05-30
 
 ### Fixed
