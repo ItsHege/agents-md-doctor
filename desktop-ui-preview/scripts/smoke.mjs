@@ -61,7 +61,8 @@ try {
   );
   fs.writeFileSync(path.join(cleanRoot, "packages", "app", "README.md"), "# App\n");
 
-  const result = spawnSync(electronPath, [prototypeRoot], {
+  const electronArgs = process.platform === "linux" ? ["--no-sandbox", prototypeRoot] : [prototypeRoot];
+  const result = spawnSync(electronPath, electronArgs, {
     cwd: workspaceRoot,
     encoding: "utf8",
     env: {

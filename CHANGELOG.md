@@ -8,6 +8,8 @@
   entry.
 - Add a CI-friendly desktop UI smoke script and run it in the tagged release
   workflow before packaging the Windows desktop zip.
+- Make the desktop UI smoke script compatible with Linux CI by launching
+  Electron without the Chromium sandbox inside the test runner.
 
 ### Notes
 - No CLI behavior changes.
