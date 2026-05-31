@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.js";
 import { ReportSchema } from "../src/types/index.js";
@@ -41,6 +42,73 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(report.command).toBe("verify");
+  });
+
+  it("dispatches verify --profile", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-profile-"));
+
+    try {
+      fs.writeFileSync(path.join(root, "GEMINI.md"), "# Gemini Instructions\n");
+      const result = runCli(["node", "dist/cli.js", "verify", "--json", "--profile", "gemini-cli", root]);
+      const report = ReportSchema.parse(JSON.parse(result.stdout));
+      const coverage = report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(coverage?.details).toMatchObject({
+        toolProfile: "gemini-cli",
+        lintFileNames: ["AGENTS.md", "GEMINI.md"]
+      });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("dispatches init without overwriting an existing config", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-init-"));
+    const configPath = path.join(root, ".agents-doctor.json");
+
+    try {
+      const firstResult = runCli(["node", "dist/cli.js", "init", root]);
+      const createdConfig = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+        lintFileNames?: string[];
+        instructionGraph?: { enabled?: boolean };
+      };
+
+      expect(firstResult.exitCode).toBe(0);
+      expect(firstResult.stderr).toBe("");
+      expect(firstResult.stdout).toContain("created starter config");
+      expect(createdConfig.lintFileNames).toEqual(["AGENTS.md"]);
+      expect(createdConfig.instructionGraph?.enabled).toBe(false);
+
+      fs.writeFileSync(configPath, JSON.stringify({ maxLines: 123 }), "utf8");
+      const secondResult = runCli(["node", "dist/cli.js", "init", root]);
+
+      expect(secondResult.exitCode).toBe(0);
+      expect(secondResult.stderr).toBe("");
+      expect(secondResult.stdout).toContain("config already exists");
+      expect(JSON.parse(fs.readFileSync(configPath, "utf8"))).toEqual({ maxLines: 123 });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("dispatches init --force to overwrite an existing config", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-init-force-"));
+    const configPath = path.join(root, ".agents-doctor.json");
+
+    try {
+      fs.writeFileSync(configPath, JSON.stringify({ maxLines: 123 }), "utf8");
+      const result = runCli(["node", "dist/cli.js", "init", "--force", root]);
+      const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as { maxLines?: number };
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(result.stdout).toContain("created starter config");
+      expect(config.maxLines).toBe(500);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("dispatches lint --format json", () => {
@@ -146,6 +214,7 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("Usage: agents-doctor");
+    expect(result.stdout).toContain("init");
     expect(result.stdout).toContain("lint");
   });
 
@@ -170,6 +239,17 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
     expect(result.stdout).toContain("--max-lines");
+    expect(result.stdout).toContain("--profile");
+  });
+
+  it("returns init help as success", () => {
+    const result = runCli(["node", "dist/cli.js", "init", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("Usage: agents-doctor init");
+    expect(result.stdout).toContain("[repo]");
+    expect(result.stdout).toContain("--force");
   });
 
   it("returns explain help as success", () => {
@@ -180,6 +260,7 @@ describe("runCli", () => {
     expect(result.stdout).toContain("Usage: agents-doctor explain");
     expect(result.stdout).toContain("<target>");
     expect(result.stdout).toContain("[repo]");
+    expect(result.stdout).toContain("--profile");
   });
 
   it("returns verify help as success", () => {
@@ -195,6 +276,15 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
     expect(result.stdout).toContain("--max-lines");
+    expect(result.stdout).toContain("--profile");
+  });
+
+  it("returns exit 2 for invalid profile values", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--profile", "nope"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--profile must be one of");
   });
 
   it("returns exit 2 for unknown commands", () => {

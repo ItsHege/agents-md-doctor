@@ -34,6 +34,20 @@ describe("findAgentsFiles", () => {
     ]);
   });
 
+  it("can discover configured instruction file names", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "CLAUDE.md"), "# Claude\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "CLAUDE.md"), "# App Claude\n");
+
+    expect(findAgentsFiles(root, { fileNames: ["AGENTS.md", "CLAUDE.md"] }).map((file) => file.relativePath)).toEqual([
+      "AGENTS.md",
+      "CLAUDE.md",
+      "packages/app/CLAUDE.md"
+    ]);
+  });
+
   it("ignores generated and dependency directories", () => {
     const root = makeTempRoot();
     fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");

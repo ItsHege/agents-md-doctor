@@ -4,7 +4,13 @@ Record user-visible JSON output schema changes here.
 
 ## Unreleased
 
-- No pending JSON schema changes.
+- Add Tool Evidence V2 entries inside the existing
+  `inheritance.applied_chain.details.toolEvidence` array for
+  `explain --json`: `github-copilot`, `gemini-cli`, `windsurf`, and `cline`.
+  This is additive and keeps top-level `schemaVersion: "1.0.0"`.
+- Add `toolProfile` to `inheritance.applied_chain.details` and
+  `coverage.discovery_summary.details`. This is additive and keeps top-level
+  `schemaVersion: "1.0.0"`.
 
 ## 0.6.0
 

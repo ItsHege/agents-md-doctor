@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const projectRoot = process.cwd();
 const cliPath = path.join(projectRoot, "dist/cli.js");
 const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
+const initRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-init-"));
 
 assertSuccessfulHelp(["--help"]);
+assertSuccessfulHelp(["init", "--help"]);
 assertSuccessfulHelp(["lint", "--help"]);
 assertSuccessfulHelp(["verify", "--help"]);
 
@@ -77,6 +80,33 @@ assert.equal(
   verifyReport.findings.some((finding) => finding.ruleId === "coverage.discovery_summary"),
   true
 );
+
+const profileRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-profile-"));
+try {
+  fs.writeFileSync(path.join(profileRoot, "GEMINI.md"), "# Gemini Instructions\n");
+  const profileReport = runReport(["verify", "--json", "--profile", "gemini-cli", profileRoot], "verify");
+  const profileCoverage = profileReport.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+  assert.equal(profileCoverage.details.toolProfile, "gemini-cli");
+  assert.deepEqual(profileCoverage.details.lintFileNames, ["AGENTS.md", "GEMINI.md"]);
+} finally {
+  fs.rmSync(profileRoot, { recursive: true, force: true });
+}
+
+try {
+  const initResult = runCli(["init", initRoot]);
+  assert.equal(initResult.status, 0, initResult.stderr);
+  assert.equal(initResult.stderr, "");
+  assert.match(initResult.stdout, /created starter config/);
+
+  const config = JSON.parse(fs.readFileSync(path.join(initRoot, ".agents-doctor.json"), "utf8"));
+  assert.deepEqual(config.lintFileNames, ["AGENTS.md"]);
+
+  const noOverwriteResult = runCli(["init", initRoot]);
+  assert.equal(noOverwriteResult.status, 0, noOverwriteResult.stderr);
+  assert.match(noOverwriteResult.stdout, /config already exists/);
+} finally {
+  fs.rmSync(initRoot, { recursive: true, force: true });
+}
 
 function assertSuccessfulHelp(args) {
   const result = runCli(args);

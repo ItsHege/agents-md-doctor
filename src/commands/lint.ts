@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig, validateIgnorePatterns } from "../config/index.js";
+import { applyToolProfileOverride, loadConfig, validateIgnorePatterns } from "../config/index.js";
+import type { ToolProfile } from "../core/tool-profile.js";
 import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
@@ -18,6 +19,7 @@ export interface LintCommandOptions {
   failOnWarning?: boolean;
   ignore?: string[];
   maxLines?: number;
+  profile?: ToolProfile;
 }
 
 export interface CommandResult {
@@ -29,11 +31,12 @@ export interface CommandResult {
 export function runLintCommand(options: LintCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
-    const config = loadConfig({ root });
+    const config = applyToolProfileOverride(loadConfig({ root }), options.profile);
     const cliIgnore = options.ignore ?? [];
     validateIgnorePatterns(cliIgnore);
     const agentsFiles = findAgentsFiles(root, {
-      ignore: [...config.ignore, ...cliIgnore]
+      ignore: [...config.ignore, ...cliIgnore],
+      fileNames: config.lintFileNames
     });
     const loadedFiles: LoadedAgentsFile[] = agentsFiles.map((file) => ({
       ...file,

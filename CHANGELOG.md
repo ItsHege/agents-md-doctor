@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+## 0.7.0 - 2026-05-31
+
+### Added
+- Add Tool Evidence V2 local inventory entries for GitHub Copilot, Gemini CLI,
+  Windsurf, and Cline instruction surfaces in `explain --json`.
+- Improve the desktop preview Explain tool-evidence cards and smoke coverage
+  for the expanded evidence list.
+- Add a desktop preview `Copy handoff` action that wraps the exact JSON report
+  with safe, scoped instructions for a responsible coding agent.
+- Add desktop preview controls for existing safe lint/verify options: max lines
+  and ignore patterns.
+- Document Claude-first repository caveats and a deterministic future backlog.
+- Add opt-in `lintFileNames` config so teams can lint additional repository
+  instruction file names such as `CLAUDE.md`.
+- Add `agents-doctor init [repo]` to create a starter `.agents-doctor.json`
+  without overwriting by default, plus `--force` for intentional replacement.
+- Add deterministic tool profiles through `toolProfile` config, CLI
+  `--profile`, API options, and the desktop preview profile picker. `auto`
+  remains the default; specific profiles focus evidence and can adjust default
+  lint file names without calling external tools or model APIs.
+
+### Changed
+- Add internal Zod validation for `inheritance.applied_chain.details` so
+  `explain --json` detail fields stay schema-checked as tool evidence and graph
+  details expand.
+
+### Notes
+- Tool Evidence V2 is local repository inventory only. It does not invoke
+  external tools, read global user memory, or attest runtime context loading.
+- The top-level JSON report schema remains `1.0.0`.
+
 ## 0.6.2 - 2026-05-31
 
 ### Changed

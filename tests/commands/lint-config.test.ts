@@ -46,6 +46,64 @@ describe("runLintCommand config", () => {
     ]);
   });
 
+  it("can lint configured Claude instruction files", () => {
+    const root = makeTempRoot();
+    writeAgentsFile(path.join(root, "CLAUDE.md"), "# Claude Instructions\n");
+    writeConfig(root, {
+      lintFileNames: ["CLAUDE.md"]
+    });
+
+    const result = runLintCommand({ root, json: true });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings).toEqual([
+      expect.objectContaining({
+        ruleId: "structure.required_sections",
+        file: "CLAUDE.md"
+      })
+    ]);
+  });
+
+  it("uses a Claude profile to lint CLAUDE.md when lintFileNames is not configured", () => {
+    const root = makeTempRoot();
+    writeAgentsFile(path.join(root, "CLAUDE.md"), "# Claude Instructions\n");
+    writeConfig(root, {
+      toolProfile: "claude-code"
+    });
+
+    const result = runLintCommand({ root, json: true });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings).toEqual([
+      expect.objectContaining({
+        ruleId: "structure.required_sections",
+        file: "CLAUDE.md"
+      })
+    ]);
+  });
+
+  it("lets CLI profile override config profile without overriding explicit lintFileNames", () => {
+    const root = makeTempRoot();
+    writeAgentsFile(path.join(root, "CLAUDE.md"), "# Claude Instructions\n");
+    writeConfig(root, {
+      toolProfile: "auto",
+      lintFileNames: ["CLAUDE.md"]
+    });
+
+    const result = runLintCommand({ root, json: true, profile: "gemini-cli" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings).toEqual([
+      expect.objectContaining({
+        ruleId: "structure.required_sections",
+        file: "CLAUDE.md"
+      })
+    ]);
+  });
+
   it("applies configured max lines and severity", () => {
     const root = makeTempRoot();
     writeAgentsFile(path.join(root, "AGENTS.md"), validAgentsContent());

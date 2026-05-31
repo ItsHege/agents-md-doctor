@@ -43,9 +43,18 @@ try {
   const installedCliPath = resolveInstalledCliPath(tempRoot);
   const helpResult = run(process.execPath, [installedCliPath, "--help"], tempRoot);
   assert.match(helpResult.stdout, /Usage: agents-doctor/);
+  assert.match(helpResult.stdout, /init/);
+
+  const initHelpResult = run(process.execPath, [installedCliPath, "init", "--help"], tempRoot);
+  assert.match(initHelpResult.stdout, /Usage: agents-doctor init/);
 
   const versionResult = run(process.execPath, [installedCliPath, "--version"], tempRoot);
   assert.equal(versionResult.stdout, `${packageVersion}\n`);
+
+  const initResult = run(process.execPath, [installedCliPath, "init"], tempRoot);
+  assert.match(initResult.stdout, /created starter config/);
+  const starterConfig = JSON.parse(fs.readFileSync(path.join(tempRoot, ".agents-doctor.json"), "utf8"));
+  assert.deepEqual(starterConfig.lintFileNames, ["AGENTS.md"]);
 
   const lintResult = run(
     process.execPath,
@@ -68,6 +77,19 @@ try {
     true
   );
 
+  const profileRoot = path.join(tempRoot, "profile-project");
+  fs.mkdirSync(profileRoot, { recursive: true });
+  fs.writeFileSync(path.join(profileRoot, "GEMINI.md"), "# Gemini Instructions\n");
+  const profileResult = run(
+    process.execPath,
+    [installedCliPath, "verify", "--json", "--profile", "gemini-cli", profileRoot],
+    tempRoot
+  );
+  const profileReport = parseCliReport(profileResult.stdout, "verify");
+  const profileCoverage = profileReport.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+  assert.equal(profileCoverage.details.toolProfile, "gemini-cli");
+  assert.deepEqual(profileCoverage.details.lintFileNames, ["AGENTS.md", "GEMINI.md"]);
+
   const explainJsonResult = run(
     process.execPath,
     [
@@ -82,6 +104,15 @@ try {
   const explainReport = parseCliReport(explainJsonResult.stdout, "explain");
   assert.equal(explainReport.exitCode, 0);
   assert.equal(explainReport.findings[0]?.ruleId, "inheritance.applied_chain");
+  const toolEvidence = explainReport.findings[0]?.details?.toolEvidence;
+  assert.equal(Array.isArray(toolEvidence), true);
+  for (const toolId of ["codex", "cursor", "claude-code", "github-copilot", "gemini-cli", "windsurf", "cline"]) {
+    assert.equal(
+      toolEvidence.some((entry) => entry.toolId === toolId),
+      true,
+      `expected packed explain output to include ${toolId} tool evidence`
+    );
+  }
 
   const githubResult = run(
     process.execPath,

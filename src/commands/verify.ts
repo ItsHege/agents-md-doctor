@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig, validateIgnorePatterns } from "../config/index.js";
+import { applyToolProfileOverride, loadConfig, validateIgnorePatterns } from "../config/index.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
+import type { ToolProfile } from "../core/tool-profile.js";
 import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
@@ -21,6 +22,7 @@ export interface VerifyCommandOptions {
   failOnWarning?: boolean;
   ignore?: string[];
   maxLines?: number;
+  profile?: ToolProfile;
 }
 
 export interface CommandResult {
@@ -32,11 +34,12 @@ export interface CommandResult {
 export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
-    const config = loadConfig({ root });
+    const config = applyToolProfileOverride(loadConfig({ root }), options.profile);
     const cliIgnore = options.ignore ?? [];
     validateIgnorePatterns(cliIgnore);
     const agentsFiles = findAgentsFiles(root, {
-      ignore: [...config.ignore, ...cliIgnore]
+      ignore: [...config.ignore, ...cliIgnore],
+      fileNames: config.lintFileNames
     });
     const loadedFiles: LoadedAgentsFile[] = agentsFiles.map((file) => ({
       ...file,
@@ -54,7 +57,7 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
         ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
       }
     });
-    findings.push(...buildCoverageSanityFindings(root, loadedFiles));
+    findings.push(...buildCoverageSanityFindings(root, loadedFiles, config.lintFileNames, config.toolProfile));
     if (config.instructionGraph.enabled) {
       const graph = buildInstructionGraph({
         root,
@@ -133,18 +136,27 @@ function addGraphProvenance(finding: Finding, graph: InstructionGraph): Finding 
   };
 }
 
-function buildCoverageSanityFindings(root: string, files: LoadedAgentsFile[]): Finding[] {
+function buildCoverageSanityFindings(
+  root: string,
+  files: LoadedAgentsFile[],
+  lintFileNames: string[],
+  toolProfile: ToolProfile
+): Finding[] {
   const hasRootAgents = files.some((file) => file.relativePath === "AGENTS.md");
+  const fileLabel = lintFileNames.length === 1 && lintFileNames[0] === "AGENTS.md" ? "AGENTS.md file" : "instruction file";
   const findings: Finding[] = [
     {
       ruleId: "coverage.discovery_summary",
       severity: "info",
-      message: `Scanned ${files.length} AGENTS.md file${files.length === 1 ? "" : "s"} for lint and inheritance sanity.`,
+      message: `Scanned ${files.length} ${fileLabel}${files.length === 1 ? "" : "s"} for lint and inheritance sanity.`,
       file: files[0]?.relativePath,
       line: 1,
       details: {
         agentsFileCount: files.length,
-        hasRootAgents
+        instructionFileCount: files.length,
+        hasRootAgents,
+        toolProfile,
+        lintFileNames
       }
     }
   ];
@@ -153,15 +165,20 @@ function buildCoverageSanityFindings(root: string, files: LoadedAgentsFile[]): F
     findings.push({
       ruleId: "coverage.no_agents_file",
       severity: "warning",
-      message: "No AGENTS.md files found in the repository scope.",
+      message:
+        lintFileNames.length === 1 && lintFileNames[0] === "AGENTS.md"
+          ? "No AGENTS.md files found in the repository scope."
+          : `No configured instruction files found in the repository scope: ${lintFileNames.join(", ")}.`,
       line: 1,
       details: {
-        root: normalizeRelativePath(root)
+        root: normalizeRelativePath(root),
+        toolProfile,
+        lintFileNames
       }
     });
   }
 
-  if (!hasRootAgents && files.length > 0) {
+  if (lintFileNames.includes("AGENTS.md") && !hasRootAgents && files.length > 0) {
     findings.push({
       ruleId: "coverage.root_agents_missing",
       severity: "warning",

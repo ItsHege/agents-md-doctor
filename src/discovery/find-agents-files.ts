@@ -12,14 +12,16 @@ const ignoredDirectoryNames = new Set([".git", "node_modules", "dist", "build", 
 
 export interface FindAgentsFilesOptions {
   ignore?: string[];
+  fileNames?: string[];
 }
 
 export function findAgentsFiles(root: string, options: FindAgentsFilesOptions = {}): AgentsFileReference[] {
   const resolvedRoot = path.resolve(root);
   const files: AgentsFileReference[] = [];
   const isIgnored = createIgnoreMatcher(options.ignore ?? []);
+  const fileNames = new Set(options.fileNames ?? ["AGENTS.md"]);
 
-  walkDirectory(resolvedRoot, resolvedRoot, files, isIgnored);
+  walkDirectory(resolvedRoot, resolvedRoot, files, isIgnored, fileNames);
 
   return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
@@ -28,7 +30,8 @@ function walkDirectory(
   root: string,
   directory: string,
   files: AgentsFileReference[],
-  isIgnored: (relativePath: string) => boolean
+  isIgnored: (relativePath: string) => boolean,
+  fileNames: Set<string>
 ): void {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const absolutePath = path.join(directory, entry.name);
@@ -44,13 +47,13 @@ function walkDirectory(
 
     if (entry.isDirectory()) {
       if (!ignoredDirectoryNames.has(entry.name)) {
-        walkDirectory(root, absolutePath, files, isIgnored);
+        walkDirectory(root, absolutePath, files, isIgnored, fileNames);
       }
 
       continue;
     }
 
-    if (entry.isFile() && entry.name === "AGENTS.md") {
+    if (entry.isFile() && fileNames.has(entry.name)) {
       files.push({
         absolutePath,
         relativePath

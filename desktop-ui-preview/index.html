@@ -7,37 +7,74 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <aside class="sidebar">
-        <button id="sidebar-toggle" class="sidebar-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar">‹</button>
-        <div class="brand-block">
-          <img class="brand-mark" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
-          <div>
-            <h1>AGENTS.md Doctor</h1>
-            <p>Local instruction checks</p>
+    <main class="app-shell" id="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head">
+          <div class="brand-block">
+            <img class="brand-mark" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
+            <div class="brand-text">
+              <h1>AGENTS.md Doctor</h1>
+              <p>Local instruction checks</p>
+            </div>
           </div>
+          <button
+            id="sidebar-collapse"
+            class="icon-button sidebar-collapse-btn"
+            type="button"
+            title="Collapse sidebar (Ctrl+B)"
+            aria-label="Collapse sidebar"
+          >
+            <span aria-hidden="true" class="collapse-glyph">⟨</span>
+          </button>
         </div>
 
         <section class="control-group">
           <label class="label" for="project-path">Project folder</label>
           <div class="path-row">
-            <input id="project-path" type="text" placeholder="Paste or select folder path" spellcheck="false" />
-            <button id="select-project" class="icon-button" type="button" title="Select project folder" aria-label="Select project folder">
+            <input
+              id="project-path"
+              type="text"
+              spellcheck="false"
+              placeholder="C:\path\to\project or paste here"
+            />
+            <button
+              id="select-project"
+              class="icon-button"
+              type="button"
+              title="Select project folder (Ctrl+O)"
+              aria-label="Select project folder"
+            >
               <span aria-hidden="true">...</span>
             </button>
           </div>
-          <select id="recent-projects" class="recent-projects hidden" aria-label="Recent projects">
-            <option value="">Recent projects</option>
-          </select>
+          <div id="path-error" class="inline-error hidden" role="alert"></div>
+          <details id="recent-projects-group" class="recent-projects" hidden>
+            <summary>Recent projects</summary>
+            <ul id="recent-projects-list" class="recent-projects-list"></ul>
+          </details>
         </section>
 
         <section class="control-group">
           <span class="label">Mode</span>
           <div class="segmented" role="radiogroup" aria-label="Check mode">
-            <button class="segment active" type="button" data-command="verify">Verify</button>
-            <button class="segment" type="button" data-command="lint">Lint</button>
-            <button class="segment" type="button" data-command="explain">Explain</button>
+            <button class="segment active" type="button" data-command="verify" title="Verify (Ctrl+1)">Verify</button>
+            <button class="segment" type="button" data-command="lint" title="Lint (Ctrl+2)">Lint</button>
+            <button class="segment" type="button" data-command="explain" title="Explain (Ctrl+3)">Explain</button>
           </div>
+        </section>
+
+        <section class="control-group">
+          <label class="label" for="tool-profile">Tool profile</label>
+          <select id="tool-profile" title="Auto keeps the broad default. Specific profiles focus checks on one local agent-tool surface.">
+            <option value="auto">Auto</option>
+            <option value="codex">Codex</option>
+            <option value="claude-code">Claude Code</option>
+            <option value="cursor">Cursor</option>
+            <option value="gemini-cli">Gemini CLI</option>
+            <option value="github-copilot">GitHub Copilot</option>
+            <option value="windsurf">Windsurf</option>
+            <option value="cline">Cline</option>
+          </select>
         </section>
 
         <section id="target-group" class="control-group hidden">
@@ -47,30 +84,77 @@
 
         <section class="control-group inline-control">
           <input id="strict-mode" type="checkbox" />
-          <label for="strict-mode" title="Exit code 1 even when only warnings are present.">Fail on warnings</label>
+          <label for="strict-mode">
+            Fail on warnings
+            <span
+              class="info-tip"
+              tabindex="0"
+              role="img"
+              aria-label="Help"
+              title="When checked, exit code becomes 1 even when only warnings are present. Use this in CI to block merges on warnings."
+            >?</span>
+          </label>
         </section>
 
-        <div class="run-row">
-          <button id="run-check" class="primary-button" type="button">Run check</button>
-          <button id="theme-toggle" class="icon-button" type="button" title="Toggle theme" aria-label="Toggle theme">◐</button>
+        <details id="options-group" class="control-group options-group">
+          <summary>Options</summary>
+          <label class="field-stack" for="max-lines">
+            <span class="label">Max lines</span>
+            <input id="max-lines" type="number" min="1" step="1" inputmode="numeric" placeholder="500" />
+          </label>
+          <label class="field-stack" for="ignore-patterns">
+            <span class="label">Ignore patterns</span>
+            <textarea id="ignore-patterns" rows="3" spellcheck="false" placeholder=".claude/cache/**"></textarea>
+          </label>
+        </details>
+
+        <button id="run-check" class="primary-button" type="button" title="Run check (F5)">
+          <span id="run-spinner" class="run-spinner hidden" aria-hidden="true"></span>
+          <span id="run-label">Run check</span>
+        </button>
+
+        <div class="sidebar-footer">
+          <button id="open-shortcuts" class="ghost-button" type="button" title="Keyboard shortcuts (?)">
+            <span aria-hidden="true">⌨</span>
+            <span class="sidebar-text">Shortcuts</span>
+          </button>
+          <button id="open-about" class="ghost-button" type="button" title="About">
+            <span aria-hidden="true">ⓘ</span>
+            <span class="sidebar-text">About</span>
+          </button>
         </div>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
-          <div>
+          <div class="topbar-title">
             <p class="eyebrow">Current report</p>
             <h2 id="report-title">Ready</h2>
           </div>
-          <div id="summary-pills" class="summary-pills" aria-live="polite">
-            <span class="pill neutral">No report</span>
+          <div class="topbar-side">
+            <div id="summary-pills" class="summary-pills" aria-live="polite">
+              <span class="pill neutral">No report</span>
+            </div>
+            <div id="diff-pills" class="diff-pills" aria-live="polite"></div>
+            <button
+              id="theme-toggle"
+              class="icon-button theme-toggle"
+              type="button"
+              title="Toggle theme (Ctrl+Shift+L)"
+              aria-label="Toggle theme"
+            >
+              <span class="theme-glyph" aria-hidden="true">🌙</span>
+            </button>
           </div>
         </header>
 
         <section id="empty-state" class="empty-state">
-          <img class="empty-icon" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
+          <img class="empty-brand" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
           <h3>Select a project and run Verify</h3>
           <p>The report stays local and uses the same deterministic checks as the CLI.</p>
+          <p class="empty-hint">
+            Drop a folder here, press <kbd>Ctrl</kbd>+<kbd>O</kbd>, or click the <strong>...</strong> button in the sidebar.
+          </p>
         </section>
 
         <section id="error-state" class="error-state hidden" role="alert">
@@ -121,14 +205,26 @@
 
           <div class="results-toolbar">
             <div id="severity-filters" class="filter-row" role="group" aria-label="Severity filters">
-              <button class="filter active" type="button" data-filter="all">All</button>
-              <button class="filter" type="button" data-filter="error">Errors</button>
-              <button class="filter" type="button" data-filter="warning">Warnings</button>
-              <button class="filter" type="button" data-filter="info">Info</button>
+              <button class="filter active" type="button" data-filter="all">All <span class="filter-count" data-count-for="all">0</span></button>
+              <button class="filter" type="button" data-filter="error">⛔ Errors <span class="filter-count" data-count-for="error">0</span></button>
+              <button class="filter" type="button" data-filter="warning">⚠ Warnings <span class="filter-count" data-count-for="warning">0</span></button>
+              <button class="filter" type="button" data-filter="info">ℹ Info <span class="filter-count" data-count-for="info">0</span></button>
             </div>
-            <input id="finding-search" class="finding-search" type="search" placeholder="Search findings" aria-label="Search findings" />
-            <button id="save-report" class="secondary-button quiet" type="button">Save</button>
-            <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
+            <div class="toolbar-spacer">
+              <input
+                id="findings-search"
+                type="search"
+                class="findings-search"
+                placeholder="Search rule, file, or message..."
+                aria-label="Search findings"
+                autocomplete="off"
+              />
+            </div>
+            <div class="toolbar-actions">
+              <button id="save-report" class="secondary-button" type="button" title="Save report (Ctrl+S)">Save report</button>
+              <button id="copy-handoff" class="secondary-button" type="button" title="Copy agent handoff (Ctrl+Alt+C)">Copy handoff</button>
+              <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
+            </div>
           </div>
 
           <section id="explain-view" class="explain-view hidden" aria-label="Applied instruction chain">
@@ -142,47 +238,101 @@
           </section>
 
           <section id="findings-panel">
-            <div class="findings-layout">
-              <div class="table-shell">
+            <div class="table-shell">
               <table>
                 <thead>
                   <tr>
-                    <th><button class="sort-button" type="button" data-sort="severity">Severity</button></th>
-                    <th><button class="sort-button" type="button" data-sort="ruleId">Rule</button></th>
-                    <th><button class="sort-button" type="button" data-sort="location">Location</button></th>
-                    <th><button class="sort-button" type="button" data-sort="message">Message</button></th>
+                    <th class="sortable" data-sort-key="severity" tabindex="0" role="button">Severity<span class="sort-glyph" aria-hidden="true"></span></th>
+                    <th class="sortable" data-sort-key="ruleId" tabindex="0" role="button">Rule<span class="sort-glyph" aria-hidden="true"></span></th>
+                    <th class="sortable" data-sort-key="location" tabindex="0" role="button">Location<span class="sort-glyph" aria-hidden="true"></span></th>
+                    <th>Message</th>
                   </tr>
                 </thead>
                 <tbody id="findings-body"></tbody>
               </table>
-              </div>
-              <aside id="finding-drawer" class="finding-drawer hidden" aria-label="Finding details">
-                <button id="drawer-close" class="icon-button drawer-close" type="button" title="Close finding details" aria-label="Close finding details">×</button>
-                <h3 id="drawer-title">Finding details</h3>
-                <p id="drawer-message"></p>
-                <div id="drawer-actions" class="drawer-actions"></div>
-                <pre id="drawer-json"></pre>
-              </aside>
+            </div>
+            <div id="findings-empty" class="findings-empty hidden">
+              <span>No findings match the current filter or search.</span>
             </div>
           </section>
         </section>
       </section>
     </main>
 
-    <section id="shortcuts-overlay" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
-      <div class="modal-panel">
-        <button id="shortcuts-close" class="icon-button drawer-close" type="button" aria-label="Close shortcuts">×</button>
-        <h3 id="shortcuts-title">Keyboard shortcuts</h3>
-        <dl class="shortcut-list">
-          <div><dt>Ctrl+O</dt><dd>Open project</dd></div>
-          <div><dt>F5 / Ctrl+R</dt><dd>Run check</dd></div>
-          <div><dt>Ctrl+1/2/3</dt><dd>Verify, Lint, Explain</dd></div>
-          <div><dt>Ctrl+Shift+C</dt><dd>Copy JSON</dd></div>
-          <div><dt>Ctrl+F</dt><dd>Search findings</dd></div>
-          <div><dt>Esc</dt><dd>Close overlay or drawer</dd></div>
-        </dl>
+    <!-- Finding details drawer -->
+    <aside id="finding-drawer" class="drawer hidden" aria-label="Finding details">
+      <header class="drawer-head">
+        <div>
+          <p class="eyebrow">Finding</p>
+          <h3 id="drawer-title">-</h3>
+        </div>
+        <button id="drawer-close" class="icon-button" type="button" aria-label="Close drawer" title="Close (Esc)">
+          <span aria-hidden="true">✕</span>
+        </button>
+      </header>
+      <div class="drawer-body">
+        <div class="drawer-meta-grid">
+          <div><span>Severity</span><strong id="drawer-severity">-</strong></div>
+          <div><span>Rule</span><strong id="drawer-rule">-</strong></div>
+          <div><span>Location</span><strong id="drawer-location">-</strong></div>
+        </div>
+        <p id="drawer-message" class="drawer-message">-</p>
+        <div class="drawer-section">
+          <span class="section-label">Details</span>
+          <pre id="drawer-details" class="drawer-pre">{}</pre>
+        </div>
+        <div class="drawer-actions">
+          <button id="drawer-open-file" class="primary-button" type="button">Open in editor</button>
+          <button id="drawer-suppress" class="secondary-button" type="button">Copy config snippet</button>
+        </div>
       </div>
-    </section>
+    </aside>
+
+    <!-- Shortcuts modal -->
+    <div id="shortcuts-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+          <button class="icon-button" type="button" data-modal-close aria-label="Close">✕</button>
+        </header>
+        <div class="shortcuts-grid">
+          <div class="row"><span>Open project</span><span class="keys"><kbd>Ctrl</kbd><kbd>O</kbd></span></div>
+          <div class="row"><span>Run check</span><span class="keys"><kbd>F5</kbd></span></div>
+          <div class="row"><span>Verify mode</span><span class="keys"><kbd>Ctrl</kbd><kbd>1</kbd></span></div>
+          <div class="row"><span>Lint mode</span><span class="keys"><kbd>Ctrl</kbd><kbd>2</kbd></span></div>
+          <div class="row"><span>Explain mode</span><span class="keys"><kbd>Ctrl</kbd><kbd>3</kbd></span></div>
+          <div class="row"><span>Copy JSON</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>C</kbd></span></div>
+          <div class="row"><span>Copy agent handoff</span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>C</kbd></span></div>
+          <div class="row"><span>Save report</span><span class="keys"><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
+          <div class="row"><span>Toggle theme</span><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>L</kbd></span></div>
+          <div class="row"><span>Toggle sidebar</span><span class="keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
+          <div class="row"><span>Focus findings search</span><span class="keys"><kbd>Ctrl</kbd><kbd>F</kbd></span></div>
+          <div class="row"><span>Show shortcuts</span><span class="keys"><kbd>?</kbd></span></div>
+          <div class="row"><span>Close drawer / modal</span><span class="keys"><kbd>Esc</kbd></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About modal -->
+    <div id="about-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h3 id="about-title">AGENTS.md Doctor</h3>
+          <button class="icon-button" type="button" data-modal-close aria-label="Close">✕</button>
+        </header>
+        <div class="about-body">
+          <img class="about-brand" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
+          <p>Deterministic local checker for AGENTS.md instruction files.</p>
+          <p class="about-meta">Desktop preview · runs the same checks as <code>npx agents-doctor</code>.</p>
+          <p>
+            <a href="https://github.com/ItsHege/agents-md-doctor" id="about-github" target="_blank" rel="noreferrer">GitHub repository</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
     <script src="./renderer.js"></script>
   </body>

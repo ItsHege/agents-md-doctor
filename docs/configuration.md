@@ -3,11 +3,22 @@
 AGENTS.md Doctor reads `.agents-doctor.json` from the repository root.
 Missing config is valid and uses defaults.
 
+Create a starter config with:
+
+```bash
+agents-doctor init .
+```
+
+`init` does not overwrite an existing `.agents-doctor.json` unless `--force` is
+provided.
+
 ## Example
 
 ```json
 {
   "ignore": ["tests/fixtures/**"],
+  "toolProfile": "auto",
+  "lintFileNames": ["AGENTS.md"],
   "maxLines": 500,
   "failOnWarning": false,
   "instructionGraph": {
@@ -42,6 +53,14 @@ Missing config is valid and uses defaults.
 ## Fields
 
 - `ignore`: repo-relative glob patterns skipped during discovery and graph loading.
+- `toolProfile`: optional deterministic tool focus. Defaults to `auto`.
+  Supported values are `auto`, `codex`, `claude-code`, `cursor`, `gemini-cli`,
+  `github-copilot`, `windsurf`, and `cline`.
+- `lintFileNames`: file names to lint during `lint` and `verify`. Defaults to
+  the selected `toolProfile` preset. In `auto`, the default is `["AGENTS.md"]`.
+  In `claude-code`, the default is `["AGENTS.md", "CLAUDE.md"]`. In
+  `gemini-cli`, the default is `["AGENTS.md", "GEMINI.md"]`. Entries must be
+  file names, not paths.
 - `maxLines`: default line threshold for `size.file_too_long`.
 - `failOnWarning`: makes warnings produce exit code `1`.
 - `rules`: per-rule options and severity overrides.
@@ -52,7 +71,17 @@ Missing config is valid and uses defaults.
 Rule severity can be `error`, `warning`, `info`, or `off`.
 
 CLI flags override matching config values for ignore patterns, max-line
-thresholds, and warning failure behavior.
+thresholds, profile, and warning failure behavior. If `lintFileNames` is set in
+config, it remains explicit and is not replaced by a CLI `--profile` preset.
+
+Use `lintFileNames` only when the repository deliberately wants AGENTS.md Doctor
+rules to apply to another repository instruction file family:
+
+```json
+{
+  "lintFileNames": ["AGENTS.md", "CLAUDE.md"]
+}
+```
 
 Rule severity overrides apply to normal missing command findings. The
 `commands.mentioned_command_missing` `scope_ambiguous` case stays

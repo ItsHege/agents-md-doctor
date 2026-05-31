@@ -1,10 +1,12 @@
 import { runExplainCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
+import type { ToolProfile } from "./core/tool-profile.js";
 import { ReportSchema, type ExitCode, type Report } from "./types/index.js";
 
 export type DoctorUiCommand = "lint" | "verify" | "explain";
 
 interface SharedReportOptions {
   root?: string;
+  profile?: ToolProfile;
 }
 
 export interface RunLintReportOptions extends SharedReportOptions {
@@ -57,7 +59,8 @@ export function runDoctorReport(options: RunDoctorReportOptions): DoctorReportRe
         strict: options.strict,
         failOnWarning: options.failOnWarning,
         ignore: options.ignore,
-        maxLines: options.maxLines
+        maxLines: options.maxLines,
+        profile: options.profile
       })
     );
   }
@@ -70,7 +73,8 @@ export function runDoctorReport(options: RunDoctorReportOptions): DoctorReportRe
         strict: options.strict,
         failOnWarning: options.failOnWarning,
         ignore: options.ignore,
-        maxLines: options.maxLines
+        maxLines: options.maxLines,
+        profile: options.profile
       })
     );
   }
@@ -83,7 +87,8 @@ export function runDoctorReport(options: RunDoctorReportOptions): DoctorReportRe
     runExplainCommand({
       root: options.root,
       targetPath: options.targetPath,
-      json: true
+      json: true,
+      profile: options.profile
     })
   );
 }

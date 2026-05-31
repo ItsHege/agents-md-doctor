@@ -14,8 +14,15 @@ folder. Download `AGENTS.md-Doctor-win32-x64-<version>.zip`, unzip it, and run
 - Runs `lint`, `verify`, or `explain` through the local programmatic API.
 - Shows the stable AGENTS.md Doctor report fields in a table.
 - Shows run details: command, project root, generated time, exit code, scanned
-  AGENTS.md count, scanned AGENTS.md paths, checks run, and finding count.
+  instruction-file count, scanned instruction-file paths, checks run, and
+  finding count.
+- Lets users keep the default `Auto` profile or focus checks on Codex, Claude
+  Code, Cursor, Gemini CLI, GitHub Copilot, Windsurf, or Cline.
+- Exposes safe existing options for lint/verify: fail on warnings, max lines,
+  and ignore patterns.
 - Copies the exact JSON report to the clipboard.
+- Copies an agent handoff prompt that wraps the JSON report with safe,
+  scoped-fix instructions.
 
 ## Safety boundary
 
@@ -80,10 +87,21 @@ npm run smoke
 
 The smoke test opens Electron in a temporary fixture, selects the project
 through the renderer path, runs `verify` through IPC, confirms findings, run
-details, and scanned-file paths render, confirms invalid-root errors render,
-refreshes the Windows launcher shortcut, proves a marker-creating shell snippet
-from `AGENTS.md` was not executed, and runs a static scan over UI runtime files
-for command-execution patterns.
+details, scanned-file paths, Copy JSON, Copy handoff, and Explain tool evidence
+render, confirms invalid-root errors render, proves a marker-creating shell
+snippet from `AGENTS.md` was not executed, and runs a static scan over UI
+runtime files for command-execution patterns.
+
+## README screenshot
+
+```powershell
+npm run capture:screenshot
+```
+
+This refreshes `../docs/assets/desktop-ui-warning-report.png` through the real
+Electron app path. Avoid passing inline JavaScript directly to `electron`; on
+Windows it can be interpreted as an app path and show an "Unable to find
+Electron app" dialog.
 
 ## Windows release package
 

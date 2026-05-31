@@ -40,6 +40,62 @@ describe("runVerifyCommand", () => {
     expect(report.findings.some((finding) => finding.ruleId === "size.file_too_long")).toBe(true);
   });
 
+  it("uses configured instruction file names in coverage and lint findings", () => {
+    const root = makeTempRoot();
+    writeFile(root, ".agents-doctor.json", JSON.stringify({ lintFileNames: ["CLAUDE.md"] }));
+    writeFile(root, "CLAUDE.md", "# Claude Instructions\n");
+
+    const result = runVerifyCommand({
+      root,
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const coverage = report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: "structure.required_sections",
+          file: "CLAUDE.md"
+        })
+      ])
+    );
+    expect(coverage?.message).toBe("Scanned 1 instruction file for lint and inheritance sanity.");
+    expect(coverage?.details).toMatchObject({
+      instructionFileCount: 1,
+      lintFileNames: ["CLAUDE.md"]
+    });
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.root_agents_missing")).toBe(false);
+  });
+
+  it("uses CLI profile defaults in coverage details", () => {
+    const root = makeTempRoot();
+    writeFile(root, "GEMINI.md", "# Gemini Instructions\n");
+
+    const result = runVerifyCommand({
+      root,
+      json: true,
+      profile: "gemini-cli"
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const coverage = report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: "structure.required_sections",
+          file: "GEMINI.md"
+        })
+      ])
+    );
+    expect(coverage?.details).toMatchObject({
+      toolProfile: "gemini-cli",
+      lintFileNames: ["AGENTS.md", "GEMINI.md"]
+    });
+  });
+
   it("fails on warning in strict mode", () => {
     const result = runVerifyCommand({
       root: path.join(fixtureRoot, "long-agents-file"),

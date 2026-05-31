@@ -7,10 +7,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const doctorDistRoot = resolveDoctorDistRoot();
 const { runDoctorReport } = await import(pathToFileURL(path.join(doctorDistRoot, "api.js")).href);
-const { loadConfig } = await import(pathToFileURL(path.join(doctorDistRoot, "config", "index.js")).href);
+const { applyToolProfileOverride, loadConfig } = await import(pathToFileURL(path.join(doctorDistRoot, "config", "index.js")).href);
 const { findAgentsFiles } = await import(pathToFileURL(path.join(doctorDistRoot, "discovery", "index.js")).href);
 const isSmokeMode = process.env.AGENTS_DOCTOR_UI_SMOKE === "1";
+const isCaptureMode = process.env.AGENTS_DOCTOR_UI_CAPTURE_SCREENSHOT === "1";
 const appIconPath = path.join(__dirname, "assets", "agents-doctor.ico");
+const toolProfiles = new Set(["auto", "codex", "claude-code", "cursor", "gemini-cli", "github-copilot", "windsurf", "cline"]);
 
 let mainWindow;
 let preferences = {};
@@ -28,6 +30,11 @@ app.whenReady().then(() => {
 
   if (isSmokeMode) {
     runSmokeWhenReady(mainWindow);
+    return;
+  }
+
+  if (isCaptureMode) {
+    runCaptureWhenReady(mainWindow);
     return;
   }
 
@@ -228,6 +235,7 @@ function buildApplicationMenu() {
       label: "Edit",
       submenu: [
         { label: "Copy JSON", accelerator: "CmdOrCtrl+Shift+C", click: () => send("copy-json") },
+        { label: "Copy Agent Handoff", accelerator: "CmdOrCtrl+Alt+C", click: () => send("copy-handoff") },
         { role: "copy" },
         { role: "paste" }
       ]
@@ -391,6 +399,16 @@ function runSmokeWhenReady(window) {
             });
 
             const copiedExplainJson = window.__agentsDoctorLastCopiedJson ?? "";
+            document.querySelector("#copy-handoff").click();
+            await waitFor("copy handoff", () => {
+              if (window.__agentsDoctorCopyError) {
+                throw new Error("Copy handoff failed: " + window.__agentsDoctorCopyError);
+              }
+
+              return (window.__agentsDoctorLastCopiedHandoff ?? "").includes("Use this AGENTS.md Doctor report");
+            });
+
+            const copiedHandoff = window.__agentsDoctorLastCopiedHandoff ?? "";
 
             const invalidResult = await window.agentsDoctor.runCheck({
               command: "verify",
@@ -430,6 +448,7 @@ function runSmokeWhenReady(window) {
               severityFiltersHidden,
               copyJsonVisible,
               copiedExplainJson,
+              copiedHandoff,
               invalidExitCode: invalidResult.exitCode,
               errorTitle: document.querySelector("#report-title")?.textContent ?? "",
               errorMessage: document.querySelector("#error-message")?.textContent ?? "",
@@ -449,6 +468,97 @@ function runSmokeWhenReady(window) {
   });
 }
 
+function runCaptureWhenReady(window) {
+  window.webContents.once("did-finish-load", async () => {
+    try {
+      const fixtureRoot = fs.mkdtempSync(path.join(app.getPath("temp"), "agents-doctor-ui-capture-"));
+      fs.writeFileSync(path.join(fixtureRoot, "package.json"), JSON.stringify({ scripts: {} }));
+      fs.writeFileSync(
+        path.join(fixtureRoot, "AGENTS.md"),
+        [
+          "# Agent Instructions",
+          "",
+          "## Safety",
+          "",
+          "Keep repository checks deterministic and local.",
+          "",
+          "## Testing",
+          "",
+          "Run focused tests before changing shared instructions.",
+          "",
+          "See PROJECT_DNA.md before editing product scope."
+        ].join("\n")
+      );
+      fs.writeFileSync(
+        path.join(fixtureRoot, "CLAUDE.md"),
+        ["# Claude Notes", "", "Use the repository instructions and keep changes scoped."].join("\n")
+      );
+
+      const publicRoot = "C:\\Projects\\demo-agent-app";
+      const captureResult = await window.webContents.executeJavaScript(
+        `
+          (async () => {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            applyTheme('dark');
+            setCommand('verify');
+            const profile = document.querySelector('#tool-profile');
+            profile.value = 'claude-code';
+            profile.dispatchEvent(new Event('change'));
+            setProjectPath(${JSON.stringify(fixtureRoot)});
+            await runCheck();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
+            const publicRoot = ${JSON.stringify(publicRoot)};
+            const maskPaths = () => {
+              const projectInput = document.querySelector('#project-path');
+              if (projectInput) {
+                projectInput.value = publicRoot;
+                projectInput.title = publicRoot;
+              }
+              const ledgerRoot = document.querySelector('#ledger-root');
+              if (ledgerRoot) {
+                ledgerRoot.textContent = publicRoot;
+                ledgerRoot.title = publicRoot;
+              }
+              const ledgerFiles = document.querySelector('#ledger-files');
+              if (ledgerFiles) {
+                ledgerFiles.textContent = 'AGENTS.md, CLAUDE.md';
+                ledgerFiles.title = 'AGENTS.md, CLAUDE.md';
+              }
+              document.querySelectorAll('.recent-path').forEach((item) => {
+                item.textContent = publicRoot;
+                item.title = publicRoot;
+              });
+            };
+            maskPaths();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            maskPaths();
+
+            return {
+              title: document.querySelector('#report-title')?.textContent ?? '',
+              rows: document.querySelectorAll('#findings-body tr').length
+            };
+          })();
+        `,
+        true
+      );
+
+      const outputPath =
+        typeof process.env.AGENTS_DOCTOR_UI_CAPTURE_OUT === "string" && process.env.AGENTS_DOCTOR_UI_CAPTURE_OUT
+          ? path.resolve(process.env.AGENTS_DOCTOR_UI_CAPTURE_OUT)
+          : path.resolve(__dirname, "..", "docs", "assets", "desktop-ui-warning-report.png");
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      const image = await window.webContents.capturePage();
+      fs.writeFileSync(outputPath, image.toPNG());
+      console.log(JSON.stringify({ ok: true, outputPath, ...captureResult }));
+      app.exit(0);
+    } catch (error) {
+      console.error(error instanceof Error ? error.stack || error.message : String(error));
+      app.exit(1);
+    }
+  });
+}
+
 function runFromPayload(payload) {
   if (!isPlainObject(payload)) {
     return {
@@ -461,7 +571,10 @@ function runFromPayload(payload) {
   const command = payload.command;
   const root = typeof payload.root === "string" ? payload.root : undefined;
   const targetPath = typeof payload.targetPath === "string" ? payload.targetPath : undefined;
+  const profile = typeof payload.profile === "string" && toolProfiles.has(payload.profile) ? payload.profile : "auto";
   const strict = payload.strict === true;
+  const maxLines = Number.isInteger(payload.maxLines) && payload.maxLines > 0 ? payload.maxLines : undefined;
+  const ignore = Array.isArray(payload.ignore) ? payload.ignore.filter((entry) => typeof entry === "string") : undefined;
 
   if (command !== "lint" && command !== "verify" && command !== "explain") {
     return {
@@ -483,15 +596,19 @@ function runFromPayload(payload) {
     return withUiMetadata(runDoctorReport({
       command,
       root,
-      targetPath: targetPath && targetPath.trim().length > 0 ? targetPath : "."
-    }));
+      targetPath: targetPath && targetPath.trim().length > 0 ? targetPath : ".",
+      profile
+    }), profile);
   }
 
   return withUiMetadata(runDoctorReport({
     command,
     root,
-    strict
-  }));
+    strict,
+    profile,
+    ...(maxLines ? { maxLines } : {}),
+    ...(ignore && ignore.length > 0 ? { ignore } : {})
+  }), profile);
 }
 
 function preferencesPath() {
@@ -520,10 +637,13 @@ function sanitizePreferences(value) {
   return {
     theme: value.theme === "dark" ? "dark" : "light",
     command: ["verify", "lint", "explain"].includes(value.command) ? value.command : "verify",
+    toolProfile: typeof value.toolProfile === "string" && toolProfiles.has(value.toolProfile) ? value.toolProfile : "auto",
     filter: ["all", "error", "warning", "info"].includes(value.filter) ? value.filter : "all",
     projectPath: typeof value.projectPath === "string" ? value.projectPath : "",
     targetPath: typeof value.targetPath === "string" ? value.targetPath : ".",
     strict: value.strict === true,
+    maxLines: typeof value.maxLines === "string" ? value.maxLines : "",
+    ignorePatterns: typeof value.ignorePatterns === "string" ? value.ignorePatterns : "",
     recentProjects: Array.isArray(value.recentProjects)
       ? value.recentProjects.filter((entry) => typeof entry === "string").slice(0, 5)
       : [],
@@ -556,18 +676,18 @@ function resolveDoctorDistRoot() {
   return sourceCheckoutDistRoot;
 }
 
-function withUiMetadata(result) {
+function withUiMetadata(result, profile = "auto") {
   if (!result.ok) {
     return result;
   }
 
   return {
     ...result,
-    meta: buildUiMetadata(result.report)
+    meta: buildUiMetadata(result.report, profile)
   };
 }
 
-function buildUiMetadata(report) {
+function buildUiMetadata(report, profile = "auto") {
   const root = report.root;
 
   if (!root || report.command === "explain") {
@@ -577,9 +697,9 @@ function buildUiMetadata(report) {
   }
 
   try {
-    const config = loadConfig({ root });
+    const config = applyToolProfileOverride(loadConfig({ root }), profile);
     return {
-      scannedFiles: findAgentsFiles(root, { ignore: config.ignore }).map((file) => file.relativePath)
+      scannedFiles: findAgentsFiles(root, { ignore: config.ignore, fileNames: config.lintFileNames }).map((file) => file.relativePath)
     };
   } catch {
     return {

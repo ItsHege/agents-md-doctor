@@ -114,6 +114,7 @@ Example `inheritance.applied_chain` details:
 ```json
 {
   "targetPath": "packages/app/src/index.ts",
+  "toolProfile": "auto",
   "appliedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
   "conflicts": [],
   "toolEvidence": [
@@ -162,9 +163,18 @@ Example `inheritance.applied_chain` details:
 repository inventory. It is not a runtime attestation that an external tool
 loaded the same bytes or interpreted them with identical semantics.
 
+The `inheritance.applied_chain.details` object is schema-checked before report
+rendering. Additions remain additive under the existing top-level
+`schemaVersion: "1.0.0"` compatibility boundary.
+
+When a specific `--profile` is selected, `details.toolProfile` records that
+profile and `details.toolEvidence` is filtered to the selected tool. With the
+default `auto` profile, all supported tool-evidence entries are included.
+
 Each entry has:
 
-- `toolId`: stable machine id, currently `codex`, `cursor`, or `claude-code`.
+- `toolId`: stable machine id. Current values are `codex`, `cursor`,
+  `claude-code`, `github-copilot`, `gemini-cli`, `windsurf`, and `cline`.
 - `label`: display name for humans.
 - `discoveryStatus`: one of:
   - `native`: AGENTS.md Doctor modeled a native local discovery surface for the
@@ -190,6 +200,19 @@ Current behavior:
 - Claude Code evidence detects `CLAUDE.md` files in the target ancestry and
   `.claude/**/*.md` files. Imports and memory activation semantics are reported
   as limitations rather than treated as fully modeled behavior.
+- GitHub Copilot evidence detects `.github/copilot-instructions.md` and
+  `.github/instructions/**/*.instructions.md`. If those files are not found but
+  `AGENTS.md` applies, the entry is marked `compatible` with runtime caveats.
+- Gemini CLI evidence detects `GEMINI.md` files in the target ancestry and the
+  in-repository `.gemini/settings.json` config surface. Settings values,
+  imports, subdirectory scans, global memory, and runtime loading are not
+  interpreted.
+- Windsurf evidence detects `.windsurf/rules/**/*.md`. If no Windsurf rule file
+  is found but `AGENTS.md` applies, the entry is marked `compatible` with
+  runtime caveats.
+- Cline evidence detects `.clinerules/**/*.{md,txt}`, `.cursorrules`, and
+  `.windsurfrules`. If no Cline-native or legacy rule file is found but
+  `AGENTS.md` applies, the entry is marked `compatible` with runtime caveats.
 
 Example `inheritance.instruction_graph_summary` details:
 

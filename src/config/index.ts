@@ -1,5 +1,6 @@
 export {
   DEFAULT_INSTRUCTION_GRAPH_INCLUDE,
+  applyToolProfileOverride,
   loadConfig,
   validateIgnorePatterns,
   type AgentsDoctorConfig,

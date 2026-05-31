@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { defaultLintFileNamesForProfile, ToolProfileSchema, type ToolProfile } from "../core/tool-profile.js";
 import { AppError } from "../errors.js";
 import { RuleIdSchema, SeveritySchema } from "../types/index.js";
 
@@ -40,6 +41,8 @@ const InstructionGraphConfigSchema = z
 const AgentsDoctorConfigSchema = z
   .object({
     ignore: z.array(z.string().min(1)).optional(),
+    toolProfile: ToolProfileSchema.optional(),
+    lintFileNames: z.array(z.string().min(1)).optional(),
     maxLines: z.number().int().positive().optional(),
     failOnWarning: z.boolean().optional(),
     instructionGraph: InstructionGraphConfigSchema.optional(),
@@ -59,6 +62,9 @@ export type AgentsDoctorConfig = z.infer<typeof AgentsDoctorConfigSchema>;
 
 export interface ResolvedLintConfig {
   ignore: string[];
+  toolProfile: ToolProfile;
+  lintFileNames: string[];
+  lintFileNamesConfigured: boolean;
   maxLines?: number;
   failOnWarning: boolean;
   instructionGraph: ResolvedInstructionGraphConfig;
@@ -75,6 +81,9 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   if (!fs.existsSync(configPath)) {
     return {
       ignore: [],
+      toolProfile: "auto",
+      lintFileNames: defaultLintFileNamesForProfile("auto"),
+      lintFileNamesConfigured: false,
       failOnWarning: false,
       instructionGraph: {
         enabled: false,
@@ -102,12 +111,19 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
 
   const config = parsedConfig.data;
   const ignore = config.ignore ?? [];
+  const toolProfile = config.toolProfile ?? "auto";
+  const lintFileNamesConfigured = Array.isArray(config.lintFileNames);
+  const lintFileNames = config.lintFileNames ?? defaultLintFileNamesForProfile(toolProfile);
   const instructionGraphInclude = config.instructionGraph?.include ?? DEFAULT_INSTRUCTION_GRAPH_INCLUDE;
   validateIgnorePatterns(ignore);
+  validateLintFileNames(lintFileNames);
   validateIgnorePatterns(instructionGraphInclude);
 
   return {
     ignore,
+    toolProfile,
+    lintFileNames,
+    lintFileNamesConfigured,
     ...(config.maxLines ? { maxLines: config.maxLines } : {}),
     failOnWarning: config.failOnWarning ?? false,
     instructionGraph: {
@@ -117,6 +133,28 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
     },
     rules: config.rules ?? {}
   };
+}
+
+export function applyToolProfileOverride(config: ResolvedLintConfig, profile?: ToolProfile): ResolvedLintConfig {
+  if (!profile || profile === config.toolProfile) {
+    return config;
+  }
+
+  return {
+    ...config,
+    toolProfile: profile,
+    lintFileNames: config.lintFileNamesConfigured
+      ? config.lintFileNames
+      : defaultLintFileNamesForProfile(profile)
+  };
+}
+
+function validateLintFileNames(fileNames: string[]): void {
+  for (const fileName of fileNames) {
+    if (fileName.includes("/") || fileName.includes("\\") || fileName === "." || fileName === "..") {
+      throw new AppError("E_CONFIG_INVALID", `lintFileNames entries must be file names, not paths: ${fileName}`);
+    }
+  }
 }
 
 export function validateIgnorePatterns(patterns: string[]): void {

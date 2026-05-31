@@ -17,6 +17,9 @@ describe("runRules", () => {
         root: "/repo",
         config: {
           ignore: [],
+          toolProfile: "auto",
+          lintFileNames: ["AGENTS.md"],
+          lintFileNamesConfigured: false,
           failOnWarning: false,
           instructionGraph: {
             enabled: false,

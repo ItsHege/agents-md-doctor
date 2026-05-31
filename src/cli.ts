@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { runExplainCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
+import { runExplainCommand, runInitCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
+import { ToolProfileSchema, type ToolProfile } from "./core/tool-profile.js";
 import type { OutputFormat } from "./render/index.js";
 
 export function runCli(argv = process.argv): CommandResult {
@@ -27,6 +28,18 @@ export function runCli(argv = process.argv): CommandResult {
     });
 
   program
+    .command("init")
+    .description("Create a starter .agents-doctor.json config.")
+    .argument("[repo]", "repository root")
+    .option("--force", "overwrite an existing .agents-doctor.json")
+    .action((repo: string | undefined, options: { force?: boolean }) => {
+      result = runInitCommand({
+        root: repo,
+        force: options.force === true
+      });
+    });
+
+  program
     .command("lint")
     .description("Lint AGENTS.md instruction files.")
     .argument("[repo]", "repository root")
@@ -36,6 +49,7 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--fail-on-warning", "exit 1 when warnings are present")
     .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
       (
         repo: string | undefined,
@@ -45,6 +59,7 @@ export function runCli(argv = process.argv): CommandResult {
           ignore?: string[];
           json?: boolean;
           maxLines?: string;
+          profile?: string;
           strict?: boolean;
         }
       ) => {
@@ -55,7 +70,8 @@ export function runCli(argv = process.argv): CommandResult {
         strict: options.strict === true,
         failOnWarning: options.failOnWarning === true,
         ignore: options.ignore ?? [],
-        maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined
+        maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined,
+        profile: options.profile ? parseToolProfileOption(options.profile) : undefined
       });
     }
     );
@@ -70,6 +86,7 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--fail-on-warning", "exit 1 when warnings are present")
     .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
       (
         repo: string | undefined,
@@ -79,6 +96,7 @@ export function runCli(argv = process.argv): CommandResult {
           ignore?: string[];
           json?: boolean;
           maxLines?: string;
+          profile?: string;
           strict?: boolean;
         }
       ) => {
@@ -89,7 +107,8 @@ export function runCli(argv = process.argv): CommandResult {
           strict: options.strict === true,
           failOnWarning: options.failOnWarning === true,
           ignore: options.ignore ?? [],
-          maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined
+          maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined,
+          profile: options.profile ? parseToolProfileOption(options.profile) : undefined
         });
       }
     );
@@ -100,11 +119,13 @@ export function runCli(argv = process.argv): CommandResult {
     .argument("<target>", "target file or directory path")
     .argument("[repo]", "repository root")
     .option("--json", "emit JSON report")
-    .action((target: string, repo: string | undefined, options: { json?: boolean }) => {
+    .option("--profile <profile>", "focus tool evidence on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
+    .action((target: string, repo: string | undefined, options: { json?: boolean; profile?: string }) => {
       result = runExplainCommand({
         targetPath: target,
         root: repo,
-        json: options.json === true
+        json: options.json === true,
+        profile: options.profile ? parseToolProfileOption(options.profile) : undefined
       });
     });
 
@@ -206,4 +227,14 @@ function parseOutputFormat(value: string): OutputFormat {
   }
 
   throw new Error("--format must be one of: human, json, github, sarif");
+}
+
+function parseToolProfileOption(value: string): ToolProfile {
+  const parsed = ToolProfileSchema.safeParse(value);
+
+  if (!parsed.success) {
+    throw new Error("--profile must be one of: auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, cline");
+  }
+
+  return parsed.data;
 }

@@ -17,7 +17,7 @@ flowchart TD
     C -->|verify| V1["Load config<br/>.agents-doctor.json + CLI flags"]
     C -->|explain| E1["Resolve target path<br/>and applied AGENTS.md chain"]
 
-    L1 --> D["Discover AGENTS.md files"]
+    L1 --> D["Discover configured instruction files"]
     V1 --> D
 
     D --> R["Read files safely<br/>inside repository boundary"]

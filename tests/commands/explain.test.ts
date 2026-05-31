@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runExplainCommand } from "../../src/commands/index.js";
+import { AppliedChainDetailsSchema } from "../../src/core/explain-details.js";
 import { ToolEvidenceListSchema } from "../../src/core/tool-evidence.js";
 import { ReportSchema } from "../../src/types/index.js";
 
@@ -23,12 +24,7 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(result.stdout));
-    const details = report.findings[0]?.details as {
-      appliedFiles: string[];
-      targetPath: string;
-      conflicts: Array<{ conflictId: string }>;
-      toolEvidence: unknown;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
     const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
 
     expect(result.exitCode).toBe(0);
@@ -64,6 +60,42 @@ describe("runExplainCommand", () => {
         checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
         matchedFiles: [],
         limitations: ["claude-native-memory-not-found"]
+      },
+      {
+        toolId: "github-copilot",
+        label: "GitHub Copilot",
+        discoveryStatus: "compatible",
+        surface: "AGENTS.md compatibility signal",
+        checkedSurfaces: [".github/copilot-instructions.md", ".github/instructions/**/*.instructions.md", "AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: ["copilot-native-instructions-not-found", "copilot-agents-md-runtime-semantics-not-attested"]
+      },
+      {
+        toolId: "gemini-cli",
+        label: "Gemini CLI",
+        discoveryStatus: "compatible",
+        surface: "AGENTS.md configurable context filename signal",
+        checkedSurfaces: ["GEMINI.md ancestry", ".gemini/settings.json", "AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: ["gemini-native-files-not-found", "gemini-agents-md-config-not-attested"]
+      },
+      {
+        toolId: "windsurf",
+        label: "Windsurf",
+        discoveryStatus: "compatible",
+        surface: "AGENTS.md compatibility signal",
+        checkedSurfaces: [".windsurf/rules/**/*.md", "AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: ["windsurf-native-rules-not-found", "windsurf-agents-md-runtime-semantics-not-attested"]
+      },
+      {
+        toolId: "cline",
+        label: "Cline",
+        discoveryStatus: "compatible",
+        surface: "AGENTS.md compatibility signal",
+        checkedSurfaces: [".clinerules/**/*.{md,txt}", ".cursorrules", ".windsurfrules", "AGENTS.md ancestry"],
+        matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
+        limitations: ["cline-native-rules-not-found", "cline-agents-md-runtime-semantics-not-attested"]
       }
     ]);
   });
@@ -97,10 +129,7 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(result.stdout));
-    const details = report.findings[0]?.details as {
-      appliedFiles: string[];
-      toolEvidence: unknown;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
     const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
 
     expect(result.exitCode).toBe(0);
@@ -108,8 +137,105 @@ describe("runExplainCommand", () => {
     expect(toolEvidence.map((entry) => [entry.toolId, entry.discoveryStatus])).toEqual([
       ["codex", "not_found"],
       ["cursor", "not_found"],
-      ["claude-code", "not_found"]
+      ["claude-code", "not_found"],
+      ["github-copilot", "not_found"],
+      ["gemini-cli", "not_found"],
+      ["windsurf", "not_found"],
+      ["cline", "not_found"]
     ]);
+  });
+
+  it("filters tool evidence when a specific profile is selected", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "CLAUDE.md"), "# Claude\n");
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true,
+      profile: "claude-code"
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.toolProfile).toBe("claude-code");
+    expect(details.toolEvidence.map((entry) => entry.toolId)).toEqual(["claude-code"]);
+  });
+
+  it("reports Tool Evidence V2 local inventory for Copilot, Gemini, Windsurf, and Cline", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".github", "instructions"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".windsurf", "rules"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".clinerules", "team"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.md"), "# App\n");
+    fs.writeFileSync(path.join(root, ".github", "copilot-instructions.md"), "# Copilot\n");
+    fs.writeFileSync(path.join(root, ".github", "instructions", "typescript.instructions.md"), "# TypeScript\n");
+    fs.writeFileSync(path.join(root, "GEMINI.md"), "# Root Gemini\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "GEMINI.md"), "# App Gemini\n");
+    fs.writeFileSync(path.join(root, ".gemini", "settings.json"), JSON.stringify({ context: { fileName: "GEMINI.md" } }));
+    fs.writeFileSync(path.join(root, ".windsurf", "rules", "style.md"), "# Windsurf style\n");
+    fs.writeFileSync(path.join(root, ".windsurfrules"), "# Legacy Windsurf\n");
+    fs.writeFileSync(path.join(root, ".clinerules", "team", "workflow.txt"), "Cline workflow.\n");
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+    const copilot = toolEvidence.find((entry) => entry.toolId === "github-copilot");
+    const gemini = toolEvidence.find((entry) => entry.toolId === "gemini-cli");
+    const windsurf = toolEvidence.find((entry) => entry.toolId === "windsurf");
+    const cline = toolEvidence.find((entry) => entry.toolId === "cline");
+
+    expect(copilot).toEqual({
+      toolId: "github-copilot",
+      label: "GitHub Copilot",
+      discoveryStatus: "partial",
+      surface: "Copilot repository and path-specific instructions",
+      checkedSurfaces: [".github/copilot-instructions.md", ".github/instructions/**/*.instructions.md"],
+      matchedFiles: [".github/copilot-instructions.md", ".github/instructions/typescript.instructions.md"],
+      limitations: ["copilot-path-specific-activation-not-modeled", "copilot-runtime-context-not-attested"]
+    });
+    expect(gemini).toEqual({
+      toolId: "gemini-cli",
+      label: "Gemini CLI",
+      discoveryStatus: "partial",
+      surface: "GEMINI.md ancestry and local Gemini settings",
+      checkedSurfaces: ["GEMINI.md ancestry", ".gemini/settings.json"],
+      matchedFiles: ["GEMINI.md", "packages/app/GEMINI.md", ".gemini/settings.json"],
+      limitations: [
+        "gemini-import-semantics-not-modeled",
+        "gemini-settings-values-not-interpreted",
+        "gemini-runtime-context-not-attested"
+      ]
+    });
+    expect(windsurf).toEqual({
+      toolId: "windsurf",
+      label: "Windsurf",
+      discoveryStatus: "partial",
+      surface: ".windsurf/rules/*.md and AGENTS.md compatibility signal",
+      checkedSurfaces: [".windsurf/rules/**/*.md", "AGENTS.md ancestry"],
+      matchedFiles: [".windsurf/rules/style.md"],
+      limitations: ["windsurf-rule-activation-not-modeled", "windsurf-runtime-context-not-attested"]
+    });
+    expect(cline).toEqual({
+      toolId: "cline",
+      label: "Cline",
+      discoveryStatus: "partial",
+      surface: ".clinerules, legacy rule files, and AGENTS.md compatibility signal",
+      checkedSurfaces: [".clinerules/**/*.{md,txt}", ".cursorrules", ".windsurfrules", "AGENTS.md ancestry"],
+      matchedFiles: [".windsurfrules", ".clinerules/team/workflow.txt"],
+      limitations: ["cline-rule-activation-not-modeled", "cline-runtime-context-not-attested"]
+    });
   });
 
   it("reports partial tool evidence for Cursor and Claude native surfaces without modeling runtime semantics", () => {
@@ -131,9 +257,7 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(result.stdout));
-    const details = report.findings[0]?.details as {
-      toolEvidence: unknown;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
     const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
     const cursor = toolEvidence.find((entry) => entry.toolId === "cursor");
     const claude = toolEvidence.find((entry) => entry.toolId === "claude-code");
@@ -175,9 +299,7 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(result.stdout));
-    const details = report.findings[0]?.details as {
-      toolEvidence: unknown;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
     const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
     const cursor = toolEvidence.find((entry) => entry.toolId === "cursor");
 
@@ -203,15 +325,39 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(result.stdout));
-    const details = report.findings[0]?.details as {
-      toolEvidence: unknown;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
     const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
     const claude = toolEvidence.find((entry) => entry.toolId === "claude-code");
 
     expect(claude?.matchedFiles).toHaveLength(100);
     expect(claude?.matchedFiles[0]).toBe("CLAUDE.md");
     expect(claude?.limitations).toContain("surface-file-list-truncated");
+  });
+
+  it("marks Cline tool evidence as truncated after combining legacy and rule surfaces", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".clinerules"), { recursive: true });
+    fs.writeFileSync(path.join(root, "packages", "app", "README.md"), "# App\n");
+    fs.writeFileSync(path.join(root, ".windsurfrules"), "Legacy Windsurf rules.\n");
+
+    for (let index = 0; index < 100; index += 1) {
+      fs.writeFileSync(path.join(root, ".clinerules", `rule-${String(index).padStart(3, "0")}.md`), "Rule.\n");
+    }
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app/README.md",
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+    const toolEvidence = ToolEvidenceListSchema.parse(details.toolEvidence);
+    const cline = toolEvidence.find((entry) => entry.toolId === "cline");
+
+    expect(cline?.matchedFiles).toHaveLength(100);
+    expect(cline?.matchedFiles[0]).toBe(".windsurfrules");
+    expect(cline?.limitations).toContain("surface-file-list-truncated");
   });
 
   it("returns exit 2 when target is outside repo root", () => {
@@ -279,9 +425,7 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(jsonResult.stdout));
-    const details = report.findings[0]?.details as {
-      conflicts: Array<{ conflictId: string; files: string[] }>;
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
 
     expect(jsonResult.exitCode).toBe(0);
     expect(jsonResult.stderr).toBe("");
@@ -329,16 +473,11 @@ describe("runExplainCommand", () => {
       json: true
     });
     const report = ReportSchema.parse(JSON.parse(jsonResult.stdout));
-    const details = report.findings[0]?.details as {
-      instructionGraph: {
-        referencedInstructionFiles: string[];
-        instructionEdges: Array<{ from: string; to: string }>;
-      };
-    };
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
 
     expect(jsonResult.exitCode).toBe(0);
-    expect(details.instructionGraph.referencedInstructionFiles).toEqual(["docs/agent/testing.md"]);
-    expect(details.instructionGraph.instructionEdges).toEqual([
+    expect(details.instructionGraph?.referencedInstructionFiles).toEqual(["docs/agent/testing.md"]);
+    expect(details.instructionGraph?.instructionEdges).toEqual([
       expect.objectContaining({
         from: "AGENTS.md",
         to: "docs/agent/testing.md"

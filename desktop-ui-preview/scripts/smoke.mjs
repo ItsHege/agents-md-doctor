@@ -60,6 +60,18 @@ try {
     ].join("\n")
   );
   fs.writeFileSync(path.join(cleanRoot, "packages", "app", "README.md"), "# App\n");
+  fs.mkdirSync(path.join(cleanRoot, ".github", "instructions"), { recursive: true });
+  fs.mkdirSync(path.join(cleanRoot, ".gemini"), { recursive: true });
+  fs.mkdirSync(path.join(cleanRoot, ".windsurf", "rules"), { recursive: true });
+  fs.mkdirSync(path.join(cleanRoot, ".clinerules"), { recursive: true });
+  fs.writeFileSync(path.join(cleanRoot, ".github", "copilot-instructions.md"), "# Copilot\n");
+  fs.writeFileSync(path.join(cleanRoot, ".github", "instructions", "typescript.instructions.md"), "# TypeScript\n");
+  fs.writeFileSync(path.join(cleanRoot, "GEMINI.md"), "# Root Gemini\n");
+  fs.writeFileSync(path.join(cleanRoot, "packages", "app", "GEMINI.md"), "# App Gemini\n");
+  fs.writeFileSync(path.join(cleanRoot, ".gemini", "settings.json"), JSON.stringify({ context: { fileName: "GEMINI.md" } }));
+  fs.writeFileSync(path.join(cleanRoot, ".windsurf", "rules", "style.md"), "# Windsurf\n");
+  fs.writeFileSync(path.join(cleanRoot, ".windsurfrules"), "# Windsurf legacy\n");
+  fs.writeFileSync(path.join(cleanRoot, ".clinerules", "workflow.md"), "# Cline\n");
 
   const electronArgs = process.platform === "linux" ? ["--no-sandbox", prototypeRoot] : [prototypeRoot];
   const result = spawnSync(electronPath, electronArgs, {
@@ -171,7 +183,11 @@ try {
   if (
     !Array.isArray(smokeOutput.explainToolEvidence) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("Codex: native")) ||
-    !smokeOutput.explainToolEvidence.some((item) => item.includes("Cursor: compatible"))
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Cursor: compatible")) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("GitHub Copilot: partial")) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Gemini CLI: partial")) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Windsurf: partial")) ||
+    !smokeOutput.explainToolEvidence.some((item) => item.includes("Cline: partial"))
   ) {
     throw new Error(`Expected explain tool evidence to render, got ${smokeOutput.explainToolEvidence}.`);
   }
@@ -190,8 +206,24 @@ try {
   }
 
   const copiedToolEvidence = copiedExplainReport.findings?.[0]?.details?.toolEvidence;
-  if (!Array.isArray(copiedToolEvidence) || !copiedToolEvidence.some((entry) => entry.toolId === "codex")) {
-    throw new Error("Expected copied explain JSON to include tool evidence.");
+  const copiedToolIds = Array.isArray(copiedToolEvidence) ? copiedToolEvidence.map((entry) => entry.toolId) : [];
+  for (const toolId of ["codex", "cursor", "claude-code", "github-copilot", "gemini-cli", "windsurf", "cline"]) {
+    if (!copiedToolIds.includes(toolId)) {
+      throw new Error(`Expected copied explain JSON to include ${toolId} tool evidence.`);
+    }
+  }
+  if (!copiedToolEvidence.some((entry) => entry.toolId === "github-copilot" && entry.discoveryStatus === "partial")) {
+    throw new Error("Expected copied explain JSON to preserve V2 tool evidence statuses.");
+  }
+
+  if (
+    typeof smokeOutput.copiedHandoff !== "string" ||
+    !smokeOutput.copiedHandoff.includes("Use this AGENTS.md Doctor report to fix instruction drift.") ||
+    !smokeOutput.copiedHandoff.includes("Do not change unrelated files.") ||
+    !smokeOutput.copiedHandoff.includes('"command": "explain"') ||
+    !smokeOutput.copiedHandoff.includes('"github-copilot"')
+  ) {
+    throw new Error("Expected Copy handoff to include safe instructions and the exact explain JSON report.");
   }
 
   if (smokeOutput.invalidExitCode !== 2) {

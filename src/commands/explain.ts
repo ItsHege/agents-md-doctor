@@ -1,8 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig } from "../config/index.js";
+import { applyToolProfileOverride, loadConfig } from "../config/index.js";
+import {
+  AppliedChainDetailsSchema,
+  type ExplainConflict,
+  type ExplainGraphDetails
+} from "../core/explain-details.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
+import { filterToolEvidenceForProfile, type ToolProfile } from "../core/tool-profile.js";
 import { buildToolEvidence, type ToolEvidence } from "../core/tool-evidence.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
@@ -16,42 +22,15 @@ export interface ExplainCommandOptions {
   targetPath: string;
   root?: string;
   json: boolean;
+  profile?: ToolProfile;
 }
 
 type ToolManager = "npm" | "pnpm" | "yarn" | "bun";
 
-interface ExplainConflict {
-  conflictId:
-    | "tool_manager.disagreement"
-    | "commands.test_hint_conflict"
-    | "generated_files.edit_policy_mismatch";
-  message: string;
-  files: string[];
-  details: Record<string, unknown>;
-}
-
-interface ExplainGraphDetails {
-  referencedInstructionFiles: string[];
-  instructionEdges: Array<{
-    from: string;
-    to: string;
-    reference: string;
-    line: number;
-    sourceType: string;
-  }>;
-  graphDiagnostics: Array<{
-    code: string;
-    file: string;
-    line?: number;
-    reference?: string;
-    target?: string;
-  }>;
-}
-
 export function runExplainCommand(options: ExplainCommandOptions): CommandResult {
   try {
     const root = resolveRoot(options.root ?? process.cwd());
-    const config = loadConfig({ root });
+    const config = applyToolProfileOverride(loadConfig({ root }), options.profile);
     const resolvedTargetPath = resolveTargetPath(root, options.targetPath);
     const targetRelativePath = normalizeRelativePath(path.relative(root, resolvedTargetPath));
     const appliedFiles = findApplicableAgentsFiles(root, resolvedTargetPath);
@@ -66,10 +45,21 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
         })
       : undefined;
     const graphDetails = instructionGraph ? buildExplainGraphDetails(instructionGraph) : undefined;
-    const toolEvidence = buildToolEvidence({
-      root,
-      targetPath: resolvedTargetPath,
-      appliedAgentsFiles: appliedFiles
+    const toolEvidence = filterToolEvidenceForProfile(
+      buildToolEvidence({
+        root,
+        targetPath: resolvedTargetPath,
+        appliedAgentsFiles: appliedFiles
+      }),
+      config.toolProfile
+    );
+    const appliedChainDetails = AppliedChainDetailsSchema.parse({
+      targetPath: targetRelativePath,
+      toolProfile: config.toolProfile,
+      appliedFiles,
+      conflicts,
+      toolEvidence,
+      ...(graphDetails ? { instructionGraph: graphDetails } : {})
     });
     const findings: Finding[] = [
       {
@@ -81,13 +71,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
             : `No AGENTS.md files apply to ${targetRelativePath}.`,
         file: appliedFiles.at(-1),
         line: 1,
-        details: {
-          targetPath: targetRelativePath,
-          appliedFiles,
-          conflicts,
-          toolEvidence,
-          ...(graphDetails ? { instructionGraph: graphDetails } : {})
-        }
+        details: appliedChainDetails
       }
     ];
     if (instructionGraph) {

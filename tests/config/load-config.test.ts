@@ -17,6 +17,9 @@ describe("loadConfig", () => {
   it("returns defaults when config is missing", () => {
     expect(loadConfig({ root: makeTempRoot() })).toEqual({
       ignore: [],
+      toolProfile: "auto",
+      lintFileNames: ["AGENTS.md"],
+      lintFileNamesConfigured: false,
       failOnWarning: false,
       instructionGraph: {
         enabled: false,
@@ -44,6 +47,8 @@ describe("loadConfig", () => {
       path.join(root, ".agents-doctor.json"),
       JSON.stringify({
         ignore: ["tests/fixtures/**"],
+        toolProfile: "claude-code",
+        lintFileNames: ["AGENTS.md", "CLAUDE.md"],
         maxLines: 400,
         failOnWarning: true,
         instructionGraph: {
@@ -62,6 +67,9 @@ describe("loadConfig", () => {
 
     expect(loadConfig({ root })).toEqual({
       ignore: ["tests/fixtures/**"],
+      toolProfile: "claude-code",
+      lintFileNames: ["AGENTS.md", "CLAUDE.md"],
+      lintFileNamesConfigured: true,
       maxLines: 400,
       failOnWarning: true,
       instructionGraph: {
@@ -81,6 +89,34 @@ describe("loadConfig", () => {
   it("throws an app error for malformed JSON", () => {
     const root = makeTempRoot();
     fs.writeFileSync(path.join(root, ".agents-doctor.json"), "{ nope");
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("uses profile default lint file names when lintFileNames is not configured", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        toolProfile: "gemini-cli"
+      })
+    );
+
+    expect(loadConfig({ root })).toMatchObject({
+      toolProfile: "gemini-cli",
+      lintFileNames: ["AGENTS.md", "GEMINI.md"],
+      lintFileNamesConfigured: false
+    });
+  });
+
+  it("rejects invalid tool profiles", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        toolProfile: "made-up-agent"
+      })
+    );
 
     expect(() => loadConfig({ root })).toThrow(AppError);
   });
@@ -111,6 +147,18 @@ describe("loadConfig", () => {
         instructionGraph: {
           include: ["/absolute/path.md"]
         }
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects lint file names that include paths", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        lintFileNames: ["AGENTS.md", "docs/CLAUDE.md"]
       })
     );
 
