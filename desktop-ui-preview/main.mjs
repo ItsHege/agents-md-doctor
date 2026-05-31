@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from "electron";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +13,7 @@ const isSmokeMode = process.env.AGENTS_DOCTOR_UI_SMOKE === "1";
 const appIconPath = path.join(__dirname, "assets", "agents-doctor.ico");
 
 let mainWindow;
+let preferences = {};
 
 app.setName("AGENTS.md Doctor");
 
@@ -21,8 +22,9 @@ if (process.platform === "win32") {
 }
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
+  preferences = loadPreferences();
   mainWindow = createMainWindow();
+  Menu.setApplicationMenu(buildApplicationMenu());
 
   if (isSmokeMode) {
     runSmokeWhenReady(mainWindow);
@@ -65,6 +67,22 @@ ipcMain.handle("project:select", async () => {
   };
 });
 
+ipcMain.handle("project:validate", async (_event, folderPath) => {
+  if (typeof folderPath !== "string" || folderPath.trim() === "") {
+    return { ok: false, error: "Project folder is required." };
+  }
+
+  try {
+    const stats = fs.statSync(path.resolve(folderPath));
+    if (!stats.isDirectory()) {
+      return { ok: false, error: "Project path must be a folder." };
+    }
+    return { ok: true, path: path.resolve(folderPath) };
+  } catch {
+    return { ok: false, error: "Project folder does not exist." };
+  }
+});
+
 ipcMain.handle("doctor:run", async (_event, payload) => {
   return runFromPayload(payload);
 });
@@ -78,10 +96,93 @@ ipcMain.handle("clipboard:writeText", async (_event, text) => {
   return { ok: true };
 });
 
+ipcMain.handle("preferences:load", async () => {
+  return preferences;
+});
+
+ipcMain.handle("preferences:save", async (_event, payload) => {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Preferences payload must be an object." };
+  }
+
+  preferences = sanitizePreferences({
+    ...preferences,
+    ...payload
+  });
+  savePreferences(preferences);
+  return { ok: true };
+});
+
+ipcMain.handle("file:open", async (_event, payload) => {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Invalid open-file request." };
+  }
+
+  const root = typeof payload.root === "string" ? path.resolve(payload.root) : "";
+  const relativeFile = typeof payload.file === "string" ? payload.file : "";
+  const line = Number.isInteger(payload.line) && payload.line > 0 ? payload.line : 1;
+
+  if (!root || !relativeFile) {
+    return { ok: false, error: "Open-file request needs root and file." };
+  }
+
+  const absolutePath = path.resolve(root, relativeFile);
+  if (!isPathInsideRoot(root, absolutePath) || !fs.existsSync(absolutePath)) {
+    return { ok: false, error: "Finding file is missing or outside the project root." };
+  }
+
+  const vscodeUri = `vscode://file/${absolutePath.replace(/\\/g, "/")}:${line}`;
+  try {
+    await shell.openExternal(vscodeUri);
+    return { ok: true };
+  } catch {
+    const fallbackError = await shell.openPath(absolutePath);
+    return fallbackError ? { ok: false, error: fallbackError } : { ok: true };
+  }
+});
+
+ipcMain.handle("report:save", async (_event, payload) => {
+  if (!isPlainObject(payload) || typeof payload.content !== "string") {
+    return { ok: false, error: "Save report request needs text content." };
+  }
+
+  const defaultName = typeof payload.defaultName === "string" ? payload.defaultName : "agents-doctor-report.json";
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Save AGENTS.md Doctor report",
+    defaultPath: defaultName,
+    filters: [
+      { name: "JSON", extensions: ["json"] },
+      { name: "Markdown", extensions: ["md"] },
+      { name: "All files", extensions: ["*"] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  fs.writeFileSync(result.filePath, payload.content, "utf8");
+  return { ok: true, path: result.filePath };
+});
+
+ipcMain.handle("app:notify", async (_event, payload) => {
+  if (!isPlainObject(payload) || !Notification.isSupported()) {
+    return { ok: false };
+  }
+
+  const title = typeof payload.title === "string" ? payload.title : "AGENTS.md Doctor";
+  const body = typeof payload.body === "string" ? payload.body : "";
+  new Notification({ title, body }).show();
+  return { ok: true };
+});
+
 function createMainWindow() {
+  const savedBounds = isPlainObject(preferences.windowBounds) ? preferences.windowBounds : {};
   const window = new BrowserWindow({
-    width: 1180,
-    height: 780,
+    width: numberOrDefault(savedBounds.width, 1180),
+    height: numberOrDefault(savedBounds.height, 780),
+    x: Number.isInteger(savedBounds.x) ? savedBounds.x : undefined,
+    y: Number.isInteger(savedBounds.y) ? savedBounds.y : undefined,
     minWidth: 920,
     minHeight: 640,
     title: "AGENTS.md Doctor",
@@ -95,8 +196,68 @@ function createMainWindow() {
     }
   });
 
+  window.on("close", () => {
+    preferences = sanitizePreferences({
+      ...preferences,
+      windowBounds: window.getBounds()
+    });
+    savePreferences(preferences);
+  });
+
   window.loadFile(path.join(__dirname, "index.html"));
   return window;
+}
+
+function buildApplicationMenu() {
+  const send = (command) => {
+    const target = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    target?.webContents.send("app:command", command);
+  };
+
+  return Menu.buildFromTemplate([
+    {
+      label: "File",
+      submenu: [
+        { label: "Open Project", accelerator: "CmdOrCtrl+O", click: () => send("open-project") },
+        { label: "Save Report", accelerator: "CmdOrCtrl+S", click: () => send("save-report") },
+        { type: "separator" },
+        { role: process.platform === "darwin" ? "close" : "quit" }
+      ]
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { label: "Copy JSON", accelerator: "CmdOrCtrl+Shift+C", click: () => send("copy-json") },
+        { role: "copy" },
+        { role: "paste" }
+      ]
+    },
+    {
+      label: "View",
+      submenu: [
+        { label: "Toggle Theme", accelerator: "CmdOrCtrl+Shift+L", click: () => send("toggle-theme") },
+        { role: "reload" },
+        { role: "toggleDevTools" }
+      ]
+    },
+    {
+      label: "Run",
+      submenu: [
+        { label: "Verify", accelerator: "CmdOrCtrl+1", click: () => send("mode-verify") },
+        { label: "Lint", accelerator: "CmdOrCtrl+2", click: () => send("mode-lint") },
+        { label: "Explain", accelerator: "CmdOrCtrl+3", click: () => send("mode-explain") },
+        { label: "Run Check", accelerator: "F5", click: () => send("run-check") }
+      ]
+    },
+    {
+      label: "Help",
+      submenu: [
+        { label: "Keyboard Shortcuts", accelerator: "?", click: () => send("shortcuts") },
+        { label: "GitHub", click: () => shell.openExternal("https://github.com/ItsHege/agents-md-doctor") },
+        { label: "About", click: () => send("about") }
+      ]
+    }
+  ]);
 }
 
 function runSmokeWhenReady(window) {
@@ -331,6 +492,53 @@ function runFromPayload(payload) {
     root,
     strict
   }));
+}
+
+function preferencesPath() {
+  return path.join(app.getPath("userData"), "preferences.json");
+}
+
+function loadPreferences() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(preferencesPath(), "utf8"));
+    return sanitizePreferences(parsed);
+  } catch {
+    return {};
+  }
+}
+
+function savePreferences(nextPreferences) {
+  fs.mkdirSync(app.getPath("userData"), { recursive: true });
+  fs.writeFileSync(preferencesPath(), `${JSON.stringify(sanitizePreferences(nextPreferences), null, 2)}\n`, "utf8");
+}
+
+function sanitizePreferences(value) {
+  if (!isPlainObject(value)) {
+    return {};
+  }
+
+  return {
+    theme: value.theme === "dark" ? "dark" : "light",
+    command: ["verify", "lint", "explain"].includes(value.command) ? value.command : "verify",
+    filter: ["all", "error", "warning", "info"].includes(value.filter) ? value.filter : "all",
+    projectPath: typeof value.projectPath === "string" ? value.projectPath : "",
+    targetPath: typeof value.targetPath === "string" ? value.targetPath : ".",
+    strict: value.strict === true,
+    recentProjects: Array.isArray(value.recentProjects)
+      ? value.recentProjects.filter((entry) => typeof entry === "string").slice(0, 5)
+      : [],
+    windowBounds: isPlainObject(value.windowBounds) ? value.windowBounds : undefined,
+    sidebarCollapsed: value.sidebarCollapsed === true
+  };
+}
+
+function numberOrDefault(value, fallback) {
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function isPathInsideRoot(root, target) {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 function isPlainObject(value) {

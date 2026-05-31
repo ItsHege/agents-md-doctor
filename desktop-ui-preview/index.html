@@ -9,6 +9,7 @@
   <body>
     <main class="app-shell">
       <aside class="sidebar">
+        <button id="sidebar-toggle" class="sidebar-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar">‹</button>
         <div class="brand-block">
           <img class="brand-mark" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
           <div>
@@ -20,11 +21,14 @@
         <section class="control-group">
           <label class="label" for="project-path">Project folder</label>
           <div class="path-row">
-            <input id="project-path" type="text" readonly placeholder="No folder selected" />
+            <input id="project-path" type="text" placeholder="Paste or select folder path" spellcheck="false" />
             <button id="select-project" class="icon-button" type="button" title="Select project folder" aria-label="Select project folder">
               <span aria-hidden="true">...</span>
             </button>
           </div>
+          <select id="recent-projects" class="recent-projects hidden" aria-label="Recent projects">
+            <option value="">Recent projects</option>
+          </select>
         </section>
 
         <section class="control-group">
@@ -43,10 +47,13 @@
 
         <section class="control-group inline-control">
           <input id="strict-mode" type="checkbox" />
-          <label for="strict-mode">Fail on warnings</label>
+          <label for="strict-mode" title="Exit code 1 even when only warnings are present.">Fail on warnings</label>
         </section>
 
-        <button id="run-check" class="primary-button" type="button">Run check</button>
+        <div class="run-row">
+          <button id="run-check" class="primary-button" type="button">Run check</button>
+          <button id="theme-toggle" class="icon-button" type="button" title="Toggle theme" aria-label="Toggle theme">◐</button>
+        </div>
       </aside>
 
       <section class="workspace">
@@ -61,7 +68,7 @@
         </header>
 
         <section id="empty-state" class="empty-state">
-          <div class="empty-icon">AG</div>
+          <img class="empty-icon" src="./assets/agents-doctor.png" alt="" aria-hidden="true" />
           <h3>Select a project and run Verify</h3>
           <p>The report stays local and uses the same deterministic checks as the CLI.</p>
         </section>
@@ -119,6 +126,8 @@
               <button class="filter" type="button" data-filter="warning">Warnings</button>
               <button class="filter" type="button" data-filter="info">Info</button>
             </div>
+            <input id="finding-search" class="finding-search" type="search" placeholder="Search findings" aria-label="Search findings" />
+            <button id="save-report" class="secondary-button quiet" type="button">Save</button>
             <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
           </div>
 
@@ -133,23 +142,47 @@
           </section>
 
           <section id="findings-panel">
-            <div class="table-shell">
+            <div class="findings-layout">
+              <div class="table-shell">
               <table>
                 <thead>
                   <tr>
-                    <th>Severity</th>
-                    <th>Rule</th>
-                    <th>Location</th>
-                    <th>Message</th>
+                    <th><button class="sort-button" type="button" data-sort="severity">Severity</button></th>
+                    <th><button class="sort-button" type="button" data-sort="ruleId">Rule</button></th>
+                    <th><button class="sort-button" type="button" data-sort="location">Location</button></th>
+                    <th><button class="sort-button" type="button" data-sort="message">Message</button></th>
                   </tr>
                 </thead>
                 <tbody id="findings-body"></tbody>
               </table>
+              </div>
+              <aside id="finding-drawer" class="finding-drawer hidden" aria-label="Finding details">
+                <button id="drawer-close" class="icon-button drawer-close" type="button" title="Close finding details" aria-label="Close finding details">×</button>
+                <h3 id="drawer-title">Finding details</h3>
+                <p id="drawer-message"></p>
+                <div id="drawer-actions" class="drawer-actions"></div>
+                <pre id="drawer-json"></pre>
+              </aside>
             </div>
           </section>
         </section>
       </section>
     </main>
+
+    <section id="shortcuts-overlay" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-panel">
+        <button id="shortcuts-close" class="icon-button drawer-close" type="button" aria-label="Close shortcuts">×</button>
+        <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+        <dl class="shortcut-list">
+          <div><dt>Ctrl+O</dt><dd>Open project</dd></div>
+          <div><dt>F5 / Ctrl+R</dt><dd>Run check</dd></div>
+          <div><dt>Ctrl+1/2/3</dt><dd>Verify, Lint, Explain</dd></div>
+          <div><dt>Ctrl+Shift+C</dt><dd>Copy JSON</dd></div>
+          <div><dt>Ctrl+F</dt><dd>Search findings</dd></div>
+          <div><dt>Esc</dt><dd>Close overlay or drawer</dd></div>
+        </dl>
+      </div>
+    </section>
 
     <script src="./renderer.js"></script>
   </body>
