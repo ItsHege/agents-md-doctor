@@ -47,7 +47,7 @@ function formatCount(count: number, singular: string): string {
 }
 
 function renderFindingHeader(finding: Finding): string {
-  const file = finding.file ?? "<repo>";
+  const file = sanitizeTerminalText(finding.file ?? "<repo>");
   const line = finding.line ?? "?";
 
   return `${finding.severity} ${finding.ruleId} ${file}:${line}`;
@@ -55,7 +55,7 @@ function renderFindingHeader(finding: Finding): string {
 
 function renderFindingMessage(finding: Finding, options: RenderHumanLintOptions): string {
   if (options.compactScopeAmbiguous !== true || finding.ruleId !== "commands.mentioned_command_missing") {
-    return finding.message;
+    return sanitizeTerminalText(finding.message);
   }
 
   const details = isPlainObject(finding.details) ? finding.details : {};
@@ -64,19 +64,28 @@ function renderFindingMessage(finding: Finding, options: RenderHumanLintOptions)
     : [];
 
   if (details.reason !== "scope_ambiguous" || matchedPackages.length <= 5) {
-    return finding.message;
+    return sanitizeTerminalText(finding.message);
   }
 
   const scriptName = typeof details.scriptName === "string" ? details.scriptName : "script";
   const firstPackages = matchedPackages.slice(0, 5).join(", ");
 
-  return [
+  return sanitizeTerminalText([
     `AGENTS.md references script "${scriptName}" that exists in ${matchedPackages.length} workspace packages.`,
     `First 5 matches: ${firstPackages}.`,
     "Use --json for the full matchedPackages list."
-  ].join(" ");
+  ].join(" "));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeTerminalText(value: string): string {
+  return value
+    .replace(
+      /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g,
+      "?"
+    )
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "?");
 }

@@ -9,6 +9,7 @@ const desktopRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const projectRoot = path.resolve(desktopRoot, "..");
 const stagingRoot = path.join(desktopRoot, "build-staging", "win32-x64");
 const releaseRoot = path.join(desktopRoot, "release");
+const rootLockfilePath = path.join(projectRoot, "package-lock.json");
 const parentPackageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"));
 const appName = "AGENTS.md Doctor";
 const zipBaseName = `AGENTS.md-Doctor-win32-x64-${parentPackageJson.version}`;
@@ -18,6 +19,7 @@ const zipPath = path.join(releaseRoot, `${zipBaseName}.zip`);
 assert.equal(typeof parentPackageJson.version, "string", "Parent package.json version is required.");
 assert.equal(typeof parentPackageJson.dependencies, "object", "Parent package.json dependencies are required.");
 assert.ok(fs.existsSync(path.join(projectRoot, "dist", "api.js")), "Run npm --prefix .. run build before packaging.");
+assert.ok(fs.existsSync(rootLockfilePath), "Root package-lock.json is required for locked desktop packaging.");
 
 fs.rmSync(stagingRoot, { recursive: true, force: true });
 fs.rmSync(releaseRoot, { recursive: true, force: true });
@@ -55,14 +57,15 @@ function writeStagingPackageJson() {
   };
 
   fs.writeFileSync(path.join(stagingRoot, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
+  fs.copyFileSync(rootLockfilePath, path.join(stagingRoot, "package-lock.json"));
 }
 
 function installProductionDependencies() {
   const npmExecPath = process.env.npm_execpath;
   const command = npmExecPath ? process.execPath : "npm";
   const args = npmExecPath
-    ? [npmExecPath, "install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false"]
-    : ["install", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--package-lock=false"];
+    ? [npmExecPath, "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"]
+    : ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"];
   const result = spawnSync(command, args, {
     cwd: stagingRoot,
     encoding: "utf8",

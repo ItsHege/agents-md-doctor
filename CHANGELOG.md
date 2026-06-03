@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## 0.7.1 - 2026-06-03
+
+### Fixed
+- Harden release automation so npm publish credentials are scoped only to the
+  publish step, release permissions are job-scoped, and GitHub Actions are
+  pinned by full commit SHA.
+- Package the desktop Windows zip from the checked root lockfile using
+  `npm ci --omit=dev`, instead of resolving staging dependencies outside the
+  committed lockfile.
+- Bound repository discovery, workspace package discovery, tool-evidence
+  surface scans, config reads, and opt-in instruction graph traversal to avoid
+  unbounded local scans on hostile or unusually large repositories.
+- Sanitize terminal control characters in human lint output.
+
+### Added
+- Add regression coverage for scan budgets, oversized config/package files,
+  instruction graph budget findings, tool-evidence truncation, and terminal
+  output sanitization.
+- Document `inheritance.instruction_graph_budget_exceeded` and its additive
+  JSON diagnostic details.
+
+### Notes
+- No top-level JSON report schema change; budget diagnostics are additive
+  finding details under existing schema version `1.0.0`.
+
 ## 0.7.0 - 2026-05-31
 
 ### Added

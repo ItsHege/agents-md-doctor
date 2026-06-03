@@ -236,6 +236,17 @@ Example graph diagnostic details:
 }
 ```
 
+Graph diagnostics can also report safety-budget stops, for example:
+
+```json
+{
+  "code": "instruction_graph_budget_exceeded",
+  "reason": "max_references",
+  "target": "AGENTS.md",
+  "maxReferencesPerFile": 200
+}
+```
+
 Example referenced instruction provenance:
 
 ```json

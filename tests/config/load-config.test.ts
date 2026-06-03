@@ -93,6 +93,14 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ root })).toThrow(AppError);
   });
 
+  it("rejects config files before parsing when they exceed the byte limit", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), `{"ignore":["${"x".repeat(256 * 1024)}"]}`);
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+    expect(() => loadConfig({ root })).toThrow(".agents-doctor.json is too large");
+  });
+
   it("uses profile default lint file names when lintFileNames is not configured", () => {
     const root = makeTempRoot();
     fs.writeFileSync(

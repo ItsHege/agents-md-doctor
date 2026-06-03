@@ -8,7 +8,8 @@ export type AppErrorCode =
   | "E_PATH_OUTSIDE_ROOT"
   | "E_FILE_NOT_FOUND"
   | "E_FILE_NOT_READABLE"
-  | "E_FILE_TOO_LARGE";
+  | "E_FILE_TOO_LARGE"
+  | "E_SCAN_BUDGET_EXCEEDED";
 
 export class AppError extends Error {
   readonly code: AppErrorCode;

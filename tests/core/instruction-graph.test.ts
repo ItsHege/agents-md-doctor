@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { DEFAULT_INSTRUCTION_GRAPH_INCLUDE } from "../../src/config/load-config.js";
+import { buildInstructionGraphFindings } from "../../src/core/instruction-graph-findings.js";
 import { buildInstructionGraph } from "../../src/core/instruction-graph.js";
 
 const tempRoots: string[] = [];
@@ -176,6 +178,63 @@ describe("buildInstructionGraph", () => {
       })
     ]);
     expect(graph.nodes.find((node) => node.id === "docs/agent/large.md")?.status).toBe("too_large");
+  });
+
+  it("reports a budget diagnostic when one instruction file references too many files", () => {
+    const root = makeTempRoot();
+    writeFile(
+      root,
+      "AGENTS.md",
+      [
+        "# Root",
+        "",
+        "Read [one](docs/agent/testing-instructions.md).",
+        "Read [two](docs/agent/review-instructions.md)."
+      ].join("\n")
+    );
+    writeFile(root, "docs/agent/testing-instructions.md", "# One\n");
+    writeFile(root, "docs/agent/review-instructions.md", "# Two\n");
+
+    const graph = buildInstructionGraph({
+      root,
+      entryFiles: [loadEntry(root, "AGENTS.md")],
+      maxDepth: 2,
+      maxReferencesPerFile: 1,
+      include: ["**/AGENTS.md", "**/docs/agent/**/*.md"]
+    });
+
+    expect(graph.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "instruction_graph_budget_exceeded",
+        reason: "max_references",
+        file: "AGENTS.md"
+      })
+    ]);
+    expect(graph.edges).toEqual([]);
+
+    const findings = buildInstructionGraphFindings(graph, {
+      ignore: [],
+      toolProfile: "auto",
+      lintFileNames: ["AGENTS.md"],
+      lintFileNamesConfigured: false,
+      failOnWarning: false,
+      instructionGraph: {
+        enabled: true,
+        maxDepth: 2,
+        include: DEFAULT_INSTRUCTION_GRAPH_INCLUDE
+      },
+      rules: {}
+    });
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        ruleId: "inheritance.instruction_graph_budget_exceeded",
+        details: expect.objectContaining({
+          code: "instruction_graph_budget_exceeded",
+          reason: "max_references",
+          maxReferencesPerFile: 1
+        })
+      })
+    );
   });
 });
 

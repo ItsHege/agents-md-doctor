@@ -6,6 +6,7 @@ import { AppError } from "../errors.js";
 import { RuleIdSchema, SeveritySchema } from "../types/index.js";
 
 export const CONFIG_FILE_NAME = ".agents-doctor.json";
+export const MAX_CONFIG_BYTES = 256 * 1024;
 
 const RuleSeverityOverrideSchema = z.union([SeveritySchema, z.literal("off")]);
 
@@ -97,8 +98,20 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   let parsedJson: unknown;
 
   try {
+    const stats = fs.statSync(configPath);
+    if (stats.size > MAX_CONFIG_BYTES) {
+      throw new AppError(
+        "E_FILE_TOO_LARGE",
+        `${CONFIG_FILE_NAME} is too large: ${stats.size} bytes, max ${MAX_CONFIG_BYTES}`
+      );
+    }
+
     parsedJson = JSON.parse(fs.readFileSync(configPath, "utf8"));
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
     const message = error instanceof Error ? error.message : "invalid JSON";
     throw new AppError("E_CONFIG_INVALID", `${CONFIG_FILE_NAME} is not valid JSON: ${message}`);
   }

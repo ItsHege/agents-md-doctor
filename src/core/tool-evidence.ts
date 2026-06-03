@@ -30,6 +30,8 @@ export interface BuildToolEvidenceOptions {
   root: string;
   targetPath: string;
   appliedAgentsFiles: string[];
+  maxSurfaceDirectoryEntries?: number;
+  maxSurfaceDepth?: number;
 }
 
 interface SurfaceScan {
@@ -38,17 +40,23 @@ interface SurfaceScan {
 }
 
 const MAX_SURFACE_FILES = 100;
+const MAX_SURFACE_DIRECTORY_ENTRIES = 10_000;
+const MAX_SURFACE_DEPTH = 25;
 
 export function buildToolEvidence(options: BuildToolEvidenceOptions): ToolEvidence[] {
   const root = fs.realpathSync.native(path.resolve(options.root));
   const targetPath = path.resolve(options.targetPath);
   const appliedAgentsFiles = orderedUnique(options.appliedAgentsFiles);
-  const cursorScan = scanCursorSurfaces(root);
-  const claudeScan = scanClaudeSurfaces(root, targetPath);
-  const copilotScan = scanCopilotSurfaces(root);
+  const scanBudget = {
+    maxSurfaceDirectoryEntries: options.maxSurfaceDirectoryEntries ?? MAX_SURFACE_DIRECTORY_ENTRIES,
+    maxSurfaceDepth: options.maxSurfaceDepth ?? MAX_SURFACE_DEPTH
+  };
+  const cursorScan = scanCursorSurfaces(root, scanBudget);
+  const claudeScan = scanClaudeSurfaces(root, targetPath, scanBudget);
+  const copilotScan = scanCopilotSurfaces(root, scanBudget);
   const geminiScan = scanGeminiSurfaces(root, targetPath);
-  const windsurfScan = scanWindsurfSurfaces(root);
-  const clineScan = scanClineSurfaces(root);
+  const windsurfScan = scanWindsurfSurfaces(root, scanBudget);
+  const clineScan = scanClineSurfaces(root, scanBudget);
 
   return ToolEvidenceListSchema.parse([
     buildCodexEvidence(appliedAgentsFiles),
@@ -330,12 +338,13 @@ function buildClineEvidence(appliedAgentsFiles: string[], clineScan: SurfaceScan
   };
 }
 
-function scanCursorSurfaces(root: string): SurfaceScan {
+function scanCursorSurfaces(root: string, budget: SurfaceScanBudget): SurfaceScan {
   const legacyFile = existingFile(root, ".cursorrules");
   const rules = collectFiles({
     root,
     directory: ".cursor/rules",
-    extensions: [".mdc"]
+    extensions: [".mdc"],
+    ...budget
   });
   const combinedFiles = orderedUnique([...legacyFile, ...rules.files]);
 
@@ -345,12 +354,13 @@ function scanCursorSurfaces(root: string): SurfaceScan {
   };
 }
 
-function scanCopilotSurfaces(root: string): SurfaceScan {
+function scanCopilotSurfaces(root: string, budget: SurfaceScanBudget): SurfaceScan {
   const repoInstructions = existingFile(root, ".github/copilot-instructions.md");
   const pathInstructions = collectFiles({
     root,
     directory: ".github/instructions",
-    fileSuffixes: [".instructions.md"]
+    fileSuffixes: [".instructions.md"],
+    ...budget
   });
   const combinedFiles = orderedUnique([...repoInstructions, ...pathInstructions.files]);
 
@@ -371,15 +381,16 @@ function scanGeminiSurfaces(root: string, targetPath: string): SurfaceScan {
   };
 }
 
-function scanWindsurfSurfaces(root: string): SurfaceScan {
+function scanWindsurfSurfaces(root: string, budget: SurfaceScanBudget): SurfaceScan {
   return collectFiles({
     root,
     directory: ".windsurf/rules",
-    extensions: [".md"]
+    extensions: [".md"],
+    ...budget
   });
 }
 
-function scanClineSurfaces(root: string): SurfaceScan {
+function scanClineSurfaces(root: string, budget: SurfaceScanBudget): SurfaceScan {
   const legacyFiles = [
     ...existingFile(root, ".cursorrules"),
     ...existingFile(root, ".windsurfrules")
@@ -387,7 +398,8 @@ function scanClineSurfaces(root: string): SurfaceScan {
   const rules = collectFiles({
     root,
     directory: ".clinerules",
-    extensions: [".md", ".txt"]
+    extensions: [".md", ".txt"],
+    ...budget
   });
   const combinedFiles = orderedUnique([...legacyFiles, ...rules.files]);
 
@@ -397,12 +409,13 @@ function scanClineSurfaces(root: string): SurfaceScan {
   };
 }
 
-function scanClaudeSurfaces(root: string, targetPath: string): SurfaceScan {
+function scanClaudeSurfaces(root: string, targetPath: string, budget: SurfaceScanBudget): SurfaceScan {
   const ancestryFiles = findAncestryFiles(root, targetPath, "CLAUDE.md");
   const claudeMarkdown = collectFiles({
     root,
     directory: ".claude",
-    extensions: [".md"]
+    extensions: [".md"],
+    ...budget
   });
   const combinedFiles = orderedUnique([...ancestryFiles, ...claudeMarkdown.files]);
 
@@ -455,10 +468,23 @@ function existingPath(absolutePath: string, root: string): string[] {
   return [normalizeRelativePath(path.relative(root, absolutePath))];
 }
 
-function collectFiles(options: { root: string; directory: string; extensions?: string[]; fileSuffixes?: string[] }): SurfaceScan {
+interface SurfaceScanBudget {
+  maxSurfaceDirectoryEntries: number;
+  maxSurfaceDepth: number;
+}
+
+function collectFiles(options: {
+  root: string;
+  directory: string;
+  extensions?: string[];
+  fileSuffixes?: string[];
+  maxSurfaceDirectoryEntries: number;
+  maxSurfaceDepth: number;
+}): SurfaceScan {
   const absoluteDirectory = path.join(options.root, options.directory);
   const files: string[] = [];
   let truncated = false;
+  let visitedEntries = 0;
 
   if (!isPathInsideRoot(options.root, absoluteDirectory) || !fs.existsSync(absoluteDirectory)) {
     return { files, truncated };
@@ -475,15 +501,20 @@ function collectFiles(options: { root: string; directory: string; extensions?: s
     return { files, truncated };
   }
 
-  walkDirectory(absoluteDirectory);
+  walkDirectory(absoluteDirectory, 0);
 
   return {
     files: files.sort((left, right) => left.localeCompare(right)),
     truncated
   };
 
-  function walkDirectory(directory: string): void {
+  function walkDirectory(directory: string, depth: number): void {
     if (files.length >= MAX_SURFACE_FILES) {
+      truncated = true;
+      return;
+    }
+
+    if (depth > options.maxSurfaceDepth) {
       truncated = true;
       return;
     }
@@ -496,6 +527,12 @@ function collectFiles(options: { root: string; directory: string; extensions?: s
     }
 
     for (const entry of entries) {
+      visitedEntries += 1;
+      if (visitedEntries > options.maxSurfaceDirectoryEntries) {
+        truncated = true;
+        return;
+      }
+
       if (files.length >= MAX_SURFACE_FILES) {
         truncated = true;
         return;
@@ -511,7 +548,7 @@ function collectFiles(options: { root: string; directory: string; extensions?: s
       }
 
       if (entry.isDirectory()) {
-        walkDirectory(absolutePath);
+        walkDirectory(absolutePath, depth + 1);
         continue;
       }
 

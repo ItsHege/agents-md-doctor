@@ -7,26 +7,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
-  publish:
-    name: Publish npm package
+  validate:
+    name: Validate package and desktop asset
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -53,25 +51,81 @@ jobs:
         run: npm run release:preflight
 
       - name: Install desktop UI dependencies
-        if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         run: npm --prefix desktop-ui-preview ci
 
       - name: Smoke test desktop UI runtime
-        if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         run: xvfb-run -a npm --prefix desktop-ui-preview run smoke:ci
 
       - name: Package desktop UI for Windows
-        if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         run: npm --prefix desktop-ui-preview run package:win
 
+      - name: Upload desktop UI asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: desktop-ui-win32-x64
+          path: desktop-ui-preview/release/AGENTS.md-Doctor-win32-x64-*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish npm package
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Release preflight
+        run: npm run release:preflight
+
       - name: Publish to npm
-        if: env.NPM_TOKEN != ''
-        run: npm publish --provenance --access public
         env:
-          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::warning::NPM_TOKEN secret is not configured. Release gate passed, but npm publish was skipped."
+            echo "Publish locally only as an explicit maintainer fallback, then add NPM_TOKEN before the next automated release."
+            exit 0
+          fi
+
+          npm publish --provenance --access public
+
+  github-release:
+    name: Upload desktop UI release asset
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download desktop UI asset
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
+        with:
+          name: desktop-ui-win32-x64
+          path: desktop-ui-preview/release
 
       - name: Create GitHub release and upload desktop UI asset
-        if: env.NPM_TOKEN != '' && startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -83,9 +137,3 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" "$asset" --title "$GITHUB_REF_NAME" --generate-notes --latest
           fi
-
-      - name: Skip npm publish without NPM_TOKEN
-        if: env.NPM_TOKEN == ''
-        run: |
-          echo "::warning::NPM_TOKEN secret is not configured. Release gate passed, but npm publish was skipped."
-          echo "Publish locally only as an explicit maintainer fallback, then add NPM_TOKEN before the next automated release."

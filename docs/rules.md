@@ -241,3 +241,14 @@ Reports cycles in opt-in referenced instruction files, such as
 
 Reports instruction references that were not traversed because they exceeded
 `instructionGraph.maxDepth`.
+
+### `inheritance.instruction_graph_budget_exceeded`
+
+- Category: `inheritance`
+- Default severity: `warning`
+- Config options: `severity`
+
+Reports opt-in instruction graph traversal that was stopped by a safety budget,
+such as too many graph nodes, edges, or references from one instruction file.
+The finding means AGENTS.md Doctor intentionally stopped expanding the graph
+instead of reading an unbounded instruction reference set.

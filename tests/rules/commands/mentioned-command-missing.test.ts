@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { AppError } from "../../../src/errors.js";
 import { checkMentionedCommands } from "../../../src/rules/commands/index.js";
 
 const tempRoots: string[] = [];
@@ -216,6 +217,49 @@ describe("commands.mentioned_command_missing", () => {
         reason: "scope_ambiguous"
       }
     });
+  });
+
+  it("stops workspace package discovery when the directory-entry budget is exceeded", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: {} }));
+    fs.mkdirSync(path.join(root, "apps"), { recursive: true });
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `npm run dev`.\n");
+
+    expect(() =>
+      checkMentionedCommands({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8"),
+        maxWorkspaceScanEntries: 1
+      })
+    ).toThrow(AppError);
+  });
+
+  it("does not parse package.json files that exceed the safe byte limit", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "package.json"), `{"scripts":{"test":"ok"},"padding":"${"x".repeat(128)}"}`);
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, "# Instructions\n\nRun `npm run test`.\n");
+
+    const findings = checkMentionedCommands({
+      root,
+      fileAbsolutePath: agentsPath,
+      fileRelativePath: "AGENTS.md",
+      content: fs.readFileSync(agentsPath, "utf8"),
+      maxPackageJsonBytes: 32
+    });
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        ruleId: "commands.mentioned_command_missing",
+        details: expect.objectContaining({
+          scriptName: "test",
+          source: "package.json"
+        })
+      })
+    ]);
   });
 
   it("does not treat flags or placeholders as script names", () => {

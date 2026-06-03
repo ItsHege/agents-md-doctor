@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { extractMarkdownElements } from "../../core/markdown.js";
+import { AppError } from "../../errors.js";
 import { normalizeRelativePath } from "../../path-utils.js";
 import type { Finding, RuleDefinition, Severity } from "../../types/index.js";
 
@@ -18,6 +19,8 @@ export interface CheckMentionedCommandsOptions {
   fileRelativePath: string;
   content: string;
   severity?: Severity;
+  maxWorkspaceScanEntries?: number;
+  maxPackageJsonBytes?: number;
 }
 
 interface CommandReference {
@@ -34,6 +37,8 @@ interface PackageScriptContext {
 
 const SCRIPT_NAME_PATTERN = /^[A-Za-z0-9:_-]+$/;
 const MAKE_TARGET_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+const MAX_WORKSPACE_SCAN_ENTRIES = 500_000;
+const MAX_PACKAGE_JSON_BYTES = 1_000_000;
 const OPTIONALITY_MARKERS = ["if present", "if available", "if it exists", "when available", "optional", "--if-present"];
 const PACKAGE_MANAGER_OPTIONS_WITH_VALUE = new Set([
   "--filter",
@@ -149,7 +154,7 @@ export function checkMentionedCommands(options: CheckMentionedCommandsOptions): 
   const contentLines = options.content.split(/\r?\n/);
   const findings: Finding[] = [];
   const seen = new Set<string>();
-  const packageContext = loadNearestPackageScripts(options.root, options.fileAbsolutePath);
+  const packageContext = loadNearestPackageScripts(options.root, options.fileAbsolutePath, options);
   const makeTargets = loadNearestMakeTargets(options.root, options.fileAbsolutePath);
 
   for (const reference of references) {
@@ -173,7 +178,8 @@ export function checkMentionedCommands(options: CheckMentionedCommandsOptions): 
       const workspaceMatches = findWorkspaceScriptMatches(
         options.root,
         reference.scriptName,
-        packageContext.packagePath
+        packageContext.packagePath,
+        options
       );
 
       if (workspaceMatches.length > 0) {
@@ -481,8 +487,13 @@ function lineHasOptionalityMarker(lines: string[], line: number): boolean {
   return OPTIONALITY_MARKERS.some((marker) => normalized.includes(marker));
 }
 
-function loadNearestPackageScripts(root: string, fileAbsolutePath: string): PackageScriptContext {
+function loadNearestPackageScripts(
+  root: string,
+  fileAbsolutePath: string,
+  options: Pick<CheckMentionedCommandsOptions, "maxPackageJsonBytes">
+): PackageScriptContext {
   const packagePath = findNearestFile(root, path.dirname(fileAbsolutePath), ["package.json"]);
+  const maxPackageJsonBytes = options.maxPackageJsonBytes ?? MAX_PACKAGE_JSON_BYTES;
 
   if (!packagePath) {
     return {
@@ -492,6 +503,14 @@ function loadNearestPackageScripts(root: string, fileAbsolutePath: string): Pack
   }
 
   try {
+    const stats = fs.statSync(packagePath);
+    if (stats.size > maxPackageJsonBytes) {
+      return {
+        packagePath,
+        scripts: new Set()
+      };
+    }
+
     const raw = JSON.parse(fs.readFileSync(packagePath, "utf8")) as { scripts?: Record<string, unknown> };
     return {
       packagePath,
@@ -505,9 +524,15 @@ function loadNearestPackageScripts(root: string, fileAbsolutePath: string): Pack
   }
 }
 
-function findWorkspaceScriptMatches(root: string, scriptName: string, nearestPackagePath: string | null): string[] {
-  const packagePaths = findWorkspacePackageJsonFiles(root);
+function findWorkspaceScriptMatches(
+  root: string,
+  scriptName: string,
+  nearestPackagePath: string | null,
+  options: Pick<CheckMentionedCommandsOptions, "maxPackageJsonBytes" | "maxWorkspaceScanEntries">
+): string[] {
+  const packagePaths = findWorkspacePackageJsonFiles(root, options);
   const matches: string[] = [];
+  const maxPackageJsonBytes = options.maxPackageJsonBytes ?? MAX_PACKAGE_JSON_BYTES;
 
   for (const packagePath of packagePaths) {
     if (nearestPackagePath && path.resolve(packagePath) === path.resolve(nearestPackagePath)) {
@@ -515,6 +540,11 @@ function findWorkspaceScriptMatches(root: string, scriptName: string, nearestPac
     }
 
     try {
+      const stats = fs.statSync(packagePath);
+      if (stats.size > maxPackageJsonBytes) {
+        continue;
+      }
+
       const raw = JSON.parse(fs.readFileSync(packagePath, "utf8")) as { scripts?: Record<string, unknown> };
       const scripts = raw.scripts ?? {};
 
@@ -531,10 +561,15 @@ function findWorkspaceScriptMatches(root: string, scriptName: string, nearestPac
   return matches.sort();
 }
 
-function findWorkspacePackageJsonFiles(root: string): string[] {
+function findWorkspacePackageJsonFiles(
+  root: string,
+  options: Pick<CheckMentionedCommandsOptions, "maxWorkspaceScanEntries">
+): string[] {
   const results: string[] = [];
   const queue: string[] = [root];
   const ignoredDirectoryNames = new Set([".git", "node_modules", "dist", "build", "coverage"]);
+  let visitedEntries = 0;
+  const maxWorkspaceScanEntries = options.maxWorkspaceScanEntries ?? MAX_WORKSPACE_SCAN_ENTRIES;
 
   while (queue.length > 0) {
     const directory = queue.shift();
@@ -550,6 +585,14 @@ function findWorkspacePackageJsonFiles(root: string): string[] {
     }
 
     for (const entry of entries) {
+      visitedEntries += 1;
+      if (visitedEntries > maxWorkspaceScanEntries) {
+        throw new AppError(
+          "E_SCAN_BUDGET_EXCEEDED",
+          `workspace package discovery exceeded max directory entries ${maxWorkspaceScanEntries}`
+        );
+      }
+
       const entryPath = path.join(directory, entry.name);
 
       if (entry.isSymbolicLink()) {

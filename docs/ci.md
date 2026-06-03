@@ -31,15 +31,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 22
 
       - name: Verify AGENTS.md instructions
-        run: npx agents-doctor@0.6.2 verify --json .
+        run: npx agents-doctor@0.7.1 verify --json .
 ```
 
 Exit code behavior:
@@ -74,7 +74,7 @@ should fail CI.
 
 ```yaml
       - name: Verify AGENTS.md instructions strictly
-        run: npx agents-doctor@0.6.2 verify --json --fail-on-warning .
+        run: npx agents-doctor@0.7.1 verify --json --fail-on-warning .
 ```
 
 Strict mode changes the process/report exit code only. It does not rewrite
@@ -109,7 +109,7 @@ annotations before the human summary.
 
 ```yaml
       - name: Verify AGENTS.md instructions with annotations
-        run: npx agents-doctor@0.6.2 verify --format github .
+        run: npx agents-doctor@0.7.1 verify --format github .
 ```
 
 `--format github` maps severities as:
@@ -143,7 +143,7 @@ Use `--format sarif` when your CI system ingests SARIF 2.1.0.
 
 ```yaml
       - name: Generate AGENTS.md Doctor SARIF
-        run: npx agents-doctor@0.6.2 verify --format sarif . > agents-doctor.sarif
+        run: npx agents-doctor@0.7.1 verify --format sarif . > agents-doctor.sarif
 ```
 
 For GitHub code scanning upload, the workflow also needs
@@ -188,6 +188,11 @@ changelog, commit, and tag must already agree before the release workflow is
 triggered. The preflight step also checks package-lock alignment, requires a
 dated changelog entry for the package version, checks npm registry state, and
 refuses to publish a version that already exists.
+
+The release job disables `setup-node` dependency caching because it runs with
+publish credentials and elevated release permissions. Keep normal CI caching in
+non-publishing jobs, but re-check current GitHub Actions and npm guidance before
+changing the release authentication or caching model.
 
 On tagged releases with `NPM_TOKEN` configured, the workflow also installs the
 desktop UI preview dependencies, runs the desktop runtime safety scan and

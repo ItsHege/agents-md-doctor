@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { findAgentsFiles } from "../../src/discovery/index.js";
+import { AppError } from "../../src/errors.js";
 
 const fixtureRoot = path.resolve("tests/fixtures");
 const tempRoots: string[] = [];
@@ -86,6 +87,14 @@ describe("findAgentsFiles", () => {
     expect(findAgentsFiles(root, { ignore: ["tests/fixtures/**"] }).map((file) => file.relativePath)).toEqual([
       "packages/app/AGENTS.md"
     ]);
+  });
+
+  it("stops discovery when the directory-entry budget is exceeded", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.mkdirSync(path.join(root, "packages"), { recursive: true });
+
+    expect(() => findAgentsFiles(root, { maxDirectoryEntries: 1 })).toThrow(AppError);
   });
 });
 

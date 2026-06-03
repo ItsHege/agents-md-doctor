@@ -34,6 +34,20 @@ describe("human lint rendering", () => {
     expect(github).toContain("packages/app-7/package.json");
     expect(JSON.stringify(JSON.parse(sarif))).toContain("packages/app-7/package.json");
   });
+
+  it("sanitizes terminal control characters in human output", () => {
+    const report = buildControlCharacterReport();
+
+    const human = renderReport(report, {
+      command: "lint",
+      format: "human"
+    });
+
+    expect(human).not.toContain("\u001b[2J");
+    expect(human).not.toContain("\u0007");
+    expect(human).toContain("?evil.md");
+    expect(human).toContain("clear? screen");
+  });
 });
 
 function buildScopeAmbiguousReport(): Report {
@@ -69,6 +83,31 @@ function buildScopeAmbiguousReport(): Report {
           reason: "scope_ambiguous",
           matchedPackages
         }
+      }
+    ]
+  };
+}
+
+function buildControlCharacterReport(): Report {
+  return {
+    schemaVersion: "1.0.0",
+    tool: "agents-doctor",
+    command: "lint",
+    generatedAt: "2026-06-03T00:00:00.000Z",
+    root: "C:/repo",
+    exitCode: 1,
+    summary: {
+      errorCount: 1,
+      warningCount: 0,
+      infoCount: 0
+    },
+    findings: [
+      {
+        ruleId: "paths.reference_missing",
+        severity: "error",
+        message: "clear\u001b[2J screen\u0007",
+        file: "\u001b[2Jevil.md",
+        line: 1
       }
     ]
   };

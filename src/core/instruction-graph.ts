@@ -16,6 +16,9 @@ export type InstructionGraphNodeDiscovery = "entry" | "reference";
 export type InstructionGraphDiagnosticReason =
   | "cycle"
   | "max_depth"
+  | "max_nodes"
+  | "max_edges"
+  | "max_references"
   | "missing"
   | "outside_repo"
   | "symlink"
@@ -25,6 +28,7 @@ export type InstructionGraphDiagnosticReason =
 export type InstructionGraphDiagnosticCode =
   | "instruction_graph_cycle"
   | "instruction_graph_depth_exceeded"
+  | "instruction_graph_budget_exceeded"
   | "instruction_reference_missing"
   | "instruction_reference_outside_repo"
   | "instruction_reference_symlink"
@@ -90,6 +94,9 @@ export interface BuildInstructionGraphOptions {
   root: string;
   entryFiles: Array<string | InstructionGraphEntryFile>;
   maxDepth?: number;
+  maxNodes?: number;
+  maxEdges?: number;
+  maxReferencesPerFile?: number;
   include?: string[];
   ignore?: string[];
 }
@@ -110,12 +117,18 @@ interface ResolvedReference {
 }
 
 const DEFAULT_MAX_DEPTH = 8;
+const DEFAULT_MAX_NODES = 500;
+const DEFAULT_MAX_EDGES = 2_000;
+const DEFAULT_MAX_REFERENCES_PER_FILE = 200;
 const MARKDOWN_EXTENSION = ".md";
 const INSTRUCTION_BASENAME_PATTERN = /(?:^|[-_.])(agents?|instructions?|guidance|policy|rules)(?:[-_.]|$)/i;
 
 export function buildInstructionGraph(options: BuildInstructionGraphOptions): InstructionGraph {
   const root = fs.realpathSync.native(path.resolve(options.root));
   const maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES;
+  const maxEdges = options.maxEdges ?? DEFAULT_MAX_EDGES;
+  const maxReferencesPerFile = options.maxReferencesPerFile ?? DEFAULT_MAX_REFERENCES_PER_FILE;
   const includeMatcher = createMatcher(options.include ?? []);
   const ignoreMatcher = createMatcher(options.ignore ?? []);
   const nodes = new Map<string, InstructionGraphNode>();
@@ -142,6 +155,9 @@ export function buildInstructionGraph(options: BuildInstructionGraphOptions): In
       incomingLine: undefined,
       incomingColumn: undefined,
       maxDepth,
+      maxNodes,
+      maxEdges,
+      maxReferencesPerFile,
       includeMatcher,
       ignoreMatcher,
       nodes,
@@ -177,6 +193,9 @@ interface TraverseOptions {
   incomingLine?: number;
   incomingColumn?: number;
   maxDepth: number;
+  maxNodes: number;
+  maxEdges: number;
+  maxReferencesPerFile: number;
   includeMatcher: (relativePath: string) => boolean;
   ignoreMatcher: (relativePath: string) => boolean;
   nodes: Map<string, InstructionGraphNode>;
@@ -194,6 +213,23 @@ function traverse(options: TraverseOptions): void {
   }
 
   const readResult = readInstructionFile(options.root, options.requestedPath, options.relativePath, options.entryContent);
+  if (!options.nodes.has(readResult.relativePath) && options.nodes.size >= options.maxNodes) {
+    options.diagnostics.push({
+      code: "instruction_graph_budget_exceeded",
+      reason: "max_nodes",
+      file: options.referencedBy ?? options.relativePath,
+      reference: options.incomingReference,
+      target: readResult.relativePath,
+      ...(options.incomingLine ? { line: options.incomingLine } : {}),
+      ...(options.incomingColumn ? { column: options.incomingColumn } : {}),
+      message: `Instruction graph exceeded max nodes ${options.maxNodes}.`,
+      details: {
+        maxNodes: options.maxNodes
+      }
+    });
+    return;
+  }
+
   upsertNode(options.nodes, {
     id: readResult.relativePath,
     absolutePath: readResult.absolutePath,
@@ -239,6 +275,24 @@ function traverse(options: TraverseOptions): void {
   options.visiting.add(readResult.relativePath);
   const references = extractInstructionReferences(readResult.content);
 
+  if (references.length > options.maxReferencesPerFile) {
+    options.diagnostics.push({
+      code: "instruction_graph_budget_exceeded",
+      reason: "max_references",
+      file: readResult.relativePath,
+      reference: readResult.relativePath,
+      target: readResult.relativePath,
+      message: `Instruction graph exceeded max references per file ${options.maxReferencesPerFile}.`,
+      details: {
+        referenceCount: references.length,
+        maxReferencesPerFile: options.maxReferencesPerFile
+      }
+    });
+    options.visiting.delete(readResult.relativePath);
+    options.visited.add(readResult.relativePath);
+    return;
+  }
+
   for (const reference of references) {
     const resolved = resolveReference(options.root, readResult.absolutePath, reference);
 
@@ -269,6 +323,23 @@ function traverse(options: TraverseOptions): void {
     }
 
     if (!options.includeMatcher(resolved.relativePath)) {
+      continue;
+    }
+
+    if (options.edges.length >= options.maxEdges) {
+      options.diagnostics.push({
+        code: "instruction_graph_budget_exceeded",
+        reason: "max_edges",
+        file: readResult.relativePath,
+        reference: resolved.reference,
+        target: resolved.relativePath,
+        line: resolved.location.line,
+        column: resolved.location.column,
+        message: `Instruction graph exceeded max edges ${options.maxEdges}.`,
+        details: {
+          maxEdges: options.maxEdges
+        }
+      });
       continue;
     }
 

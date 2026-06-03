@@ -53,6 +53,7 @@ function diagnosticToFinding(diagnostic: InstructionGraphDiagnostic, config: Res
     column: diagnostic.column,
     details: {
       code: diagnostic.code,
+      reason: diagnostic.reason,
       reference: diagnostic.reference,
       target: diagnostic.target,
       ...(diagnostic.details ?? {})
@@ -69,6 +70,10 @@ function getDiagnosticRuleId(diagnostic: InstructionGraphDiagnostic): string {
     return "inheritance.instruction_graph_depth_exceeded";
   }
 
+  if (diagnostic.code === "instruction_graph_budget_exceeded") {
+    return "inheritance.instruction_graph_budget_exceeded";
+  }
+
   return "inheritance.referenced_instruction_missing";
 }
 
@@ -79,6 +84,10 @@ function getDiagnosticMessage(diagnostic: InstructionGraphDiagnostic): string {
 
   if (diagnostic.code === "instruction_graph_depth_exceeded") {
     return `${diagnostic.file} references ${diagnostic.reference}, but instruction graph maxDepth was exceeded.`;
+  }
+
+  if (diagnostic.code === "instruction_graph_budget_exceeded") {
+    return diagnostic.message;
   }
 
   if (diagnostic.code === "instruction_reference_outside_repo") {
