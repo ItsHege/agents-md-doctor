@@ -22,6 +22,8 @@
 - Reduce `paths.reference_missing` noise for generated/cache directory-style
   references backed by benchmark evidence, while keeping ordinary missing
   directory references reportable.
+- Refresh the public Codex skill example with current profile, context-fidelity,
+  annotation-filtering, and maintainer-check guidance.
 
 ## 0.7.1 - 2026-06-03
 
