@@ -24,6 +24,19 @@ describe("renderGitHubReport", () => {
       "::warning file=docs%3Aagent%2Cnotes/AGENTS.md,line=12,title=size.file_too_long::Bad %25 value%0Awith newline"
     );
   });
+
+  it("filters only annotations by minimum severity and keeps the human summary complete", () => {
+    const output = renderGitHubReport(makeReportWithMixedSeverities(), {
+      command: "verify",
+      annotationMinSeverity: "warning"
+    });
+
+    expect(output).toContain("::error file=AGENTS.md,line=4,title=commands.mentioned_command_missing::Missing command.");
+    expect(output).toContain("::warning file=AGENTS.md,line=12,title=size.file_too_long::AGENTS.md has 612 lines.");
+    expect(output).not.toContain("::notice file=AGENTS.md,line=1,title=coverage.discovery_summary::");
+    expect(output).toContain("agents-doctor verify: 1 error, 1 warning, 1 info");
+    expect(output).toContain("info coverage.discovery_summary AGENTS.md:1");
+  });
 });
 
 function makeReport(findingOverrides: Partial<Report["findings"][number]> = {}): Report {
@@ -47,6 +60,45 @@ function makeReport(findingOverrides: Partial<Report["findings"][number]> = {}):
         file: "AGENTS.md",
         line: 12,
         ...findingOverrides
+      }
+    ]
+  };
+}
+
+function makeReportWithMixedSeverities(): Report {
+  return {
+    schemaVersion: "1.0.0",
+    tool: "agents-doctor",
+    command: "verify",
+    generatedAt: "2026-05-01T19:30:00.000Z",
+    root: "C:/repo",
+    exitCode: 1,
+    summary: {
+      errorCount: 1,
+      warningCount: 1,
+      infoCount: 1
+    },
+    findings: [
+      {
+        ruleId: "coverage.discovery_summary",
+        severity: "info",
+        message: "Scanned 1 AGENTS.md file.",
+        file: "AGENTS.md",
+        line: 1
+      },
+      {
+        ruleId: "size.file_too_long",
+        severity: "warning",
+        message: "AGENTS.md has 612 lines.",
+        file: "AGENTS.md",
+        line: 12
+      },
+      {
+        ruleId: "commands.mentioned_command_missing",
+        severity: "error",
+        message: "Missing command.",
+        file: "AGENTS.md",
+        line: 4
       }
     ]
   };

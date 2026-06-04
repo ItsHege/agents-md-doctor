@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Added
+- Add a context-fidelity guide for teams using Codex, Claude Code, Cursor,
+  Gemini CLI, GitHub Copilot, Windsurf, and Cline together, including safe
+  `explain --json` handoff guidance and source-backed limitation wording.
+- Add opt-in GitHub annotation filtering through
+  `--annotations-min-severity <info|warning|error>` and
+  `annotationMinSeverity` config while keeping JSON, SARIF, human summary, and
+  exit-code behavior unchanged.
+- Add Claude Code local inventory details to `explain --json`, including
+  repo-local `@path` import candidates, `.claude/commands/**/*.md` command
+  files, `/project:` slash-command candidates, and `.claude/settings.json`
+  existence without interpreting settings values or executing commands.
+- Add desktop UI onboarding steps, clearer remediation copy, a reviewed config
+  override action, and Explain tool-evidence detail summaries for Claude
+  repo-local inventory.
+- Add release governance documentation, trusted publishing migration guidance,
+  and CODEOWNERS review hints for release and supply-chain surfaces.
+- Reduce `paths.reference_missing` noise for generated/cache directory-style
+  references backed by benchmark evidence, while keeping ordinary missing
+  directory references reportable.
+
 ## 0.7.1 - 2026-06-03
 
 ### Fixed

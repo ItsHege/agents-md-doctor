@@ -83,7 +83,9 @@ Strict mode changes only the report `exitCode`; it does not change
 - default human output;
 - `--json`, equivalent to `--format json`;
 - `--format github`, which emits GitHub workflow annotations plus a human
-  summary;
+  summary; annotation lines can be reduced with
+  `--annotations-min-severity <info|warning|error>` without changing the
+  report or summary;
 - `--format sarif`, which emits SARIF 2.1.0.
 
 When both `--json` and `--format` are provided, JSON report output wins.
@@ -93,6 +95,10 @@ When both `--json` and `--format` are provided, JSON report output wins.
 The JSON `Report` schema above remains the stable AGENTS.md Doctor report
 schema. SARIF output follows the SARIF 2.1.0 shape and maps AGENTS.md Doctor
 finding severities as `error`, `warning`, or `note`.
+
+GitHub annotation filtering is a renderer option only. It does not remove
+findings from the JSON report, SARIF output, human summary, or exit-code
+calculation.
 
 ## Instruction Graph Details
 
@@ -190,6 +196,8 @@ Each entry has:
 - `checkedSurfaces`: path names or glob-like locations checked locally.
 - `matchedFiles`: repository-relative files that matched the checked surfaces.
 - `limitations`: stable machine-readable caveats.
+- `details`: optional tool-specific local inventory. This is additive and
+  should be treated as evidence, not runtime attestation.
 
 Current behavior:
 
@@ -197,9 +205,14 @@ Current behavior:
 - Cursor evidence detects `.cursor/rules/**/*.mdc` and legacy `.cursorrules`.
   If no Cursor-native rules are found but `AGENTS.md` applies, the entry is
   marked `compatible`, not `native`.
-- Claude Code evidence detects `CLAUDE.md` files in the target ancestry and
-  `.claude/**/*.md` files. Imports and memory activation semantics are reported
-  as limitations rather than treated as fully modeled behavior.
+- Claude Code evidence detects `CLAUDE.md` files in the target ancestry,
+  `.claude/**/*.md` files, `.claude/commands/**/*.md`, and the existence of
+  repo-local `.claude/settings.json`. It can include `details.settingsFiles`,
+  `details.commandFiles`, `details.importReferences`, and
+  `details.slashCommandReferences`. Import references and slash-command
+  references are local inventory records only; imported file contents,
+  settings values, hooks, permissions, MCP config, and runtime loading are not
+  interpreted.
 - GitHub Copilot evidence detects `.github/copilot-instructions.md` and
   `.github/instructions/**/*.instructions.md`. If those files are not found but
   `AGENTS.md` applies, the entry is marked `compatible` with runtime caveats.

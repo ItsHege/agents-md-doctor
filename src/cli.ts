@@ -6,6 +6,7 @@ import { Command } from "commander";
 import { runExplainCommand, runInitCommand, runLintCommand, runVerifyCommand, type CommandResult } from "./commands/index.js";
 import { ToolProfileSchema, type ToolProfile } from "./core/tool-profile.js";
 import type { OutputFormat } from "./render/index.js";
+import { SeveritySchema, type Severity } from "./types/index.js";
 
 export function runCli(argv = process.argv): CommandResult {
   const program = new Command();
@@ -49,6 +50,7 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--fail-on-warning", "exit 1 when warnings are present")
     .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .option("--annotations-min-severity <severity>", "minimum severity for --format github annotations: info, warning, or error")
     .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
       (
@@ -57,6 +59,7 @@ export function runCli(argv = process.argv): CommandResult {
           failOnWarning?: boolean;
           format?: string;
           ignore?: string[];
+          annotationsMinSeverity?: string;
           json?: boolean;
           maxLines?: string;
           profile?: string;
@@ -71,6 +74,9 @@ export function runCli(argv = process.argv): CommandResult {
         failOnWarning: options.failOnWarning === true,
         ignore: options.ignore ?? [],
         maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined,
+        annotationMinSeverity: options.annotationsMinSeverity
+          ? parseSeverityOption("--annotations-min-severity", options.annotationsMinSeverity)
+          : undefined,
         profile: options.profile ? parseToolProfileOption(options.profile) : undefined
       });
     }
@@ -86,6 +92,7 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--fail-on-warning", "exit 1 when warnings are present")
     .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .option("--annotations-min-severity <severity>", "minimum severity for --format github annotations: info, warning, or error")
     .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
       (
@@ -94,6 +101,7 @@ export function runCli(argv = process.argv): CommandResult {
           failOnWarning?: boolean;
           format?: string;
           ignore?: string[];
+          annotationsMinSeverity?: string;
           json?: boolean;
           maxLines?: string;
           profile?: string;
@@ -108,6 +116,9 @@ export function runCli(argv = process.argv): CommandResult {
           failOnWarning: options.failOnWarning === true,
           ignore: options.ignore ?? [],
           maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined,
+          annotationMinSeverity: options.annotationsMinSeverity
+            ? parseSeverityOption("--annotations-min-severity", options.annotationsMinSeverity)
+            : undefined,
           profile: options.profile ? parseToolProfileOption(options.profile) : undefined
         });
       }
@@ -234,6 +245,16 @@ function parseToolProfileOption(value: string): ToolProfile {
 
   if (!parsed.success) {
     throw new Error("--profile must be one of: auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, cline");
+  }
+
+  return parsed.data;
+}
+
+function parseSeverityOption(optionName: string, value: string): Severity {
+  const parsed = SeveritySchema.safeParse(value);
+
+  if (!parsed.success) {
+    throw new Error(`${optionName} must be one of: error, warning, info`);
   }
 
   return parsed.data;

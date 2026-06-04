@@ -1,0 +1,9 @@
+# Release and supply-chain surfaces require maintainer review.
+/.github/workflows/ @ItsHege
+/.github/dependabot.yml @ItsHege
+/package.json @ItsHege
+/package-lock.json @ItsHege
+/scripts/release-preflight.mjs @ItsHege
+/tests/smoke/pack-smoke.mjs @ItsHege
+/desktop-ui-preview/scripts/package-windows.mjs @ItsHege
+/desktop-ui-preview/scripts/runtime-safety-scan.mjs @ItsHege

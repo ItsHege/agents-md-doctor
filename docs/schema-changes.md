@@ -4,6 +4,13 @@ Record user-visible JSON output schema changes here.
 
 ## Unreleased
 
+- Add optional `details` to `inheritance.applied_chain.details.toolEvidence[]`.
+  Claude Code entries can include repo-local inventory for settings files,
+  command files, `@path` import candidates, and `/project:` slash-command
+  candidates. This is additive and keeps top-level `schemaVersion: "1.0.0"`.
+
+## 0.7.0
+
 - Add Tool Evidence V2 entries inside the existing
   `inheritance.applied_chain.details.toolEvidence` array for
   `explain --json`: `github-copilot`, `gemini-cli`, `windsurf`, and `cline`.

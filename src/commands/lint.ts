@@ -9,7 +9,7 @@ import { buildReport } from "../report/index.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
-import type { ExitCode } from "../types/index.js";
+import type { ExitCode, Severity } from "../types/index.js";
 
 export interface LintCommandOptions {
   root?: string;
@@ -20,6 +20,7 @@ export interface LintCommandOptions {
   ignore?: string[];
   maxLines?: number;
   profile?: ToolProfile;
+  annotationMinSeverity?: Severity;
 }
 
 export interface CommandResult {
@@ -67,6 +68,7 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
       exitCode: report.exitCode,
       stdout: renderReport(report, {
         command: "lint",
+        annotationMinSeverity: options.annotationMinSeverity ?? config.annotationMinSeverity,
         format: resolveOutputFormat(options),
         strict
       }),

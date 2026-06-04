@@ -768,7 +768,7 @@ function renderIssueState(report) {
     elements.issueState.classList.add("fail");
     elements.issueTitle.textContent = "Errors found";
     elements.issueCopy.textContent =
-      "Fix the error findings before using this project as a clean instruction baseline.";
+      "Open the first error, fix the instruction drift, then run the check again.";
     return;
   }
 
@@ -776,15 +776,15 @@ function renderIssueState(report) {
     elements.issueState.classList.add("warn");
     elements.issueTitle.textContent = "Warnings found";
     elements.issueCopy.textContent =
-      "Review warning findings and decide whether to fix instructions or add explicit config.";
+      "Review warnings; copy a handoff for scoped fixes or add config only for reviewed exceptions.";
     return;
   }
 
   elements.issueTitle.textContent = "No issues found";
   elements.issueCopy.textContent =
     report.findings.length > 0
-      ? "Only informational findings were returned; no errors or warnings were found."
-      : "The selected check completed without errors, warnings, or informational findings.";
+      ? "Only informational findings were returned; save the report or copy JSON for the next handoff."
+      : "The selected check completed cleanly; save the report or copy JSON if you need an audit trail.";
 }
 
 function renderRunLedger(report) {
@@ -1007,8 +1007,75 @@ function renderToolEvidence(toolEvidence) {
       limits.textContent = `Limits: ${limitations.join(", ")}`;
       item.append(limits);
     }
+
+    const detailSummary = buildToolEvidenceDetailSummary(evidence.details);
+    if (detailSummary.length > 0) {
+      const details = document.createElement("div");
+      details.className = "tool-evidence-details";
+      for (const summary of detailSummary) {
+        const detail = document.createElement("span");
+        detail.className = "tool-evidence-detail";
+        detail.textContent = summary;
+        details.append(detail);
+      }
+      item.append(details);
+    }
+
     elements.explainToolEvidence.append(item);
   }
+}
+
+function buildToolEvidenceDetailSummary(details) {
+  if (!isPlainObject(details)) return [];
+
+  const summary = [];
+  const settingsFiles = stringArray(details.settingsFiles);
+  const commandFiles = stringArray(details.commandFiles);
+  const importReferences = objectArray(details.importReferences);
+  const slashCommandReferences = objectArray(details.slashCommandReferences);
+
+  if (settingsFiles.length > 0) {
+    const visibleSettings = settingsFiles.slice(0, 2).join(", ");
+    const hiddenCount = settingsFiles.length > 2 ? ` +${settingsFiles.length - 2}` : "";
+    summary.push(`Settings: ${visibleSettings}${hiddenCount}`);
+  }
+
+  if (commandFiles.length > 0) {
+    summary.push(`Commands: ${commandFiles.length} ${commandFiles.length === 1 ? "file" : "files"}`);
+  }
+
+  if (importReferences.length > 0) {
+    summary.push(`Imports: ${formatStatusCounts(importReferences)}`);
+  }
+
+  if (slashCommandReferences.length > 0) {
+    summary.push(`Slash commands: ${formatStatusCounts(slashCommandReferences)}`);
+  }
+
+  if (details.referenceRecordsTruncated === true) {
+    summary.push("Details truncated");
+  }
+
+  return summary;
+}
+
+function stringArray(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function objectArray(value) {
+  return Array.isArray(value) ? value.filter(isPlainObject) : [];
+}
+
+function formatStatusCounts(records) {
+  const counts = new Map();
+  for (const record of records) {
+    const status = typeof record.status === "string" && record.status.trim() ? record.status : "unknown";
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([status, count]) => `${status.replace(/_/g, " ")} ${count}`)
+    .join(", ");
 }
 
 /* =========================================================
@@ -1042,7 +1109,7 @@ function openDrawer(index) {
   elements.drawerSuppress.onclick = () => {
     const snippet = buildConfigSnippet(finding);
     window.agentsDoctor.copyText(snippet).then((result) => {
-      if (result.ok) toast("success", "Config snippet copied to clipboard.");
+      if (result.ok) toast("success", "Config override copied to clipboard.");
       else toast("error", result.error ?? "Copy failed.");
     });
   };
@@ -1064,7 +1131,13 @@ function buildConfigSnippet(finding) {
       [finding.ruleId]: { severity: "off" }
     }
   };
-  return `// Review before adding to .agents-doctor.json:\n${JSON.stringify(suggestion, null, 2)}\n`;
+  return [
+    "Review before adding this override to .agents-doctor.json.",
+    "Use it only for a reviewed false positive or intentional project policy; prefer fixing valid instruction drift.",
+    "",
+    JSON.stringify(suggestion, null, 2),
+    ""
+  ].join("\n");
 }
 
 /* =========================================================

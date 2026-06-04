@@ -331,6 +331,60 @@ describe("paths.reference_missing", () => {
     ).toEqual([]);
   });
 
+  it("ignores generated directory-style output references with contextual markers", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "This generates analysis files in `scripts/pr-status/`.",
+        "If an internal compiler error appears, delete cache artifacts in `target/` and retry."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("still reports missing directory-style references without generated output context", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(agentsPath, ["# Instructions", "", "Read `docs/process/` before editing."].join("\n"));
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        file: finding.file,
+        line: finding.line,
+        reference: finding.details?.reference,
+        reason: finding.details?.reason
+      }))
+    ).toEqual([
+      {
+        ruleId: "paths.reference_missing",
+        severity: "warning",
+        file: "AGENTS.md",
+        line: 3,
+        reference: "docs/process/",
+        reason: "not_found"
+      }
+    ]);
+  });
+
   it("ignores architectural bare source basenames while reporting explicit src paths", () => {
     const root = makeTempRoot();
     const agentsPath = path.join(root, "AGENTS.md");

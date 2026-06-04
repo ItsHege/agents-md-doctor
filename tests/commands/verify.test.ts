@@ -133,6 +133,22 @@ describe("runVerifyCommand", () => {
     expect(result.stdout).toContain("agents-doctor verify:");
   });
 
+  it("filters GitHub info annotations while preserving verify summary details", () => {
+    const result = runVerifyCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "github",
+      annotationMinSeverity: "warning"
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).not.toContain("::notice file=AGENTS.md,line=1,title=coverage.discovery_summary::");
+    expect(result.stdout).toContain("agents-doctor verify:");
+    expect(result.stdout).toContain("info coverage.discovery_summary AGENTS.md:1");
+  });
+
   it("returns SARIF JSON when format is sarif", () => {
     const result = runVerifyCommand({
       root: path.join(fixtureRoot, "long-agents-file"),

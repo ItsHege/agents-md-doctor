@@ -18,11 +18,17 @@ folder. Download `AGENTS.md-Doctor-win32-x64-<version>.zip`, unzip it, and run
   finding count.
 - Lets users keep the default `Auto` profile or focus checks on Codex, Claude
   Code, Cursor, Gemini CLI, GitHub Copilot, Windsurf, or Cline.
+- Shows Explain tool-evidence detail summaries, including repo-local Claude
+  settings files, command files, import candidates, and slash-command
+  candidates when present.
 - Exposes safe existing options for lint/verify: fail on warnings, max lines,
   and ignore patterns.
 - Copies the exact JSON report to the clipboard.
 - Copies an agent handoff prompt that wraps the JSON report with safe,
   scoped-fix instructions.
+- Copies a reviewed config override from the details drawer for intentional
+  exceptions while keeping the fix-first handoff as the primary remediation
+  path.
 
 ## Safety boundary
 
@@ -87,10 +93,10 @@ npm run smoke
 
 The smoke test opens Electron in a temporary fixture, selects the project
 through the renderer path, runs `verify` through IPC, confirms findings, run
-details, scanned-file paths, Copy JSON, Copy handoff, and Explain tool evidence
-render, confirms invalid-root errors render, proves a marker-creating shell
-snippet from `AGENTS.md` was not executed, and runs a static scan over UI
-runtime files for command-execution patterns.
+details, scanned-file paths, Copy JSON, Copy handoff, Explain tool evidence, and
+Claude evidence detail summaries render, confirms invalid-root errors render,
+proves a marker-creating shell snippet from `AGENTS.md` was not executed, and
+runs a static scan over UI runtime files for command-execution patterns.
 
 ## README screenshot
 

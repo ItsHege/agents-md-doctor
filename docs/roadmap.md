@@ -6,9 +6,8 @@ public milestones.
 
 ## Near Term
 
-- Broaden `explain` tool evidence into deterministic local inventory for more
-  agent-tool instruction surfaces, without invoking those tools or attesting
-  runtime context loading.
+- Expand the public context-fidelity guide and examples for teams mixing Codex,
+  Claude Code, Cursor, Gemini CLI, GitHub Copilot, Windsurf, and Cline.
 - Improve the desktop preview so new `explain` evidence is easier to scan and
   copy into agent handoff workflows.
 - Improve opt-in Claude-first support after the current AGENTS.md-first boundary
@@ -18,6 +17,9 @@ public milestones.
   `auto` as the default and avoiding model APIs or external tool calls.
 - Expand instruction graph benchmarks with more nested and monorepo targets.
 - Harden optional GitHub annotation and SARIF output based on CI feedback.
+- Migrate npm publishing from long-lived token authentication to trusted
+  publishing after npm package settings are configured and a release test is
+  planned.
 - Improve path context for monorepos and generated-file references based on
   reviewed benchmark labels.
 
@@ -25,6 +27,8 @@ public milestones.
 
 - Improve `agents-doctor init` onboarding and docs scaffolding based on
   first-use feedback.
+- Add more source-backed examples for native, compatible, partial, and
+  not-found tool-evidence states.
 - Expand fixture coverage with more real-world examples from public repositories.
 - Continue improving human-readable output while keeping JSON output stable.
 

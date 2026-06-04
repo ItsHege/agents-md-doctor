@@ -12,7 +12,7 @@ import { buildReport } from "../report/index.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
-import type { Finding, ExitCode } from "../types/index.js";
+import type { Finding, ExitCode, Severity } from "../types/index.js";
 
 export interface VerifyCommandOptions {
   root?: string;
@@ -23,6 +23,7 @@ export interface VerifyCommandOptions {
   ignore?: string[];
   maxLines?: number;
   profile?: ToolProfile;
+  annotationMinSeverity?: Severity;
 }
 
 export interface CommandResult {
@@ -91,6 +92,7 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       exitCode: report.exitCode,
       stdout: renderReport(report, {
         command: "verify",
+        annotationMinSeverity: options.annotationMinSeverity ?? config.annotationMinSeverity,
         format: resolveOutputFormat(options),
         strict: failOnWarnings
       }),

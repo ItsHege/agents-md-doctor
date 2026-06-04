@@ -120,6 +120,7 @@ agents-doctor lint --json [repo]
 agents-doctor lint --format json [repo]
 agents-doctor lint --format github [repo]
 agents-doctor lint --format sarif [repo]
+agents-doctor lint --format github --annotations-min-severity warning [repo]
 agents-doctor lint --strict [repo]
 agents-doctor lint --fail-on-warning [repo]
 agents-doctor lint --ignore "tests/fixtures/**" [repo]
@@ -130,6 +131,7 @@ agents-doctor verify --json [repo]
 agents-doctor verify --format json [repo]
 agents-doctor verify --format github [repo]
 agents-doctor verify --format sarif [repo]
+agents-doctor verify --format github --annotations-min-severity warning [repo]
 agents-doctor verify --strict [repo]
 agents-doctor verify --fail-on-warning [repo]
 agents-doctor verify --profile gemini-cli [repo]
@@ -178,7 +180,9 @@ when the repository `NPM_TOKEN` secret is configured; otherwise it completes the
 release gate and warns that npm publish was skipped.
 
 For repository CI setup examples and current output-format limits, see
-`docs/ci.md`.
+`docs/ci.md`. For maintainer release governance, trusted publishing migration
+policy, and review ownership for release-sensitive files, see
+`docs/release-governance.md`.
 
 ## How It Works (10 Seconds)
 
@@ -202,6 +206,8 @@ public package text, and exercise installed CLI output formats from the tarball.
 
 For the full architecture flow, see `docs/how-it-works.md`.
 For Claude-first repository caveats, see `docs/claude-projects.md`.
+For teams mixing Codex, Claude Code, Cursor, Gemini CLI, GitHub Copilot,
+Windsurf, or Cline, see `docs/context-fidelity.md`.
 
 ## Agent Workflow Example
 
@@ -222,6 +228,8 @@ See `examples/codex-skill/SKILL.md` for a Codex skill example.
 See `examples/README.md` for public onboarding examples covering a minimal
 repo, monorepo scope ambiguity, missing paths, instruction graph opt-in,
 GitHub annotations, and SARIF output.
+See `docs/context-fidelity.md` for the multi-tool handoff pattern behind
+`explain --json` tool evidence.
 For the benchmark labeling vocabulary behind this workflow, see
 `docs/benchmark-methodology.md`.
 
@@ -313,6 +321,7 @@ agents-doctor init .
   "lintFileNames": ["AGENTS.md"],
   "maxLines": 500,
   "failOnWarning": false,
+  "annotationMinSeverity": "info",
   "rules": {
     "size.file_too_long": {
       "severity": "warning",

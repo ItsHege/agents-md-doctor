@@ -56,8 +56,8 @@ describe("runExplainCommand", () => {
         toolId: "claude-code",
         label: "Claude Code",
         discoveryStatus: "not_found",
-        surface: "CLAUDE.md and .claude/**/*.md",
-        checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+        surface: "CLAUDE.md, .claude/**/*.md, .claude/commands, and local settings",
+        checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md", ".claude/commands/**/*.md", ".claude/settings.json"],
         matchedFiles: [],
         limitations: ["claude-native-memory-not-found"]
       },
@@ -275,11 +275,126 @@ describe("runExplainCommand", () => {
       toolId: "claude-code",
       label: "Claude Code",
       discoveryStatus: "partial",
-      surface: "CLAUDE.md and .claude/**/*.md",
-      checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+      surface: "CLAUDE.md, .claude/**/*.md, .claude/commands, and local settings",
+      checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md", ".claude/commands/**/*.md", ".claude/settings.json"],
       matchedFiles: ["CLAUDE.md", "packages/app/CLAUDE.md", ".claude/rules/workflow.md"],
-      limitations: ["claude-import-semantics-not-modeled", "claude-memory-scope-not-attested"]
+      limitations: [
+        "claude-import-semantics-not-modeled",
+        "claude-slash-command-runtime-not-attested",
+        "claude-settings-values-not-interpreted",
+        "claude-memory-scope-not-attested"
+      ],
+      details: {
+        importReferences: [
+          {
+            file: "CLAUDE.md",
+            line: 1,
+            reference: "AGENTS.md",
+            status: "found",
+            target: "AGENTS.md"
+          },
+          {
+            file: "packages/app/CLAUDE.md",
+            line: 1,
+            reference: "../../AGENTS.md",
+            status: "found",
+            target: "AGENTS.md"
+          }
+        ]
+      }
     });
+  });
+
+  it("reports Claude import, slash command, command file, and local settings inventory without reading settings values", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".claude", "commands", "team"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "docs.md"), "# Docs\n");
+    fs.writeFileSync(
+      path.join(root, "CLAUDE.md"),
+      [
+        "# Claude",
+        "",
+        "Import @docs.md and @missing.md.",
+        "Ignore @https://example.com/remote.md and @../outside.md.",
+        "Use /project:team/review and /project:missing-command when needed."
+      ].join("\n")
+    );
+    fs.writeFileSync(path.join(root, ".claude", "commands", "team", "review.md"), "# Review\n");
+    fs.writeFileSync(
+      path.join(root, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [{ command: "SHOULD_NOT_BE_INTERPRETED" }]
+        }
+      })
+    );
+
+    const result = runExplainCommand({
+      root,
+      targetPath: "packages/app",
+      json: true,
+      profile: "claude-code"
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+    const claude = ToolEvidenceListSchema.parse(details.toolEvidence)[0];
+
+    expect(result.exitCode).toBe(0);
+    expect(claude).toMatchObject({
+      toolId: "claude-code",
+      discoveryStatus: "partial",
+      matchedFiles: ["CLAUDE.md", ".claude/commands/team/review.md", ".claude/settings.json"],
+      details: {
+        settingsFiles: [".claude/settings.json"],
+        commandFiles: [".claude/commands/team/review.md"],
+        importReferences: [
+          {
+            file: "CLAUDE.md",
+            line: 3,
+            reference: "docs.md",
+            status: "found",
+            target: "docs.md"
+          },
+          {
+            file: "CLAUDE.md",
+            line: 3,
+            reference: "missing.md",
+            status: "missing",
+            target: "missing.md"
+          },
+          {
+            file: "CLAUDE.md",
+            line: 4,
+            reference: "https://example.com/remote.md",
+            status: "nonlocal"
+          },
+          {
+            file: "CLAUDE.md",
+            line: 4,
+            reference: "../outside.md",
+            status: "outside_root"
+          }
+        ],
+        slashCommandReferences: [
+          {
+            file: "CLAUDE.md",
+            line: 5,
+            reference: "/project:team/review",
+            status: "found",
+            target: ".claude/commands/team/review.md"
+          },
+          {
+            file: "CLAUDE.md",
+            line: 5,
+            reference: "/project:missing-command",
+            status: "missing"
+          }
+        ]
+      }
+    });
+    expect(JSON.stringify(claude?.details)).not.toContain("SHOULD_NOT_BE_INTERPRETED");
   });
 
   it("marks Cursor tool evidence as truncated after combining legacy and rule surfaces", () => {
