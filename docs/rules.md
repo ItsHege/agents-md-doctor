@@ -102,11 +102,13 @@ path-like inline code.
 
 The rule intentionally ignores common non-repository-path prose, including
 obvious placeholders, URLs, module specifiers, system absolute paths, generated
-output directory mentions, and contextual example/template bare filenames. It
-still reports explicit root config references such as `package-lock.json` and
-`.travis.yml`, plus explicit path-like references such as `src/missing.ts`.
-Path matching is case-aware so references that work only on case-insensitive
-filesystems are still reported before they fail in Linux CI.
+output directory mentions, generated/cache directory-style references with
+clear output context, and contextual example/template bare filenames. It still
+reports explicit root config references such as `package-lock.json` and
+`.travis.yml`, plus explicit path-like references such as `src/missing.ts` or a
+missing documentation directory without generated-output context. Path matching
+is case-aware so references that work only on case-insensitive filesystems are
+still reported before they fail in Linux CI.
 
 Example finding:
 

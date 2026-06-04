@@ -21,6 +21,7 @@ provided.
   "lintFileNames": ["AGENTS.md"],
   "maxLines": 500,
   "failOnWarning": false,
+  "annotationMinSeverity": "info",
   "instructionGraph": {
     "enabled": false,
     "maxDepth": 2,
@@ -63,6 +64,10 @@ provided.
   file names, not paths.
 - `maxLines`: default line threshold for `size.file_too_long`.
 - `failOnWarning`: makes warnings produce exit code `1`.
+- `annotationMinSeverity`: optional minimum severity for GitHub workflow
+  annotations when using `--format github`. Supported values are `info`,
+  `warning`, and `error`. This filters only annotation lines; reports, human
+  summaries, SARIF, JSON, and exit codes remain complete.
 - `rules`: per-rule options and severity overrides.
 - `instructionGraph.enabled`: opt-in instruction graph traversal for `verify` and `explain`.
 - `instructionGraph.maxDepth`: traversal depth from discovered or applied `AGENTS.md` files, from `0` to `10`.

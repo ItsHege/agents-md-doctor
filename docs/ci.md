@@ -118,8 +118,28 @@ annotations before the human summary.
 - `warning` -> GitHub `warning`
 - `info` -> GitHub `notice`
 
-If you need custom annotation behavior, parse `findings[]` from JSON and emit
-workflow commands in your own wrapper.
+To reduce annotation noise without changing the report, use
+`--annotations-min-severity`:
+
+```yaml
+      - name: Verify AGENTS.md instructions with warning annotations only
+        run: npx agents-doctor@0.7.1 verify --format github --annotations-min-severity warning .
+```
+
+Supported values are `info`, `warning`, and `error`. The option filters only
+GitHub workflow annotation lines. The human summary still lists all findings,
+JSON/SARIF output is unchanged, and exit-code behavior is unchanged.
+
+The same setting can be stored in `.agents-doctor.json`:
+
+```json
+{
+  "annotationMinSeverity": "warning"
+}
+```
+
+If you need custom mapping beyond minimum severity, parse `findings[]` from
+JSON and emit workflow commands in your own wrapper.
 
 Minimal wrapper logic:
 
@@ -189,6 +209,13 @@ triggered. The preflight step also checks package-lock alignment, requires a
 dated changelog entry for the package version, checks npm registry state, and
 refuses to publish a version that already exists.
 
+The planned future path is npm trusted publishing through GitHub Actions OIDC.
+That migration requires npm package settings outside the repository, so the
+release workflow should not be changed to require trusted publishing until the
+publisher is configured and a maintainer is ready to test the next release. See
+`docs/release-governance.md` for the migration plan, action pinning policy, and
+CODEOWNERS review surface.
+
 The release job disables `setup-node` dependency caching because it runs with
 publish credentials and elevated release permissions. Keep normal CI caching in
 non-publishing jobs, but re-check current GitHub Actions and npm guidance before
@@ -231,6 +258,7 @@ The repository includes automation for:
 - GitHub CodeQL default setup, when enabled in repository security settings.
 - Dependency review on pull requests.
 - Dependabot update pull requests for npm and GitHub Actions dependencies.
+- CODEOWNERS review hints for release and supply-chain files.
 
 These checks are review gates, not auto-merge rules.
 
@@ -245,5 +273,6 @@ Current `lint` and `verify` output formats:
 - SARIF 2.1.0 output, enabled with `--format sarif`.
 
 `--json` takes precedence when both `--json` and `--format` are provided.
+`--annotations-min-severity` affects only `--format github` annotation lines.
 
 `explain` currently supports default human output and `--json`.

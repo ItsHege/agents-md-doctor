@@ -60,10 +60,22 @@ try {
     ].join("\n")
   );
   fs.writeFileSync(path.join(cleanRoot, "packages", "app", "README.md"), "# App\n");
+  fs.mkdirSync(path.join(cleanRoot, ".claude", "commands", "team"), { recursive: true });
   fs.mkdirSync(path.join(cleanRoot, ".github", "instructions"), { recursive: true });
   fs.mkdirSync(path.join(cleanRoot, ".gemini"), { recursive: true });
   fs.mkdirSync(path.join(cleanRoot, ".windsurf", "rules"), { recursive: true });
   fs.mkdirSync(path.join(cleanRoot, ".clinerules"), { recursive: true });
+  fs.writeFileSync(
+    path.join(cleanRoot, "CLAUDE.md"),
+    [
+      "# Claude Code",
+      "",
+      "Load @AGENTS.md and @missing.md before scoped work.",
+      "Use /project:team/review and /project:missing-command for review handoffs."
+    ].join("\n")
+  );
+  fs.writeFileSync(path.join(cleanRoot, ".claude", "commands", "team", "review.md"), "# Review\n");
+  fs.writeFileSync(path.join(cleanRoot, ".claude", "settings.json"), JSON.stringify({ permissions: {} }));
   fs.writeFileSync(path.join(cleanRoot, ".github", "copilot-instructions.md"), "# Copilot\n");
   fs.writeFileSync(path.join(cleanRoot, ".github", "instructions", "typescript.instructions.md"), "# TypeScript\n");
   fs.writeFileSync(path.join(cleanRoot, "GEMINI.md"), "# Root Gemini\n");
@@ -184,6 +196,14 @@ try {
     !Array.isArray(smokeOutput.explainToolEvidence) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("Codex: native")) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("Cursor: compatible")) ||
+    !smokeOutput.explainToolEvidence.some(
+      (item) =>
+        item.includes("Claude Code: partial") &&
+        item.includes("Settings: .claude/settings.json") &&
+        item.includes("Commands: 1 file") &&
+        item.includes("Imports:") &&
+        item.includes("Slash commands:")
+    ) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("GitHub Copilot: partial")) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("Gemini CLI: partial")) ||
     !smokeOutput.explainToolEvidence.some((item) => item.includes("Windsurf: partial")) ||

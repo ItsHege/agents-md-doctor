@@ -122,6 +122,23 @@ try {
   assert.match(githubResult.stdout, /::notice file=AGENTS\.md,line=1,title=coverage\.discovery_summary::/);
   assert.match(githubResult.stdout, /agents-doctor verify:/);
 
+  const filteredGithubResult = run(
+    process.execPath,
+    [
+      installedCliPath,
+      "verify",
+      "--format",
+      "github",
+      "--annotations-min-severity",
+      "warning",
+      path.join(projectRoot, "tests", "fixtures", "long-agents-file")
+    ],
+    tempRoot
+  );
+  assert.match(filteredGithubResult.stdout, /::warning file=AGENTS\.md,line=1,title=size\.file_too_long::/);
+  assert.doesNotMatch(filteredGithubResult.stdout, /::notice file=AGENTS\.md,line=1,title=coverage\.discovery_summary::/);
+  assert.match(filteredGithubResult.stdout, /info coverage\.discovery_summary AGENTS\.md:1/);
+
   const sarifResult = run(
     process.execPath,
     [installedCliPath, "verify", "--format", "sarif", path.join(projectRoot, "tests", "fixtures", "short-agents-file")],

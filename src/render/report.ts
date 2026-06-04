@@ -4,10 +4,12 @@ import { renderHumanLintReport, type RenderHumanLintOptions } from "./human-lint
 import { renderJsonReport } from "./json.js";
 import { renderSarifReport } from "./sarif.js";
 import type { OutputFormat } from "./format.js";
+import type { Severity } from "../types/index.js";
 
 export interface RenderReportOptions extends RenderHumanLintOptions {
   command: "lint" | "verify";
   format: OutputFormat;
+  annotationMinSeverity?: Severity;
 }
 
 export function renderReport(report: Report, options: RenderReportOptions): string {
@@ -22,6 +24,7 @@ function renderReportForFormat(report: Report, options: RenderReportOptions): st
   if (options.format === "github") {
     return renderGitHubReport(report, {
       command: options.command,
+      annotationMinSeverity: options.annotationMinSeverity,
       strict: options.strict
     });
   }

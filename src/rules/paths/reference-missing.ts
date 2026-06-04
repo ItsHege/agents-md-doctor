@@ -31,6 +31,8 @@ const GENERATED_OUTPUT_SEGMENTS = new Set([
   "target"
 ]);
 const GENERATED_OUTPUT_CONTEXT_MARKERS = [
+  "artifacts",
+  "cache",
   "compiled output",
   "do not edit",
   "don't edit",
@@ -40,6 +42,7 @@ const GENERATED_OUTPUT_CONTEXT_MARKERS = [
   "generates",
   "mirrors src",
   "output",
+  "retry",
   "search only"
 ];
 const EXAMPLE_TEMPLATE_CONTEXT_MARKERS = [
@@ -441,6 +444,10 @@ function shouldIgnoreMissingReferenceNoise(lines: string[], line: number, refere
     return true;
   }
 
+  if (isDirectoryStyleReference(referencePath) && lineHasAnyMarker(normalizedLine, GENERATED_OUTPUT_CONTEXT_MARKERS)) {
+    return true;
+  }
+
   if (isBareSourceBasename(referencePath)) {
     return (
       lineHasAnyMarker(normalizedLine, EXAMPLE_TEMPLATE_CONTEXT_MARKERS) ||
@@ -464,6 +471,11 @@ function isGeneratedOutputReference(referencePath: string): boolean {
     .filter((segment) => segment.length > 0);
 
   return segments.some((segment) => GENERATED_OUTPUT_SEGMENTS.has(segment));
+}
+
+function isDirectoryStyleReference(referencePath: string): boolean {
+  const normalized = referencePath.replace(/\\/g, "/").trim();
+  return normalized.endsWith("/");
 }
 
 function isBareSourceBasename(referencePath: string): boolean {

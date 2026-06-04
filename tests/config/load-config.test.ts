@@ -51,6 +51,7 @@ describe("loadConfig", () => {
         lintFileNames: ["AGENTS.md", "CLAUDE.md"],
         maxLines: 400,
         failOnWarning: true,
+        annotationMinSeverity: "warning",
         instructionGraph: {
           enabled: true,
           maxDepth: 3,
@@ -72,6 +73,7 @@ describe("loadConfig", () => {
       lintFileNamesConfigured: true,
       maxLines: 400,
       failOnWarning: true,
+      annotationMinSeverity: "warning",
       instructionGraph: {
         enabled: true,
         maxDepth: 3,
@@ -123,6 +125,18 @@ describe("loadConfig", () => {
       path.join(root, ".agents-doctor.json"),
       JSON.stringify({
         toolProfile: "made-up-agent"
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects invalid annotation minimum severity", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        annotationMinSeverity: "critical"
       })
     );
 

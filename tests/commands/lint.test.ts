@@ -92,6 +92,21 @@ describe("runLintCommand", () => {
     expect(result.stdout).toContain("agents-doctor lint: 1 warning");
   });
 
+  it("filters GitHub annotations by minimum severity without changing lint summary", () => {
+    const result = runLintCommand({
+      root: path.join(fixtureRoot, "long-agents-file"),
+      json: false,
+      format: "github",
+      annotationMinSeverity: "error"
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).not.toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).toContain("agents-doctor lint: 1 warning");
+    expect(result.stdout).toContain("warning size.file_too_long AGENTS.md:1");
+  });
+
   it("returns SARIF JSON when format is sarif", () => {
     const result = runLintCommand({
       root: path.join(fixtureRoot, "long-agents-file"),

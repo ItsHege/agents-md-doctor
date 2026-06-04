@@ -46,6 +46,7 @@ const AgentsDoctorConfigSchema = z
     lintFileNames: z.array(z.string().min(1)).optional(),
     maxLines: z.number().int().positive().optional(),
     failOnWarning: z.boolean().optional(),
+    annotationMinSeverity: SeveritySchema.optional(),
     instructionGraph: InstructionGraphConfigSchema.optional(),
     rules: z.record(RuleIdSchema, RuleConfigSchema).optional()
   })
@@ -68,6 +69,7 @@ export interface ResolvedLintConfig {
   lintFileNamesConfigured: boolean;
   maxLines?: number;
   failOnWarning: boolean;
+  annotationMinSeverity?: z.infer<typeof SeveritySchema>;
   instructionGraph: ResolvedInstructionGraphConfig;
   rules: Record<string, RuleConfig>;
 }
@@ -139,6 +141,7 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
     lintFileNamesConfigured,
     ...(config.maxLines ? { maxLines: config.maxLines } : {}),
     failOnWarning: config.failOnWarning ?? false,
+    ...(config.annotationMinSeverity ? { annotationMinSeverity: config.annotationMinSeverity } : {}),
     instructionGraph: {
       enabled: config.instructionGraph?.enabled ?? false,
       maxDepth: config.instructionGraph?.maxDepth ?? 2,

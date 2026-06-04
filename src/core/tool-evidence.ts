@@ -18,7 +18,8 @@ export const ToolEvidenceSchema = z.object({
   surface: z.string().min(1),
   checkedSurfaces: z.array(z.string().min(1)),
   matchedFiles: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1))
+  limitations: z.array(z.string().min(1)),
+  details: z.record(z.string(), z.unknown()).optional()
 });
 
 export const ToolEvidenceListSchema = z.array(ToolEvidenceSchema);
@@ -42,6 +43,8 @@ interface SurfaceScan {
 const MAX_SURFACE_FILES = 100;
 const MAX_SURFACE_DIRECTORY_ENTRIES = 10_000;
 const MAX_SURFACE_DEPTH = 25;
+const MAX_CLAUDE_REFERENCE_RECORDS = 100;
+const MAX_CLAUDE_REFERENCE_SCAN_BYTES = 256 * 1024;
 
 export function buildToolEvidence(options: BuildToolEvidenceOptions): ToolEvidence[] {
   const root = fs.realpathSync.native(path.resolve(options.root));
@@ -123,22 +126,26 @@ function buildCursorEvidence(appliedAgentsFiles: string[], cursorScan: SurfaceSc
   };
 }
 
-function buildClaudeEvidence(claudeScan: SurfaceScan): ToolEvidence {
+function buildClaudeEvidence(claudeScan: ClaudeSurfaceScan): ToolEvidence {
   const limitations = [...(claudeScan.truncated ? ["surface-file-list-truncated"] : [])];
+  const details = buildClaudeDetails(claudeScan);
 
   if (claudeScan.files.length > 0) {
     return {
       toolId: "claude-code",
       label: "Claude Code",
       discoveryStatus: "partial",
-      surface: "CLAUDE.md and .claude/**/*.md",
-      checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+      surface: "CLAUDE.md, .claude/**/*.md, .claude/commands, and local settings",
+      checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md", ".claude/commands/**/*.md", ".claude/settings.json"],
       matchedFiles: claudeScan.files,
       limitations: [
         ...limitations,
         "claude-import-semantics-not-modeled",
+        "claude-slash-command-runtime-not-attested",
+        "claude-settings-values-not-interpreted",
         "claude-memory-scope-not-attested"
-      ]
+      ],
+      ...(Object.keys(details).length > 0 ? { details } : {})
     };
   }
 
@@ -146,8 +153,8 @@ function buildClaudeEvidence(claudeScan: SurfaceScan): ToolEvidence {
     toolId: "claude-code",
     label: "Claude Code",
     discoveryStatus: "not_found",
-    surface: "CLAUDE.md and .claude/**/*.md",
-    checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md"],
+    surface: "CLAUDE.md, .claude/**/*.md, .claude/commands, and local settings",
+    checkedSurfaces: ["CLAUDE.md ancestry", ".claude/**/*.md", ".claude/commands/**/*.md", ".claude/settings.json"],
     matchedFiles: [],
     limitations: ["claude-native-memory-not-found"]
   };
@@ -409,7 +416,23 @@ function scanClineSurfaces(root: string, budget: SurfaceScanBudget): SurfaceScan
   };
 }
 
-function scanClaudeSurfaces(root: string, targetPath: string, budget: SurfaceScanBudget): SurfaceScan {
+interface ClaudeReference {
+  file: string;
+  line: number;
+  reference: string;
+  status: "found" | "missing" | "outside_root" | "nonlocal" | "symlink_ignored";
+  target?: string;
+}
+
+interface ClaudeSurfaceScan extends SurfaceScan {
+  commandFiles: string[];
+  settingsFiles: string[];
+  importReferences: ClaudeReference[];
+  slashCommandReferences: ClaudeReference[];
+  referenceRecordsTruncated: boolean;
+}
+
+function scanClaudeSurfaces(root: string, targetPath: string, budget: SurfaceScanBudget): ClaudeSurfaceScan {
   const ancestryFiles = findAncestryFiles(root, targetPath, "CLAUDE.md");
   const claudeMarkdown = collectFiles({
     root,
@@ -417,12 +440,223 @@ function scanClaudeSurfaces(root: string, targetPath: string, budget: SurfaceSca
     extensions: [".md"],
     ...budget
   });
-  const combinedFiles = orderedUnique([...ancestryFiles, ...claudeMarkdown.files]);
+  const commandFilesScan = collectFiles({
+    root,
+    directory: ".claude/commands",
+    extensions: [".md"],
+    ...budget
+  });
+  const settingsFiles = existingFile(root, ".claude/settings.json");
+  const combinedFiles = orderedUnique([...ancestryFiles, ...claudeMarkdown.files, ...settingsFiles]);
+  const referenceScan = scanClaudeReferences(root, orderedUnique([...ancestryFiles, ...claudeMarkdown.files]), commandFilesScan.files);
 
   return {
     files: truncateFiles(combinedFiles),
-    truncated: claudeMarkdown.truncated || combinedFiles.length > MAX_SURFACE_FILES
+    commandFiles: truncateFiles(commandFilesScan.files),
+    settingsFiles,
+    importReferences: referenceScan.importReferences,
+    slashCommandReferences: referenceScan.slashCommandReferences,
+    referenceRecordsTruncated: referenceScan.truncated,
+    truncated:
+      claudeMarkdown.truncated ||
+      commandFilesScan.truncated ||
+      referenceScan.truncated ||
+      combinedFiles.length > MAX_SURFACE_FILES ||
+      commandFilesScan.files.length > MAX_SURFACE_FILES
   };
+}
+
+function buildClaudeDetails(claudeScan: ClaudeSurfaceScan): Record<string, unknown> {
+  return {
+    ...(claudeScan.settingsFiles.length > 0 ? { settingsFiles: claudeScan.settingsFiles } : {}),
+    ...(claudeScan.commandFiles.length > 0 ? { commandFiles: claudeScan.commandFiles } : {}),
+    ...(claudeScan.importReferences.length > 0 ? { importReferences: claudeScan.importReferences } : {}),
+    ...(claudeScan.slashCommandReferences.length > 0 ? { slashCommandReferences: claudeScan.slashCommandReferences } : {}),
+    ...(claudeScan.referenceRecordsTruncated ? { referenceRecordsTruncated: true } : {})
+  };
+}
+
+function scanClaudeReferences(
+  root: string,
+  markdownFiles: string[],
+  commandFiles: string[]
+): { importReferences: ClaudeReference[]; slashCommandReferences: ClaudeReference[]; truncated: boolean } {
+  const importReferences: ClaudeReference[] = [];
+  const slashCommandReferences: ClaudeReference[] = [];
+  const commandTargets = buildClaudeCommandTargetMap(commandFiles);
+  let truncated = false;
+
+  for (const file of markdownFiles) {
+    const content = readSmallTextFile(root, file);
+    if (content === undefined) {
+      continue;
+    }
+
+    const lines = content.split(/\r?\n/u);
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index] ?? "";
+      collectClaudeImportReferences({
+        root,
+        file,
+        line,
+        lineNumber: index + 1,
+        references: importReferences
+      });
+      collectClaudeSlashCommandReferences({
+        file,
+        line,
+        lineNumber: index + 1,
+        commandTargets,
+        references: slashCommandReferences
+      });
+
+      if (importReferences.length + slashCommandReferences.length > MAX_CLAUDE_REFERENCE_RECORDS) {
+        truncated = true;
+        return {
+          importReferences: importReferences.slice(0, MAX_CLAUDE_REFERENCE_RECORDS),
+          slashCommandReferences: slashCommandReferences.slice(0, MAX_CLAUDE_REFERENCE_RECORDS),
+          truncated
+        };
+      }
+    }
+  }
+
+  return { importReferences, slashCommandReferences, truncated };
+}
+
+function collectClaudeImportReferences(options: {
+  root: string;
+  file: string;
+  line: string;
+  lineNumber: number;
+  references: ClaudeReference[];
+}): void {
+  const importPattern = /(^|[\s([`])@([^\s)`,]+)/gu;
+  let match: RegExpExecArray | null;
+
+  while ((match = importPattern.exec(options.line)) !== null) {
+    const reference = normalizeClaudeReference(match[2] ?? "");
+    if (reference.length === 0) {
+      continue;
+    }
+
+    options.references.push(resolveClaudeImportReference(options.root, options.file, options.lineNumber, reference));
+  }
+}
+
+function collectClaudeSlashCommandReferences(options: {
+  file: string;
+  line: string;
+  lineNumber: number;
+  commandTargets: Map<string, string>;
+  references: ClaudeReference[];
+}): void {
+  const commandPattern = /(^|[\s([`])\/project:([A-Za-z0-9][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9][A-Za-z0-9_.-]*)*)/gu;
+  let match: RegExpExecArray | null;
+
+  while ((match = commandPattern.exec(options.line)) !== null) {
+    const commandName = match[2] ?? "";
+    const target = options.commandTargets.get(commandName);
+    options.references.push({
+      file: options.file,
+      line: options.lineNumber,
+      reference: `/project:${commandName}`,
+      status: target ? "found" : "missing",
+      ...(target ? { target } : {})
+    });
+  }
+}
+
+function resolveClaudeImportReference(root: string, sourceFile: string, line: number, reference: string): ClaudeReference {
+  if (isNonlocalClaudeReference(reference)) {
+    return {
+      file: sourceFile,
+      line,
+      reference,
+      status: "nonlocal"
+    };
+  }
+
+  const sourceDirectory = path.dirname(path.join(root, sourceFile));
+  const absoluteTarget = path.isAbsolute(reference) ? path.resolve(reference) : path.resolve(sourceDirectory, reference);
+
+  if (!isPathInsideRoot(root, absoluteTarget)) {
+    return {
+      file: sourceFile,
+      line,
+      reference,
+      status: "outside_root"
+    };
+  }
+
+  const target = normalizeRelativePath(path.relative(root, absoluteTarget));
+  if (!fs.existsSync(absoluteTarget)) {
+    return {
+      file: sourceFile,
+      line,
+      reference,
+      status: "missing",
+      target
+    };
+  }
+
+  const stats = fs.lstatSync(absoluteTarget);
+  if (stats.isSymbolicLink()) {
+    return {
+      file: sourceFile,
+      line,
+      reference,
+      status: "symlink_ignored",
+      target
+    };
+  }
+
+  return {
+    file: sourceFile,
+    line,
+    reference,
+    status: "found",
+    target
+  };
+}
+
+function isNonlocalClaudeReference(reference: string): boolean {
+  return (
+    reference.startsWith("~") ||
+    reference.startsWith("http://") ||
+    reference.startsWith("https://") ||
+    reference.startsWith("mailto:") ||
+    reference.startsWith("#")
+  );
+}
+
+function normalizeClaudeReference(reference: string): string {
+  return reference.replace(/[.;:]+$/u, "");
+}
+
+function buildClaudeCommandTargetMap(commandFiles: string[]): Map<string, string> {
+  const commandTargets = new Map<string, string>();
+
+  for (const file of commandFiles) {
+    const relativeCommand = normalizeRelativePath(path.relative(".claude/commands", file)).replace(/\.md$/u, "");
+    commandTargets.set(relativeCommand, file);
+  }
+
+  return commandTargets;
+}
+
+function readSmallTextFile(root: string, relativePath: string): string | undefined {
+  const absolutePath = path.join(root, relativePath);
+  if (!isPathInsideRoot(root, absolutePath) || !fs.existsSync(absolutePath)) {
+    return undefined;
+  }
+
+  const stats = fs.lstatSync(absolutePath);
+  if (!stats.isFile() || stats.isSymbolicLink() || stats.size > MAX_CLAUDE_REFERENCE_SCAN_BYTES) {
+    return undefined;
+  }
+
+  return fs.readFileSync(absolutePath, "utf8");
 }
 
 function findAncestryFiles(root: string, targetPath: string, fileName: string): string[] {

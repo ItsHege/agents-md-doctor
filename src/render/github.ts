@@ -1,8 +1,12 @@
 import type { Finding, Report } from "../types/index.js";
 import { renderHumanLintReport, type RenderHumanLintOptions } from "./human-lint.js";
 
-export function renderGitHubReport(report: Report, options: RenderHumanLintOptions = {}): string {
-  const lines = report.findings.map(renderAnnotation);
+export interface RenderGitHubOptions extends RenderHumanLintOptions {
+  annotationMinSeverity?: Finding["severity"];
+}
+
+export function renderGitHubReport(report: Report, options: RenderGitHubOptions = {}): string {
+  const lines = report.findings.filter((finding) => meetsMinSeverity(finding, options.annotationMinSeverity)).map(renderAnnotation);
   const summary = renderHumanLintReport(report, options);
 
   if (lines.length === 0) {
@@ -33,6 +37,26 @@ function toAnnotationLevel(severity: Finding["severity"]): "error" | "warning" |
   }
 
   return "notice";
+}
+
+function meetsMinSeverity(finding: Finding, minSeverity: Finding["severity"] | undefined): boolean {
+  if (!minSeverity) {
+    return true;
+  }
+
+  return severityRank(finding.severity) >= severityRank(minSeverity);
+}
+
+function severityRank(severity: Finding["severity"]): number {
+  if (severity === "error") {
+    return 3;
+  }
+
+  if (severity === "warning") {
+    return 2;
+  }
+
+  return 1;
 }
 
 function escapeMessage(value: string): string {

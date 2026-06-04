@@ -129,6 +129,25 @@ describe("runCli", () => {
     expect(result.stdout).toContain("agents-doctor lint: 1 warning");
   });
 
+  it("dispatches verify --format github with annotation severity filtering", () => {
+    const result = runCli([
+      "node",
+      "dist/cli.js",
+      "verify",
+      "--format",
+      "github",
+      "--annotations-min-severity",
+      "warning",
+      path.join(fixtureRoot, "long-agents-file")
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.file_too_long::");
+    expect(result.stdout).not.toContain("::notice file=AGENTS.md,line=1,title=coverage.discovery_summary::");
+    expect(result.stdout).toContain("info coverage.discovery_summary AGENTS.md:1");
+  });
+
   it("dispatches verify --format sarif", () => {
     const result = runCli(["node", "dist/cli.js", "verify", "--format", "sarif", path.join(fixtureRoot, "long-agents-file")]);
     const sarif = JSON.parse(result.stdout);
@@ -239,6 +258,7 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
     expect(result.stdout).toContain("--max-lines");
+    expect(result.stdout).toContain("--annotations-min-severity");
     expect(result.stdout).toContain("--profile");
   });
 
@@ -276,6 +296,7 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
     expect(result.stdout).toContain("--max-lines");
+    expect(result.stdout).toContain("--annotations-min-severity");
     expect(result.stdout).toContain("--profile");
   });
 
@@ -317,6 +338,14 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--format must be one of: human, json, github, sarif");
+  });
+
+  it("returns exit 2 for invalid annotation severity values", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--annotations-min-severity", "critical"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--annotations-min-severity must be one of: error, warning, info");
   });
 
   it("returns exit 2 when no command is provided", () => {
