@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-06-04
+
 ### Added
 - Add a context-fidelity guide for teams using Codex, Claude Code, Cursor,
   Gemini CLI, GitHub Copilot, Windsurf, and Cline together, including safe
