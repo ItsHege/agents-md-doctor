@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 - 2026-06-05
+
+### Fixed
+- Escape backslashes before Markdown table pipes and newlines in the desktop UI
+  Markdown report export, resolving the CodeQL incomplete string escaping alert.
+
 ## 0.9.0 - 2026-06-05
 
 ### Added
