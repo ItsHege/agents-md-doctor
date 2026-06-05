@@ -223,6 +223,29 @@ describe("buildInstructionGraph", () => {
         maxDepth: 2,
         include: DEFAULT_INSTRUCTION_GRAPH_INCLUDE
       },
+      contextHygiene: {
+        enabled: false,
+        staleAfterDays: 60,
+        include: ["**/*.md", "**/*.mdx"],
+        ignore: [],
+        publicPaths: [".", "docs", "examples"],
+        publicScopeInstructionPaths: [
+          "**/AGENTS.md",
+          "**/CLAUDE.md",
+          "**/GEMINI.md",
+          ".github/copilot-instructions.md",
+          ".github/instructions/**/*.md",
+          ".cursor/rules/**/*.md",
+          ".windsurf/rules/**/*.md",
+          ".clinerules/**/*.md"
+        ],
+        overlapDetection: "exact",
+        overlapTokenMinLength: 4,
+        maxFileSizeKb: 1000,
+        maxFilesScanned: 500,
+        maxDepth: 40
+      },
+      reviewedFindings: [],
       rules: {}
     });
     expect(findings).toContainEqual(

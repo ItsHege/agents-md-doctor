@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { applyToolProfileOverride, loadConfig, validateIgnorePatterns } from "../config/index.js";
+import { applyToolProfileOverride, loadConfig, validateIgnorePatterns, type ResolvedLintConfig } from "../config/index.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import type { ToolProfile } from "../core/tool-profile.js";
@@ -9,7 +9,9 @@ import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { normalizeRelativePath } from "../path-utils.js";
 import { buildReport } from "../report/index.js";
+import { applyReviewedFindings } from "../report/reviewed-findings.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
+import { checkContextHygiene } from "../rules/context-hygiene.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
 import type { Finding, ExitCode, Severity } from "../types/index.js";
@@ -24,6 +26,8 @@ export interface VerifyCommandOptions {
   maxLines?: number;
   profile?: ToolProfile;
   annotationMinSeverity?: Severity;
+  contextHygiene?: boolean;
+  contextStaleDays?: number;
 }
 
 export interface CommandResult {
@@ -59,6 +63,20 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       }
     });
     findings.push(...buildCoverageSanityFindings(root, loadedFiles, config.lintFileNames, config.toolProfile));
+    const contextHygieneEnabled = options.contextHygiene === true || config.contextHygiene.enabled;
+    if (contextHygieneEnabled) {
+      findings.push(
+        ...applyConfiguredContextSeverity(
+          checkContextHygiene({
+            root,
+            config: config.contextHygiene,
+            ignore: [...config.ignore, ...cliIgnore],
+            ...(options.contextStaleDays ? { staleAfterDays: options.contextStaleDays } : {})
+          }),
+          config
+        )
+      );
+    }
     if (config.instructionGraph.enabled) {
       const graph = buildInstructionGraph({
         root,
@@ -81,10 +99,11 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       findings.push(...graphRuleFindings, ...buildInstructionGraphFindings(graph, config));
     }
     const failOnWarnings = options.strict === true || options.failOnWarning === true || config.failOnWarning;
+    const reviewedFindings = applyReviewedFindings(findings, config.reviewedFindings);
     const report = buildReport({
       command: "verify",
       root,
-      findings,
+      findings: reviewedFindings,
       failOnWarnings
     });
 
@@ -105,6 +124,22 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       stderr: `agents-doctor: error: ${formatErrorMessage(error)}\n`
     };
   }
+}
+
+function applyConfiguredContextSeverity(findings: Finding[], config: ResolvedLintConfig): Finding[] {
+  return findings.flatMap((finding) => {
+    const severityOverride = config.rules[finding.ruleId]?.severity;
+
+    if (severityOverride === "off") {
+      return [];
+    }
+
+    if (severityOverride === "error" || severityOverride === "warning" || severityOverride === "info") {
+      return [{ ...finding, severity: severityOverride }];
+    }
+
+    return [finding];
+  });
 }
 
 function buildLoadedFilesFromGraph(graph: InstructionGraph): LoadedAgentsFile[] {

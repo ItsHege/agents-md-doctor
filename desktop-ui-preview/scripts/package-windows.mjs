@@ -36,7 +36,7 @@ assertPackagedOutput();
 console.log(`Desktop UI Windows package: ${zipPath}`);
 
 function copyRequiredAppFiles() {
-  for (const file of ["index.html", "main.mjs", "preload.cjs", "renderer.js", "styles.css"]) {
+  for (const file of ["doctor-worker.mjs", "index.html", "main.mjs", "preload.cjs", "renderer.js", "styles.css"]) {
     fs.copyFileSync(path.join(desktopRoot, file), path.join(stagingRoot, file));
   }
 
@@ -131,4 +131,8 @@ function assertPackagedOutput() {
   assert.ok(fs.existsSync(zipPath), `Package zip missing: ${zipPath}`);
   assert.ok(fs.statSync(zipPath).size > 0, `Package zip is empty: ${zipPath}`);
   assert.ok(fs.existsSync(path.join(appOutDir, "resources", "app", "dist", "api.js")), "Packaged app missing dist/api.js.");
+  assert.ok(
+    fs.existsSync(path.join(appOutDir, "resources", "app", "doctor-worker.mjs")),
+    "Packaged app missing doctor-worker.mjs."
+  );
 }

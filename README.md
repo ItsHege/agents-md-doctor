@@ -135,6 +135,8 @@ agents-doctor verify --format github --annotations-min-severity warning [repo]
 agents-doctor verify --strict [repo]
 agents-doctor verify --fail-on-warning [repo]
 agents-doctor verify --profile gemini-cli [repo]
+agents-doctor verify --context-hygiene [repo]
+agents-doctor verify --context-hygiene --context-stale-days 30 [repo]
 agents-doctor explain <path> [repo]
 agents-doctor explain --json <path> [repo]
 agents-doctor explain --profile cursor <path> [repo]
@@ -147,6 +149,8 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 - `paths.reference_missing` when referenced paths do not exist or point outside the repo.
 - `commands.mentioned_command_missing` when referenced scripts/targets are missing.
 - `security.risky_instruction` for high-confidence risky instruction patterns.
+- Optional `context.*` hygiene findings when `verify --context-hygiene` or
+  `contextHygiene.enabled` is used.
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
@@ -193,6 +197,7 @@ Run agents-doctor (init / lint / verify / explain)
 -> Read files safely inside repo boundary
 -> Extract Markdown structure (headings, code, links)
 -> Apply deterministic rules
+-> Optionally run context hygiene for planning clutter when enabled
 -> Build report (findings + summary + exit code)
 -> Output (terminal report or JSON for CI)
 ```
@@ -250,11 +255,20 @@ commands:
 3. Review errors and warnings in the table.
 4. Optionally set safe local options such as fail on warnings, max lines, or
    ignore patterns for `Lint` and `Verify`.
-5. Keep `Tool profile` on `Auto`, or focus the run on Codex, Claude Code,
+5. Optionally enable `Context hygiene` during Verify to find stale or
+   overlapping planning notes and copy cleanup requests for the responsible
+   agent.
+6. Keep `Tool profile` on `Auto`, or focus the run on Codex, Claude Code,
    Cursor, Gemini CLI, GitHub Copilot, Windsurf, or Cline.
-6. Click `Copy JSON` for the exact machine-readable report, or `Copy handoff`
+7. Select warning or error rows and click `Save reviewed` when a finding is an
+   intentional repo-local exception. The UI stores finding fingerprints in
+   `.agents-doctor.json`, reruns the report, and shows reviewed findings in the
+   `Ignored` section instead of mixing them into normal `Info`.
+8. Open `Ignored`, uncheck a reviewed finding, and click `Restore ignored` when
+   that project-local exception should become actionable again.
+9. Click `Copy JSON` for the exact machine-readable report, or `Copy handoff`
    for a ready-to-send scoped agent prompt with the report embedded.
-7. Give that handoff to the responsible coding agent.
+10. Give that handoff to the responsible coding agent.
 
 Example handoff:
 
@@ -347,7 +361,30 @@ agents-doctor init .
       "**/.cursor/rules/**/*.md",
       "**/.cursor/rules/**/*.mdc"
     ]
-  }
+  },
+  "contextHygiene": {
+    "enabled": false,
+    "staleAfterDays": 60,
+    "include": ["**/*.md", "**/*.mdx"],
+    "ignore": [],
+    "publicPaths": [".", "docs", "examples"],
+    "publicScopeInstructionPaths": [
+      "**/AGENTS.md",
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      ".github/copilot-instructions.md",
+      ".github/instructions/**/*.md",
+      ".cursor/rules/**/*.md",
+      ".windsurf/rules/**/*.md",
+      ".clinerules/**/*.md"
+    ],
+    "overlapDetection": "exact",
+    "overlapTokenMinLength": 4,
+    "maxFileSizeKb": 1000,
+    "maxFilesScanned": 500,
+    "maxDepth": 40
+  },
+  "reviewedFindings": []
 }
 ```
 
@@ -355,6 +392,15 @@ Rule severity can be `error`, `warning`, `info`, or `off`. CLI flags override
 matching config values where applicable.
 
 For full configuration details, see `docs/configuration.md`.
+
+Reviewed findings are repo-local exceptions, not a global way to disable rules.
+Each finding includes a stable `details.fingerprint`; adding that fingerprint
+to `.agents-doctor.json` under `reviewedFindings` downgrades the matching
+finding to `info` in JSON and adds `details.reviewedFinding` to the report. The
+desktop UI displays those reviewed findings under `Ignored` so they stay
+separate from ordinary informational findings. Prefer fixing real warnings
+first, and reserve reviewed findings for intentional snapshots, accepted project
+risks, or known false positives.
 
 ## Core Features
 
@@ -378,6 +424,9 @@ Current behavior: runs lint checks plus coverage sanity and emits a unified `ver
 - Includes all lint findings in one report.
 - Adds coverage sanity markers (`coverage.discovery_summary`, optional root/no-file warnings).
 - When `instructionGraph.enabled` is true, validates referenced instruction files as an instruction graph.
+- When `--context-hygiene` or `contextHygiene.enabled` is used, scans
+  Markdown/MDX planning notes for stale files, exact overlaps, and public-scope
+  planning clutter.
 - Supports JSON output and strict/fail-on-warning exit behavior.
 
 ### Explain

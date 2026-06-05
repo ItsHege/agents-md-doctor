@@ -23,7 +23,7 @@ The project should stay focused on three user outcomes:
 ## Current Baseline
 
 - Package name: `agents-doctor`.
-- Current public release line: `0.7.x`.
+- Current public release line: `0.8.x`.
 - Runtime: Node.js `>=20`, TypeScript, ESM.
 - Stable top-level report schema: `schemaVersion: "1.0.0"`.
 - Supported commands: `init`, `lint`, `verify`, and `explain`.

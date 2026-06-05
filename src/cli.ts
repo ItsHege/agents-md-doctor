@@ -92,6 +92,8 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--fail-on-warning", "exit 1 when warnings are present")
     .option("--ignore <glob>", "ignore repo-relative paths matching a glob", collectOption, [])
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
+    .option("--context-hygiene", "run opt-in context hygiene scan for stale and overlapping planning files")
+    .option("--context-stale-days <days>", "override context hygiene stale planning threshold in days")
     .option("--annotations-min-severity <severity>", "minimum severity for --format github annotations: info, warning, or error")
     .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
@@ -104,6 +106,8 @@ export function runCli(argv = process.argv): CommandResult {
           annotationsMinSeverity?: string;
           json?: boolean;
           maxLines?: string;
+          contextHygiene?: boolean;
+          contextStaleDays?: string;
           profile?: string;
           strict?: boolean;
         }
@@ -116,6 +120,10 @@ export function runCli(argv = process.argv): CommandResult {
           failOnWarning: options.failOnWarning === true,
           ignore: options.ignore ?? [],
           maxLines: options.maxLines ? parsePositiveIntegerOption("--max-lines", options.maxLines) : undefined,
+          contextHygiene: options.contextHygiene === true,
+          contextStaleDays: options.contextStaleDays
+            ? parsePositiveIntegerOption("--context-stale-days", options.contextStaleDays)
+            : undefined,
           annotationMinSeverity: options.annotationsMinSeverity
             ? parseSeverityOption("--annotations-min-severity", options.annotationsMinSeverity)
             : undefined,

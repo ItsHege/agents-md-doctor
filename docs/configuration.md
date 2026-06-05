@@ -38,6 +38,29 @@ provided.
       "**/.cursor/rules/**/*.mdc"
     ]
   },
+  "contextHygiene": {
+    "enabled": false,
+    "staleAfterDays": 60,
+    "include": ["**/*.md", "**/*.mdx"],
+    "ignore": [],
+    "publicPaths": [".", "docs", "examples"],
+    "publicScopeInstructionPaths": [
+      "**/AGENTS.md",
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      ".github/copilot-instructions.md",
+      ".github/instructions/**/*.md",
+      ".cursor/rules/**/*.md",
+      ".windsurf/rules/**/*.md",
+      ".clinerules/**/*.md"
+    ],
+    "overlapDetection": "exact",
+    "overlapTokenMinLength": 4,
+    "maxFileSizeKb": 1000,
+    "maxFilesScanned": 500,
+    "maxDepth": 40
+  },
+  "reviewedFindings": [],
   "rules": {
     "size.file_too_long": {
       "severity": "warning",
@@ -72,6 +95,39 @@ provided.
 - `instructionGraph.enabled`: opt-in instruction graph traversal for `verify` and `explain`.
 - `instructionGraph.maxDepth`: traversal depth from discovered or applied `AGENTS.md` files, from `0` to `10`.
 - `instructionGraph.include`: repo-relative glob allowlist for referenced instruction files.
+- `contextHygiene.enabled`: opt-in `verify` audit for stale, overlapping, or
+  public-scope planning notes. Defaults to `false`. The CLI flag
+  `--context-hygiene` enables it for one run.
+- `contextHygiene.staleAfterDays`: planning file age threshold. Defaults to
+  `60`. Override one run with `--context-stale-days <days>`.
+- `contextHygiene.include`: repo-relative Markdown/MDX globs scanned by
+  context hygiene. Defaults to `["**/*.md", "**/*.mdx"]`.
+- `contextHygiene.ignore`: additional repo-relative globs skipped only by
+  context hygiene.
+- `contextHygiene.publicPaths`: public documentation scopes where active
+  planning notes are reported. `"."` means root-level files only; `docs` and
+  `examples` mean those directories.
+- `contextHygiene.publicScopeInstructionPaths`: repo-relative globs for
+  instruction surfaces treated as public context. Defaults include AGENTS,
+  Claude, Gemini, GitHub Copilot, Cursor, Windsurf, and Cline Markdown
+  instruction surfaces.
+- `contextHygiene.overlapDetection`: currently only `"exact"`. Fuzzy or
+  semantic overlap detection is future work.
+- `contextHygiene.overlapTokenMinLength`: minimum length for non-version exact
+  overlap tokens. Defaults to `4`.
+- `contextHygiene.maxFileSizeKb`: maximum Markdown file size read by context
+  hygiene. Defaults to `1000`.
+- `contextHygiene.maxFilesScanned`: maximum Markdown files scanned by context
+  hygiene before the summary reports `truncated: true`. Defaults to `500`.
+- `contextHygiene.maxDepth`: maximum directory depth for context hygiene scans.
+  Defaults to `40`.
+- `reviewedFindings`: repo-local reviewed finding fingerprints. Matching
+  findings are downgraded to `info` and keep additive
+  `details.reviewedFinding` metadata so repeated intentional warnings do not
+  keep blocking the same project. Supported statuses are `intentional`,
+  `false_positive`, and `accepted_risk`. The desktop UI shows these reviewed
+  findings in its `Ignored` section and can remove selected fingerprints when a
+  finding should become actionable again.
 
 Rule severity can be `error`, `warning`, `info`, or `off`.
 
@@ -85,6 +141,24 @@ rules to apply to another repository instruction file family:
 ```json
 {
   "lintFileNames": ["AGENTS.md", "CLAUDE.md"]
+}
+```
+
+Use `reviewedFindings` only for project-specific exceptions after a human or
+responsible agent has reviewed the finding. It is intentionally more precise
+than turning a rule off:
+
+```json
+{
+  "reviewedFindings": [
+    {
+      "fingerprint": "adf_v1_8e5f5dbff1a14b5f2f2aa24b",
+      "status": "intentional",
+      "ruleId": "context.overlapping_plan_files",
+      "file": "notes/release-snapshot-2026-06-04.md",
+      "note": "Historical evidence snapshot kept intentionally."
+    }
+  ]
 }
 ```
 
@@ -117,3 +191,19 @@ When enabled, AGENTS.md Doctor follows only explicit local Markdown links and
 inline-code references that look like agent instruction files. It does not scan
 all documentation, follow remote URLs, follow symlinks, or read outside the
 repository boundary.
+
+## Context Hygiene Defaults
+
+Context hygiene is disabled by default because planning notes are often
+repository-specific. When enabled, it scans bounded Markdown and MDX files for
+planning signals such as `plan`, `roadmap`, `todo`, `next`, `backlog`, `phase`,
+`notes`, `WIP`, `TODO`, `Draft`, `Blocked`, `In progress`, and `Next steps`.
+
+A file is treated as planning-like when its path/name has a planning signal, or
+when its content has at least five planning marker occurrences. Common public
+docs such as `README.md`, `CONTRIBUTING.md`, and `CHANGELOG.md` are not treated
+as planning files from content markers alone.
+
+It does not delete, move, archive, rewrite, or execute anything. Findings
+include a structured `cleanupRequest` that can be copied to a responsible
+coding agent or used in a manual cleanup review.

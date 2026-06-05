@@ -9,7 +9,7 @@ Static metadata for a validation rule.
 
 - `id`: stable rule id in `category.rule_name` format.
 - `category`: one of `structure`, `size`, `coverage`, `commands`, `paths`,
-  `inheritance`, or `security`.
+  `inheritance`, `security`, or `context`.
 - `defaultSeverity`: `error`, `warning`, or `info`.
 - `title`: short human-readable rule name.
 - `description`: what the rule detects.
@@ -28,6 +28,12 @@ Runtime result produced by a rule.
 - `line`: optional 1-based line number.
 - `column`: optional 1-based column number.
 - `details`: optional machine-readable metadata.
+
+AGENTS.md Doctor attaches `details.fingerprint` to findings so a repository can
+mark a specific finding as reviewed in `.agents-doctor.json`. When a finding
+matches `reviewedFindings`, its severity is downgraded to `info` and the report
+adds `details.reviewedFinding` with the fingerprint, status, and optional note.
+This is additive and keeps the top-level report schema at `1.0.0`.
 
 ## Report
 
@@ -57,12 +63,26 @@ failures are written to stderr and are not JSON reports.
       "file": "AGENTS.md",
       "line": 1,
       "details": {
+        "fingerprint": "adf_v1_8e5f5dbff1a14b5f2f2aa24b",
         "lineCount": 501,
         "thresholdLines": 500,
         "unit": "lines"
       }
     }
   ]
+}
+```
+
+Example reviewed finding details:
+
+```json
+{
+  "fingerprint": "adf_v1_8e5f5dbff1a14b5f2f2aa24b",
+  "reviewedFinding": {
+    "fingerprint": "adf_v1_8e5f5dbff1a14b5f2f2aa24b",
+    "status": "intentional",
+    "note": "Historical evidence snapshot kept intentionally."
+  }
 }
 ```
 
@@ -99,6 +119,32 @@ finding severities as `error`, `warning`, or `note`.
 GitHub annotation filtering is a renderer option only. It does not remove
 findings from the JSON report, SARIF output, human summary, or exit-code
 calculation.
+
+## Context Hygiene Details
+
+`verify --context-hygiene` and `contextHygiene.enabled` use normal additive
+findings under the existing top-level `schemaVersion: "1.0.0"` report schema.
+
+Context hygiene details can include:
+
+```json
+{
+  "matchedSignals": ["plan", "Next steps"],
+  "ageDays": 83,
+  "staleAfterDays": 60,
+  "relatedFiles": ["notes/old-plan.md"],
+  "matchedTokens": ["v0.9"],
+  "suggestedAction": "archive",
+  "cleanupRequest": "Review and archive or delete stale planning notes..."
+}
+```
+
+`context.planning_summary.details` includes scan counts such as
+`markdownFileCount`, `planningFileCount`, `truncated`, and `skippedFiles`.
+
+`suggestedAction` is advisory and currently uses values such as `archive` or
+`review`. AGENTS.md Doctor never deletes, moves, archives, rewrites, or
+executes files during this audit.
 
 ## Instruction Graph Details
 

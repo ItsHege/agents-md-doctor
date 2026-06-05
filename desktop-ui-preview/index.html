@@ -102,6 +102,23 @@
             <span class="label">Max lines</span>
             <input id="max-lines" type="number" min="1" step="1" inputmode="numeric" placeholder="500" />
           </label>
+          <label class="inline-option" for="context-hygiene">
+            <input id="context-hygiene" type="checkbox" />
+            <span>
+              Context hygiene
+              <span
+                class="info-tip"
+                tabindex="0"
+                role="img"
+                aria-label="Help"
+                title="Optional Verify audit for stale, overlapping, or public-scope planning notes. It never deletes or rewrites files."
+              >?</span>
+            </span>
+          </label>
+          <label id="context-stale-days-group" class="field-stack hidden" for="context-stale-days">
+            <span class="label">Stale after days</span>
+            <input id="context-stale-days" type="number" min="1" step="1" inputmode="numeric" placeholder="60" value="60" />
+          </label>
           <label class="field-stack" for="ignore-patterns">
             <span class="label">Ignore patterns</span>
             <textarea id="ignore-patterns" rows="3" spellcheck="false" placeholder=".claude/cache/**"></textarea>
@@ -215,6 +232,7 @@
               <button class="filter" type="button" data-filter="error">⛔ Errors <span class="filter-count" data-count-for="error">0</span></button>
               <button class="filter" type="button" data-filter="warning">⚠ Warnings <span class="filter-count" data-count-for="warning">0</span></button>
               <button class="filter" type="button" data-filter="info">ℹ Info <span class="filter-count" data-count-for="info">0</span></button>
+              <button class="filter" type="button" data-filter="ignored">Ignored <span class="filter-count" data-count-for="ignored">0</span></button>
             </div>
             <div class="toolbar-spacer">
               <input
@@ -227,6 +245,8 @@
               />
             </div>
             <div class="toolbar-actions">
+              <button id="save-reviewed" class="secondary-button hidden" type="button" title="Save selected findings as reviewed in .agents-doctor.json">Save reviewed</button>
+              <button id="restore-reviewed" class="secondary-button hidden" type="button" title="Remove selected reviewed findings from .agents-doctor.json">Restore ignored</button>
               <button id="save-report" class="secondary-button" type="button" title="Save report (Ctrl+S)">Save report</button>
               <button id="copy-handoff" class="secondary-button" type="button" title="Copy agent handoff (Ctrl+Alt+C)">Copy handoff</button>
               <button id="copy-json" class="secondary-button" type="button">Copy JSON</button>
@@ -248,6 +268,7 @@
               <table>
                 <thead>
                   <tr>
+                    <th class="review-col" title="Mark warning/error findings as reviewed">Review</th>
                     <th class="sortable" data-sort-key="severity" tabindex="0" role="button">Severity<span class="sort-glyph" aria-hidden="true"></span></th>
                     <th class="sortable" data-sort-key="ruleId" tabindex="0" role="button">Rule<span class="sort-glyph" aria-hidden="true"></span></th>
                     <th class="sortable" data-sort-key="location" tabindex="0" role="button">Location<span class="sort-glyph" aria-hidden="true"></span></th>

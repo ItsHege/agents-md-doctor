@@ -40,6 +40,91 @@ describe("runVerifyCommand", () => {
     expect(report.findings.some((finding) => finding.ruleId === "size.file_too_long")).toBe(true);
   });
 
+  it("does not run context hygiene by default", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "notes/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    makeOld(root, "notes/old-plan.md", 90);
+
+    const result = runVerifyCommand({
+      root,
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.ruleId.startsWith("context."))).toBe(false);
+  });
+
+  it("runs context hygiene when opted in", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "notes/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    makeOld(root, "notes/old-plan.md", 90);
+
+    const result = runVerifyCommand({
+      root,
+      json: true,
+      contextHygiene: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.ruleId === "context.planning_summary")).toBe(true);
+    expect(report.findings.some((finding) => finding.ruleId === "context.stale_plan_file")).toBe(true);
+  });
+
+  it("lets CLI stale days override context hygiene default", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "notes/fresh-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    makeOld(root, "notes/fresh-plan.md", 31);
+
+    const result = runVerifyCommand({
+      root,
+      json: true,
+      contextHygiene: true,
+      contextStaleDays: 30
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const stale = report.findings.find((finding) => finding.ruleId === "context.stale_plan_file");
+
+    expect(stale?.details).toMatchObject({
+      ageDays: 31,
+      staleAfterDays: 30
+    });
+  });
+
+  it("honors context rule severity overrides", () => {
+    const root = makeTempRoot();
+    writeFile(
+      root,
+      ".agents-doctor.json",
+      JSON.stringify({
+        contextHygiene: {
+          enabled: true
+        },
+        rules: {
+          "context.stale_plan_file": {
+            severity: "off"
+          }
+        }
+      })
+    );
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "notes/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    makeOld(root, "notes/old-plan.md", 90);
+
+    const result = runVerifyCommand({
+      root,
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(report.findings.some((finding) => finding.ruleId === "context.planning_summary")).toBe(true);
+    expect(report.findings.some((finding) => finding.ruleId === "context.stale_plan_file")).toBe(false);
+  });
+
   it("uses configured instruction file names in coverage and lint findings", () => {
     const root = makeTempRoot();
     writeFile(root, ".agents-doctor.json", JSON.stringify({ lintFileNames: ["CLAUDE.md"] }));
@@ -263,4 +348,9 @@ function writeFile(root: string, relativePath: string, content: string): void {
   const absolutePath = path.join(root, relativePath);
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
   fs.writeFileSync(absolutePath, content);
+}
+
+function makeOld(root: string, relativePath: string, ageDays: number): void {
+  const date = new Date(Date.now() - ageDays * 86_400_000);
+  fs.utimesSync(path.join(root, relativePath), date, date);
 }

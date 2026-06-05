@@ -44,6 +44,32 @@ describe("runCli", () => {
     expect(report.command).toBe("verify");
   });
 
+  it("dispatches verify --context-hygiene with stale-day override", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-context-"));
+
+    try {
+      fs.writeFileSync(path.join(root, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+      fs.mkdirSync(path.join(root, "notes"), { recursive: true });
+      const planPath = path.join(root, "notes", "old-plan.md");
+      fs.writeFileSync(planPath, "# v0.9 Plan\n\nNext steps.\n");
+      const oldDate = new Date(Date.now() - 31 * 86_400_000);
+      fs.utimesSync(planPath, oldDate, oldDate);
+
+      const result = runCli(["node", "dist/cli.js", "verify", "--json", "--context-hygiene", "--context-stale-days", "30", root]);
+      const report = ReportSchema.parse(JSON.parse(result.stdout));
+      const stale = report.findings.find((finding) => finding.ruleId === "context.stale_plan_file");
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(report.findings.some((finding) => finding.ruleId === "context.planning_summary")).toBe(true);
+      expect(stale?.details).toMatchObject({
+        staleAfterDays: 30
+      });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("dispatches verify --profile", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-profile-"));
 
@@ -296,6 +322,8 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--fail-on-warning");
     expect(result.stdout).toContain("--ignore");
     expect(result.stdout).toContain("--max-lines");
+    expect(result.stdout).toContain("--context-hygiene");
+    expect(result.stdout).toContain("--context-stale-days");
     expect(result.stdout).toContain("--annotations-min-severity");
     expect(result.stdout).toContain("--profile");
   });
@@ -330,6 +358,14 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("--max-lines must be a positive integer");
+  });
+
+  it("returns exit 2 for invalid context stale days values", () => {
+    const result = runCli(["node", "dist/cli.js", "verify", "--context-stale-days", "nope"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("--context-stale-days must be a positive integer");
   });
 
   it("returns exit 2 for invalid format values", () => {

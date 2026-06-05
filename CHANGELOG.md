@@ -1,6 +1,43 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 - 2026-06-05
+
+### Added
+- Add repo-local reviewed finding fingerprints through `.agents-doctor.json`
+  `reviewedFindings`, allowing intentional warnings, known false positives, or
+  accepted risks to be downgraded to info without disabling entire rules.
+- Add desktop UI selection and `Save reviewed` support so reviewed findings can
+  be saved from the warning table, rerun immediately, shown in a separate
+  `Ignored` section, and restored back to normal warning/error review when the
+  project-local exception no longer applies.
+- Add opt-in context hygiene auditing for `verify` through
+  `--context-hygiene`, `--context-stale-days <days>`, programmatic API options,
+  and `contextHygiene` config defaults.
+- Add context findings for stale planning files, exact overlapping planning
+  files, public-scope planning clutter, and a planning scan summary, with
+  structured cleanup request details for agent handoffs.
+- Add context hygiene tuning for planning-signal specificity, exact overlap
+  token minimum length, public instruction surface globs, max file size, max
+  files scanned, and max scan depth.
+- Add desktop UI controls for context hygiene and stale-days threshold, plus a
+  context finding action to copy the cleanup request.
+
+### Fixed
+- Reduce false positives from inline URL path references, repeated missing path
+  references, status-registry `draft` values, and planning-like words inside
+  Markdown code blocks.
+- Keep desktop UI checks responsive on larger repositories by running the
+  deterministic doctor report in a worker thread instead of the Electron main
+  process.
+- Downgrade context-hygiene overlaps for archive, snapshot, evidence, and
+  mirrored skill files to informational review items, and keep warning severity
+  for overlaps between active source-of-truth planning files.
+
+### Notes
+- Context hygiene is disabled by default, does not run fuzzy/semantic matching,
+  and never deletes, moves, archives, rewrites, or executes repository files.
+- No top-level JSON report schema change; context hygiene uses additive
+  findings and reviewed finding metadata under schema version `1.0.0`.
 
 ## 0.8.0 - 2026-06-04
 

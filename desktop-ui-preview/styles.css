@@ -202,6 +202,15 @@ kbd {
 .options-group summary::after { content: ' ▾'; color: var(--muted); }
 .options-group[open] summary::after { content: ' ▴'; }
 .field-stack { display: grid; gap: 6px; }
+.inline-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 13px;
+}
+.inline-option input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .label {
   color: var(--muted-strong);
@@ -481,6 +490,7 @@ h3 { font-size: 16px; font-weight: 700; }
 .pill.error { color: var(--error); background: var(--error-soft); border: 1px solid var(--error-border); }
 .pill.warning { color: var(--warning); background: var(--warning-soft); border: 1px solid var(--warning-border); }
 .pill.info { color: var(--info); background: var(--info-soft); border: 1px solid var(--info-border); }
+.pill.ignored { color: var(--muted); background: var(--panel-soft); border: 1px solid var(--line); }
 .pill.diff-up { color: var(--error); background: var(--error-soft); border: 1px solid var(--error-border); }
 .pill.diff-down { color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); }
 .pill.diff-same { color: var(--muted); }
@@ -658,6 +668,20 @@ th, td {
   text-align: left;
   vertical-align: top;
 }
+th.review-col,
+td.review-cell {
+  width: 72px;
+  text-align: center;
+}
+td.review-cell input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+td.review-cell input:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 th {
   position: sticky;
   top: 0;
@@ -710,6 +734,7 @@ tbody tr.is-selected { background: var(--accent-soft); }
 .severity.error { color: var(--error); background: var(--error-soft); }
 .severity.warning { color: var(--warning); background: var(--warning-soft); }
 .severity.info { color: var(--info); background: var(--info-soft); }
+.severity.ignored { color: var(--muted); background: var(--panel-soft); }
 
 .rule-id, .location {
   font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;

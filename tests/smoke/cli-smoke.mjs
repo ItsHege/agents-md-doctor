@@ -40,6 +40,7 @@ assert.deepEqual(longReport.summary, {
   infoCount: 0
 });
 assert.equal(longReport.findings.length, 1);
+assert.match(longReport.findings[0].details.fingerprint, /^adf_v1_[0-9a-f]{24}$/u);
 assert.deepEqual(longReport.findings[0], {
   ruleId: "size.file_too_long",
   severity: "warning",
@@ -49,7 +50,8 @@ assert.deepEqual(longReport.findings[0], {
   details: {
     lineCount: 501,
     thresholdLines: 500,
-    unit: "lines"
+    unit: "lines",
+    fingerprint: longReport.findings[0].details.fingerprint
   }
 });
 
@@ -90,6 +92,21 @@ try {
   assert.deepEqual(profileCoverage.details.lintFileNames, ["AGENTS.md", "GEMINI.md"]);
 } finally {
   fs.rmSync(profileRoot, { recursive: true, force: true });
+}
+
+const contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-context-"));
+try {
+  fs.writeFileSync(path.join(contextRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+  fs.mkdirSync(path.join(contextRoot, "notes"), { recursive: true });
+  const planPath = path.join(contextRoot, "notes", "old-plan.md");
+  fs.writeFileSync(planPath, "# v0.9 Plan\n\nNext steps.\n");
+  const oldDate = new Date(Date.now() - 31 * 86_400_000);
+  fs.utimesSync(planPath, oldDate, oldDate);
+  const contextReport = runReport(["verify", "--json", "--context-hygiene", "--context-stale-days", "30", contextRoot], "verify");
+  assert.equal(contextReport.findings.some((finding) => finding.ruleId === "context.planning_summary"), true);
+  assert.equal(contextReport.findings.some((finding) => finding.ruleId === "context.stale_plan_file"), true);
+} finally {
+  fs.rmSync(contextRoot, { recursive: true, force: true });
 }
 
 try {

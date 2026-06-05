@@ -2,6 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   CONFIG_FILE_NAME,
+  DEFAULT_CONTEXT_HYGIENE_INCLUDE,
+  DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS,
+  DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS,
+  DEFAULT_CONTEXT_MAX_DEPTH,
+  DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
+  DEFAULT_CONTEXT_MAX_FILES_SCANNED,
+  DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
+  DEFAULT_CONTEXT_STALE_AFTER_DAYS,
   DEFAULT_INSTRUCTION_GRAPH_INCLUDE
 } from "../config/load-config.js";
 import { AppError, isAppError } from "../errors.js";
@@ -23,6 +31,20 @@ interface StarterConfig {
     maxDepth: number;
     include: string[];
   };
+  contextHygiene: {
+    enabled: boolean;
+    staleAfterDays: number;
+    include: string[];
+    ignore: string[];
+    publicPaths: string[];
+    publicScopeInstructionPaths: string[];
+    overlapDetection: "exact";
+    overlapTokenMinLength: number;
+    maxFileSizeKb: number;
+    maxFilesScanned: number;
+    maxDepth: number;
+  };
+  reviewedFindings: [];
   rules: {
     "size.file_too_long": {
       severity: "warning";
@@ -46,6 +68,20 @@ const STARTER_CONFIG: StarterConfig = {
     maxDepth: 2,
     include: DEFAULT_INSTRUCTION_GRAPH_INCLUDE
   },
+  contextHygiene: {
+    enabled: false,
+    staleAfterDays: DEFAULT_CONTEXT_STALE_AFTER_DAYS,
+    include: DEFAULT_CONTEXT_HYGIENE_INCLUDE,
+    ignore: [],
+    publicPaths: DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS,
+    publicScopeInstructionPaths: DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS,
+    overlapDetection: "exact",
+    overlapTokenMinLength: DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
+    maxFileSizeKb: DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
+    maxFilesScanned: DEFAULT_CONTEXT_MAX_FILES_SCANNED,
+    maxDepth: DEFAULT_CONTEXT_MAX_DEPTH
+  },
+  reviewedFindings: [],
   rules: {
     "size.file_too_long": {
       severity: "warning",

@@ -105,7 +105,7 @@ export function checkPathReferences(options: CheckPathReferencesOptions): Findin
   const seen = new Set<string>();
 
   for (const candidate of candidates) {
-    const dedupeKey = `${candidate.path}:${candidate.line}`;
+    const dedupeKey = candidate.path.replace(/\\/g, "/");
 
     if (seen.has(dedupeKey)) {
       continue;
@@ -232,6 +232,14 @@ function sanitizeLinkPath(rawUrl: string): string | null {
 function sanitizeInlinePath(value: string): string | null {
   const trimmed = value.trim();
 
+  if (isAttributeAssignmentReference(trimmed)) {
+    return null;
+  }
+
+  if (isExternalReference(trimmed)) {
+    return null;
+  }
+
   if (isLikelySystemAbsolutePath(trimmed)) {
     return null;
   }
@@ -245,6 +253,21 @@ function sanitizeInlinePath(value: string): string | null {
   }
 
   return trimmed;
+}
+
+function isAttributeAssignmentReference(value: string): boolean {
+  return /^[A-Za-z_:][A-Za-z0-9_:.-]*=(?:"[^"]*"|'[^']*'|[^\s]+)$/u.test(value);
+}
+
+function isExternalReference(value: string): boolean {
+  const normalized = value.trim();
+  return (
+    normalized.startsWith("http://") ||
+    normalized.startsWith("https://") ||
+    normalized.startsWith("mailto:") ||
+    normalized.startsWith("//") ||
+    (normalized.includes("/") && isDomainLikeReference(normalized))
+  );
 }
 
 function looksLikePath(value: string): boolean {

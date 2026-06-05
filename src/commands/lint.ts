@@ -6,6 +6,7 @@ import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
 import { readTextFileWithinRoot } from "../io/index.js";
 import { buildReport } from "../report/index.js";
+import { applyReviewedFindings } from "../report/reviewed-findings.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
@@ -55,10 +56,11 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
         ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
       }
     });
+    const reviewedFindings = applyReviewedFindings(findings, config.reviewedFindings);
     const report = buildReport({
       command: "lint",
       root,
-      findings,
+      findings: reviewedFindings,
       failOnWarnings: options.strict === true || options.failOnWarning === true || config.failOnWarning
     });
 

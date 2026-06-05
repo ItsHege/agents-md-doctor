@@ -26,6 +26,29 @@ describe("runRules", () => {
             maxDepth: 2,
             include: []
           },
+          contextHygiene: {
+            enabled: false,
+            staleAfterDays: 60,
+            include: ["**/*.md", "**/*.mdx"],
+            ignore: [],
+            publicPaths: [".", "docs", "examples"],
+            publicScopeInstructionPaths: [
+              "**/AGENTS.md",
+              "**/CLAUDE.md",
+              "**/GEMINI.md",
+              ".github/copilot-instructions.md",
+              ".github/instructions/**/*.md",
+              ".cursor/rules/**/*.md",
+              ".windsurf/rules/**/*.md",
+              ".clinerules/**/*.md"
+            ],
+            overlapDetection: "exact",
+            overlapTokenMinLength: 4,
+            maxFileSizeKb: 1000,
+            maxFilesScanned: 500,
+            maxDepth: 40
+          },
+          reviewedFindings: [],
           rules: {
             "structure.required_sections": {
               severity: "off"

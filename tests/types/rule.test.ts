@@ -14,6 +14,18 @@ describe("RuleDefinitionSchema", () => {
     expect(rule.id).toBe("commands.missing_script");
   });
 
+  it("accepts context rule ids", () => {
+    const rule = RuleDefinitionSchema.parse({
+      id: "context.stale_plan_file",
+      category: "context",
+      defaultSeverity: "warning",
+      title: "Stale planning file",
+      description: "Reports active planning notes that look stale."
+    });
+
+    expect(rule.id).toBe("context.stale_plan_file");
+  });
+
   it("rejects command-namespaced rule ids", () => {
     expect(() => RuleIdSchema.parse("verify.command_missing")).toThrow();
   });
@@ -30,4 +42,3 @@ describe("RuleDefinitionSchema", () => {
     ).toThrow("Rule category must match");
   });
 });
-

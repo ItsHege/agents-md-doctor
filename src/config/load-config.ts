@@ -9,6 +9,7 @@ export const CONFIG_FILE_NAME = ".agents-doctor.json";
 export const MAX_CONFIG_BYTES = 256 * 1024;
 
 const RuleSeverityOverrideSchema = z.union([SeveritySchema, z.literal("off")]);
+const ReviewedFindingStatusSchema = z.enum(["intentional", "false_positive", "accepted_risk"]);
 
 const RuleConfigSchema = z
   .object({
@@ -31,11 +32,57 @@ export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
   "**/.cursor/rules/**/*.mdc"
 ];
 
+export const DEFAULT_CONTEXT_HYGIENE_INCLUDE = ["**/*.md", "**/*.mdx"];
+export const DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS = [".", "docs", "examples"];
+export const DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS = [
+  "**/AGENTS.md",
+  "**/CLAUDE.md",
+  "**/GEMINI.md",
+  ".github/copilot-instructions.md",
+  ".github/instructions/**/*.md",
+  ".cursor/rules/**/*.md",
+  ".windsurf/rules/**/*.md",
+  ".clinerules/**/*.md"
+];
+export const DEFAULT_CONTEXT_STALE_AFTER_DAYS = 60;
+export const DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH = 4;
+export const DEFAULT_CONTEXT_MAX_FILE_SIZE_KB = 1000;
+export const DEFAULT_CONTEXT_MAX_FILES_SCANNED = 500;
+export const DEFAULT_CONTEXT_MAX_DEPTH = 40;
+
 const InstructionGraphConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
     maxDepth: z.number().int().min(0).max(10).optional(),
     include: z.array(z.string().min(1)).optional()
+  })
+  .strict();
+
+const ContextHygieneConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    staleAfterDays: z.number().int().positive().optional(),
+    include: z.array(z.string().min(1)).optional(),
+    ignore: z.array(z.string().min(1)).optional(),
+    publicPaths: z.array(z.string().min(1)).optional(),
+    publicScopeInstructionPaths: z.array(z.string().min(1)).optional(),
+    overlapDetection: z.literal("exact").optional(),
+    overlapTokenMinLength: z.number().int().positive().optional(),
+    maxFileSizeKb: z.number().int().positive().optional(),
+    maxFilesScanned: z.number().int().positive().optional(),
+    maxDepth: z.number().int().min(0).max(100).optional()
+  })
+  .strict();
+
+const ReviewedFindingSchema = z
+  .object({
+    fingerprint: z.string().min(1).max(128),
+    status: ReviewedFindingStatusSchema,
+    note: z.string().min(1).max(500).optional(),
+    ruleId: RuleIdSchema.optional(),
+    file: z.string().min(1).max(1000).optional(),
+    message: z.string().min(1).max(2000).optional(),
+    createdAt: z.string().datetime({ offset: true }).optional()
   })
   .strict();
 
@@ -48,6 +95,8 @@ const AgentsDoctorConfigSchema = z
     failOnWarning: z.boolean().optional(),
     annotationMinSeverity: SeveritySchema.optional(),
     instructionGraph: InstructionGraphConfigSchema.optional(),
+    contextHygiene: ContextHygieneConfigSchema.optional(),
+    reviewedFindings: z.array(ReviewedFindingSchema).optional(),
     rules: z.record(RuleIdSchema, RuleConfigSchema).optional()
   })
   .strict();
@@ -58,8 +107,23 @@ export interface ResolvedInstructionGraphConfig {
   include: string[];
 }
 
+export interface ResolvedContextHygieneConfig {
+  enabled: boolean;
+  staleAfterDays: number;
+  include: string[];
+  ignore: string[];
+  publicPaths: string[];
+  publicScopeInstructionPaths: string[];
+  overlapDetection: "exact";
+  overlapTokenMinLength: number;
+  maxFileSizeKb: number;
+  maxFilesScanned: number;
+  maxDepth: number;
+}
+
 export type RuleSeverityOverride = z.infer<typeof RuleSeverityOverrideSchema>;
 export type RuleConfig = z.infer<typeof RuleConfigSchema>;
+export type ReviewedFindingConfig = z.infer<typeof ReviewedFindingSchema>;
 export type AgentsDoctorConfig = z.infer<typeof AgentsDoctorConfigSchema>;
 
 export interface ResolvedLintConfig {
@@ -71,6 +135,8 @@ export interface ResolvedLintConfig {
   failOnWarning: boolean;
   annotationMinSeverity?: z.infer<typeof SeveritySchema>;
   instructionGraph: ResolvedInstructionGraphConfig;
+  contextHygiene: ResolvedContextHygieneConfig;
+  reviewedFindings: ReviewedFindingConfig[];
   rules: Record<string, RuleConfig>;
 }
 
@@ -93,6 +159,20 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
         maxDepth: 2,
         include: DEFAULT_INSTRUCTION_GRAPH_INCLUDE
       },
+      contextHygiene: {
+        enabled: false,
+        staleAfterDays: DEFAULT_CONTEXT_STALE_AFTER_DAYS,
+        include: DEFAULT_CONTEXT_HYGIENE_INCLUDE,
+        ignore: [],
+        publicPaths: DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS,
+        publicScopeInstructionPaths: DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS,
+        overlapDetection: "exact",
+        overlapTokenMinLength: DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
+        maxFileSizeKb: DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
+        maxFilesScanned: DEFAULT_CONTEXT_MAX_FILES_SCANNED,
+        maxDepth: DEFAULT_CONTEXT_MAX_DEPTH
+      },
+      reviewedFindings: [],
       rules: {}
     };
   }
@@ -130,9 +210,18 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   const lintFileNamesConfigured = Array.isArray(config.lintFileNames);
   const lintFileNames = config.lintFileNames ?? defaultLintFileNamesForProfile(toolProfile);
   const instructionGraphInclude = config.instructionGraph?.include ?? DEFAULT_INSTRUCTION_GRAPH_INCLUDE;
+  const contextHygieneInclude = config.contextHygiene?.include ?? DEFAULT_CONTEXT_HYGIENE_INCLUDE;
+  const contextHygieneIgnore = config.contextHygiene?.ignore ?? [];
+  const contextHygienePublicPaths = config.contextHygiene?.publicPaths ?? DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS;
+  const contextHygienePublicInstructionPaths =
+    config.contextHygiene?.publicScopeInstructionPaths ?? DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS;
   validateIgnorePatterns(ignore);
   validateLintFileNames(lintFileNames);
   validateIgnorePatterns(instructionGraphInclude);
+  validateIgnorePatterns(contextHygieneInclude);
+  validateIgnorePatterns(contextHygieneIgnore);
+  validatePublicPaths(contextHygienePublicPaths);
+  validateIgnorePatterns(contextHygienePublicInstructionPaths);
 
   return {
     ignore,
@@ -147,6 +236,20 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
       maxDepth: config.instructionGraph?.maxDepth ?? 2,
       include: instructionGraphInclude
     },
+    contextHygiene: {
+      enabled: config.contextHygiene?.enabled ?? false,
+      staleAfterDays: config.contextHygiene?.staleAfterDays ?? DEFAULT_CONTEXT_STALE_AFTER_DAYS,
+      include: contextHygieneInclude,
+      ignore: contextHygieneIgnore,
+      publicPaths: contextHygienePublicPaths,
+      publicScopeInstructionPaths: contextHygienePublicInstructionPaths,
+      overlapDetection: config.contextHygiene?.overlapDetection ?? "exact",
+      overlapTokenMinLength: config.contextHygiene?.overlapTokenMinLength ?? DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
+      maxFileSizeKb: config.contextHygiene?.maxFileSizeKb ?? DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
+      maxFilesScanned: config.contextHygiene?.maxFilesScanned ?? DEFAULT_CONTEXT_MAX_FILES_SCANNED,
+      maxDepth: config.contextHygiene?.maxDepth ?? DEFAULT_CONTEXT_MAX_DEPTH
+    },
+    reviewedFindings: config.reviewedFindings ?? [],
     rules: config.rules ?? {}
   };
 }
@@ -188,6 +291,32 @@ export function validateIgnorePatterns(patterns: string[]): void {
       normalizedPattern.endsWith("/..")
     ) {
       throw new AppError("E_IGNORE_PATTERN_INVALID", `ignore pattern cannot traverse outside the repo: ${pattern}`);
+    }
+  }
+}
+
+function validatePublicPaths(publicPaths: string[]): void {
+  for (const publicPath of publicPaths) {
+    const normalizedPath = publicPath.replace(/\\/g, "/");
+
+    if (normalizedPath === ".") {
+      continue;
+    }
+
+    if (path.posix.isAbsolute(normalizedPath)) {
+      throw new AppError("E_CONFIG_INVALID", `contextHygiene.publicPaths entries must be repo-relative: ${publicPath}`);
+    }
+
+    if (
+      normalizedPath === ".." ||
+      normalizedPath.startsWith("../") ||
+      normalizedPath.includes("/../") ||
+      normalizedPath.endsWith("/..")
+    ) {
+      throw new AppError(
+        "E_CONFIG_INVALID",
+        `contextHygiene.publicPaths entries cannot traverse outside the repo: ${publicPath}`
+      );
     }
   }
 }

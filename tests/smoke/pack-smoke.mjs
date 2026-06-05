@@ -90,6 +90,22 @@ try {
   assert.equal(profileCoverage.details.toolProfile, "gemini-cli");
   assert.deepEqual(profileCoverage.details.lintFileNames, ["AGENTS.md", "GEMINI.md"]);
 
+  const contextRoot = path.join(tempRoot, "context-project");
+  fs.mkdirSync(path.join(contextRoot, "notes"), { recursive: true });
+  fs.writeFileSync(path.join(contextRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+  const contextPlanPath = path.join(contextRoot, "notes", "old-plan.md");
+  fs.writeFileSync(contextPlanPath, "# v0.9 Plan\n\nNext steps.\n");
+  const oldDate = new Date(Date.now() - 31 * 86_400_000);
+  fs.utimesSync(contextPlanPath, oldDate, oldDate);
+  const contextResult = run(
+    process.execPath,
+    [installedCliPath, "verify", "--json", "--context-hygiene", "--context-stale-days", "30", contextRoot],
+    tempRoot
+  );
+  const contextReport = parseCliReport(contextResult.stdout, "verify");
+  assert.equal(contextReport.findings.some((finding) => finding.ruleId === "context.planning_summary"), true);
+  assert.equal(contextReport.findings.some((finding) => finding.ruleId === "context.stale_plan_file"), true);
+
   const explainJsonResult = run(
     process.execPath,
     [

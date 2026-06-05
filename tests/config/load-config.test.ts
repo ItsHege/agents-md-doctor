@@ -37,6 +37,29 @@ describe("loadConfig", () => {
           "**/.cursor/rules/**/*.mdc"
         ]
       },
+      contextHygiene: {
+        enabled: false,
+        staleAfterDays: 60,
+        include: ["**/*.md", "**/*.mdx"],
+        ignore: [],
+        publicPaths: [".", "docs", "examples"],
+        publicScopeInstructionPaths: [
+          "**/AGENTS.md",
+          "**/CLAUDE.md",
+          "**/GEMINI.md",
+          ".github/copilot-instructions.md",
+          ".github/instructions/**/*.md",
+          ".cursor/rules/**/*.md",
+          ".windsurf/rules/**/*.md",
+          ".clinerules/**/*.md"
+        ],
+        overlapDetection: "exact",
+        overlapTokenMinLength: 4,
+        maxFileSizeKb: 1000,
+        maxFilesScanned: 500,
+        maxDepth: 40
+      },
+      reviewedFindings: [],
       rules: {}
     });
   });
@@ -57,6 +80,29 @@ describe("loadConfig", () => {
           maxDepth: 3,
           include: ["**/AGENTS.md", "**/.cursor/rules/**/*.md"]
         },
+        contextHygiene: {
+          enabled: true,
+          staleAfterDays: 90,
+          include: ["plans/**/*.md"],
+          ignore: ["plans/archive/**"],
+          publicPaths: ["docs"],
+          publicScopeInstructionPaths: ["AGENTS.md", ".github/copilot-instructions.md"],
+          overlapDetection: "exact",
+          overlapTokenMinLength: 5,
+          maxFileSizeKb: 512,
+          maxFilesScanned: 250,
+          maxDepth: 12
+        },
+        reviewedFindings: [
+          {
+            fingerprint: "adf_v1_example",
+            status: "intentional",
+            ruleId: "paths.reference_missing",
+            file: "AGENTS.md",
+            message: "Reviewed local policy exception.",
+            createdAt: "2026-06-04T12:00:00.000Z"
+          }
+        ],
         rules: {
           "size.file_too_long": {
             severity: "error",
@@ -79,6 +125,29 @@ describe("loadConfig", () => {
         maxDepth: 3,
         include: ["**/AGENTS.md", "**/.cursor/rules/**/*.md"]
       },
+      contextHygiene: {
+        enabled: true,
+        staleAfterDays: 90,
+        include: ["plans/**/*.md"],
+        ignore: ["plans/archive/**"],
+        publicPaths: ["docs"],
+        publicScopeInstructionPaths: ["AGENTS.md", ".github/copilot-instructions.md"],
+        overlapDetection: "exact",
+        overlapTokenMinLength: 5,
+        maxFileSizeKb: 512,
+        maxFilesScanned: 250,
+        maxDepth: 12
+      },
+      reviewedFindings: [
+        {
+          fingerprint: "adf_v1_example",
+          status: "intentional",
+          ruleId: "paths.reference_missing",
+          file: "AGENTS.md",
+          message: "Reviewed local policy exception.",
+          createdAt: "2026-06-04T12:00:00.000Z"
+        }
+      ],
       rules: {
         "size.file_too_long": {
           severity: "error",
@@ -168,6 +237,48 @@ describe("loadConfig", () => {
       JSON.stringify({
         instructionGraph: {
           include: ["/absolute/path.md"]
+        }
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects context hygiene paths that escape the repo", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        contextHygiene: {
+          include: ["../private/**"]
+        }
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects context hygiene public paths outside the repo", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        contextHygiene: {
+          publicPaths: ["/absolute/docs"]
+        }
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects context hygiene public instruction paths outside the repo", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        contextHygiene: {
+          publicScopeInstructionPaths: ["../private/AGENTS.md"]
         }
       })
     );

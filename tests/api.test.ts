@@ -48,6 +48,92 @@ describe("programmatic report API", () => {
     expect(sizeFinding?.severity).toBe("warning");
   });
 
+  it("supports context hygiene verify options", () => {
+    const root = makeTempRoot("agents-doctor-api-context-");
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+    fs.mkdirSync(path.join(root, "notes"), { recursive: true });
+    const planPath = path.join(root, "notes", "old-plan.md");
+    fs.writeFileSync(planPath, "# v0.9 Plan\n\nNext steps.\n");
+    const oldDate = new Date(Date.now() - 31 * 86_400_000);
+    fs.utimesSync(planPath, oldDate, oldDate);
+
+    const result = runVerifyReport({
+      root,
+      contextHygiene: true,
+      contextStaleDays: 30
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    expect(result.report.findings.some((finding) => finding.ruleId === "context.stale_plan_file")).toBe(true);
+  });
+
+  it("downgrades reviewed findings by fingerprint", () => {
+    const root = makeTempRoot("agents-doctor-api-reviewed-");
+    fs.writeFileSync(
+      path.join(root, "AGENTS.md"),
+      [
+        "# Instructions",
+        "",
+        "## Safety",
+        "",
+        "Keep checks local.",
+        "",
+        "## Testing",
+        "",
+        "Review `missing-local-policy.md` before handoff."
+      ].join("\n")
+    );
+
+    const firstResult = runVerifyReport({ root });
+    expect(firstResult.ok).toBe(true);
+    if (!firstResult.ok) {
+      throw new Error(firstResult.error);
+    }
+
+    const pathFinding = firstResult.report.findings.find((finding) => finding.ruleId === "paths.reference_missing");
+    const fingerprint = pathFinding?.details?.fingerprint;
+    expect(pathFinding?.severity).toBe("warning");
+    expect(typeof fingerprint).toBe("string");
+
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify(
+        {
+          reviewedFindings: [
+            {
+              fingerprint,
+              status: "intentional",
+              ruleId: pathFinding?.ruleId,
+              file: pathFinding?.file,
+              message: pathFinding?.message,
+              createdAt: "2026-06-04T12:00:00.000Z"
+            }
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    const reviewedResult = runVerifyReport({ root });
+    expect(reviewedResult.ok).toBe(true);
+    if (!reviewedResult.ok) {
+      throw new Error(reviewedResult.error);
+    }
+
+    const reviewedFinding = reviewedResult.report.findings.find((finding) => finding.ruleId === "paths.reference_missing");
+    expect(reviewedFinding?.severity).toBe("info");
+    expect(reviewedResult.report.summary.warningCount).toBe(0);
+    expect(reviewedFinding?.details?.reviewedFinding).toMatchObject({
+      fingerprint,
+      status: "intentional"
+    });
+  });
+
   it("returns a run failure for invalid folders", () => {
     const result = runVerifyReport({
       root: path.join(os.tmpdir(), "agents-doctor-missing-folder")

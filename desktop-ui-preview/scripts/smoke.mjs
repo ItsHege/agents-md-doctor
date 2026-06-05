@@ -29,6 +29,11 @@ try {
       "```"
     ].join("\n")
   );
+  fs.mkdirSync(path.join(fixtureRoot, "notes"), { recursive: true });
+  const oldPlanPath = path.join(fixtureRoot, "notes", "old-plan.md");
+  fs.writeFileSync(oldPlanPath, "# v0.9 Plan\n\nNext steps.\n");
+  const oldPlanDate = new Date(Date.now() - 31 * 86_400_000);
+  fs.utimesSync(oldPlanPath, oldPlanDate, oldPlanDate);
   fs.mkdirSync(path.join(cleanRoot, "packages", "app"), { recursive: true });
   fs.writeFileSync(path.join(cleanRoot, "package.json"), JSON.stringify({ scripts: {} }));
   fs.writeFileSync(
@@ -157,6 +162,32 @@ try {
 
   if (!Array.isArray(smokeOutput.ledgerPipeline) || !smokeOutput.ledgerPipeline.includes("Coverage")) {
     throw new Error(`Expected verify pipeline to include Coverage, got ${smokeOutput.ledgerPipeline}.`);
+  }
+
+  if (!smokeOutput.ledgerPipeline.includes("Context hygiene")) {
+    throw new Error(`Expected verify pipeline to include Context hygiene, got ${smokeOutput.ledgerPipeline}.`);
+  }
+
+  if (typeof smokeOutput.copiedCleanup !== "string" || !smokeOutput.copiedCleanup.includes("archive or delete")) {
+    throw new Error("Expected context finding drawer to copy cleanup request.");
+  }
+
+  if (typeof smokeOutput.reviewedFindingCount !== "number" || smokeOutput.reviewedFindingCount < 1) {
+    throw new Error("Expected desktop UI to save and reapply at least one reviewed finding.");
+  }
+
+  if (!Array.isArray(smokeOutput.ignoredRows) || !smokeOutput.ignoredRows.some((row) => row.includes("ignored"))) {
+    throw new Error(`Expected ignored filter to render reviewed findings, got ${smokeOutput.ignoredRows}.`);
+  }
+
+  if (smokeOutput.restoredReviewedFindingCount !== 0) {
+    throw new Error(`Expected restored ignored finding count 0, got ${smokeOutput.restoredReviewedFindingCount}.`);
+  }
+
+  if (Number(smokeOutput.restoredWarningCount) < 1 || smokeOutput.ignoredCountAfterRestore !== "0") {
+    throw new Error(
+      `Expected ignored finding to return to warnings after restore; warnings=${smokeOutput.restoredWarningCount}, ignored=${smokeOutput.ignoredCountAfterRestore}.`
+    );
   }
 
   if (!String(smokeOutput.cleanTitle).includes("Lint")) {

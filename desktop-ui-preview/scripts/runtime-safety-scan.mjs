@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const prototypeRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const runtimeFiles = ["main.mjs", "preload.cjs", "renderer.js"];
+const runtimeFiles = ["doctor-worker.mjs", "main.mjs", "preload.cjs", "renderer.js"];
 const blockedPatterns = [
   /\bnode:child_process\b/u,
   /\bchild_process\b/u,

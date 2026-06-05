@@ -157,6 +157,65 @@ warning security.risky_instruction AGENTS.md:20
 AGENTS.md contains a risky instruction: instruction suggests dumping environment variables.
 ```
 
+## Context Hygiene Findings
+
+Context hygiene findings are emitted only when `verify --context-hygiene` is
+used or `.agents-doctor.json` sets `contextHygiene.enabled: true`.
+
+The audit scans bounded `.md` and `.mdx` files, skips symlinks and ignored
+paths, and does not delete, move, archive, rewrite, or execute anything.
+
+If a context hygiene warning is intentional for one repository, prefer adding
+the finding fingerprint to `.agents-doctor.json` `reviewedFindings` instead of
+turning the whole rule off. Reviewed findings are downgraded to `info` on later
+runs while new or changed warnings still stay visible.
+
+Planning-like files are detected when the path/name contains a planning signal
+such as `plan`, `roadmap`, `todo`, `next`, `backlog`, `phase`, or `notes`, or
+when the content contains at least five planning marker occurrences. Common
+public docs such as `README.md`, `CONTRIBUTING.md`, and `CHANGELOG.md` are not
+classified from content markers alone.
+
+### `context.stale_plan_file`
+
+- Category: `context`
+- Default severity: `warning`
+- Config options: `contextHygiene.staleAfterDays`
+
+Reports active-looking planning files older than the configured threshold.
+Default threshold is `60` days; one run can override it with
+`--context-stale-days <days>`.
+
+### `context.overlapping_plan_files`
+
+- Category: `context`
+- Default severity: `warning`
+- Detection: exact matching only
+
+Reports two or more active-looking planning files that share exact strong
+tokens such as the same version string, slug, normalized heading, or explicit
+feature label. Fuzzy or semantic matching is intentionally not used. Weak
+tokens, common planning words, and non-version tokens shorter than
+`contextHygiene.overlapTokenMinLength` are ignored.
+
+### `context.private_plan_in_public_scope`
+
+- Category: `context`
+- Default severity: `warning`
+
+Reports planning signals in public documentation scopes or public instruction
+surfaces. By default, root-level Markdown, `docs/`, `examples/`, and instruction
+files such as `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, GitHub Copilot, Cursor,
+Windsurf, and Cline Markdown rule files count as public scope.
+
+### `context.planning_summary`
+
+- Category: `context`
+- Default severity: `info`
+
+Summarizes how many Markdown files were scanned, how many planning-like files
+were found, and whether any files were skipped because of read limits.
+
 ## Report Findings
 
 These finding IDs describe command/report context rather than standalone lint

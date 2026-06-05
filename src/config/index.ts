@@ -1,11 +1,21 @@
 export {
+  DEFAULT_CONTEXT_HYGIENE_INCLUDE,
+  DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS,
+  DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS,
+  DEFAULT_CONTEXT_MAX_DEPTH,
+  DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
+  DEFAULT_CONTEXT_MAX_FILES_SCANNED,
+  DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
+  DEFAULT_CONTEXT_STALE_AFTER_DAYS,
   DEFAULT_INSTRUCTION_GRAPH_INCLUDE,
   applyToolProfileOverride,
   loadConfig,
   validateIgnorePatterns,
   type AgentsDoctorConfig,
+  type ResolvedContextHygieneConfig,
   type ResolvedInstructionGraphConfig,
   type ResolvedLintConfig,
+  type ReviewedFindingConfig,
   type RuleConfig,
   type RuleSeverityOverride
 } from "./load-config.js";

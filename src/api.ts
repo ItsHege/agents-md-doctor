@@ -19,6 +19,8 @@ export interface RunLintReportOptions extends SharedReportOptions {
 
 export interface RunVerifyReportOptions extends SharedReportOptions {
   command: "verify";
+  contextHygiene?: boolean;
+  contextStaleDays?: number;
   failOnWarning?: boolean;
   ignore?: string[];
   maxLines?: number;
@@ -74,7 +76,9 @@ export function runDoctorReport(options: RunDoctorReportOptions): DoctorReportRe
         failOnWarning: options.failOnWarning,
         ignore: options.ignore,
         maxLines: options.maxLines,
-        profile: options.profile
+        profile: options.profile,
+        contextHygiene: options.contextHygiene,
+        contextStaleDays: options.contextStaleDays
       })
     );
   }

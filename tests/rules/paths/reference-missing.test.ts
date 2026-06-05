@@ -34,7 +34,10 @@ describe("paths.reference_missing", () => {
   it("ignores URL and anchor links", () => {
     const root = makeTempRoot();
     const agentsPath = path.join(root, "AGENTS.md");
-    fs.writeFileSync(agentsPath, "# Instructions\n\nSee [Web](https://example.com) and [Anchor](#safety).\n");
+    fs.writeFileSync(
+      agentsPath,
+      "# Instructions\n\nSee [Web](https://example.com), [Anchor](#safety), and `https://mcp.fal.ai/mcp`.\n"
+    );
 
     expect(
       checkPathReferences({
@@ -44,6 +47,32 @@ describe("paths.reference_missing", () => {
         content: fs.readFileSync(agentsPath, "utf8")
       })
     ).toEqual([]);
+  });
+
+  it("deduplicates repeated references to the same missing path in one file", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      ["# Instructions", "", "Use `controls/top.png` for the top view.", "Use `controls/top.png` again."].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      }).map((finding) => ({
+        reference: finding.details?.reference,
+        line: finding.line
+      }))
+    ).toEqual([
+      {
+        reference: "controls/top.png",
+        line: 3
+      }
+    ]);
   });
 
   it("ignores domain-like links without explicit scheme", () => {
@@ -160,6 +189,28 @@ describe("paths.reference_missing", () => {
         "Use `next/font` in examples.",
         "Use `@scope/pkg` when documenting dependencies.",
         "Use `.ts` and `.tsx` to describe TypeScript extensions."
+      ].join("\n")
+    );
+
+    expect(
+      checkPathReferences({
+        root,
+        fileAbsolutePath: agentsPath,
+        fileRelativePath: "AGENTS.md",
+        content: fs.readFileSync(agentsPath, "utf8")
+      })
+    ).toEqual([]);
+  });
+
+  it("ignores inline HTML attribute assignment examples", () => {
+    const root = makeTempRoot();
+    const agentsPath = path.join(root, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Instructions",
+        "",
+        "Composition cards may use `data-composition-src=\"compositions/file.html\"` in generated HTML examples."
       ].join("\n")
     );
 

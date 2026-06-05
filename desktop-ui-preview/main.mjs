@@ -1,17 +1,16 @@
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { Worker } from "node:worker_threads";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from "electron";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const doctorDistRoot = resolveDoctorDistRoot();
-const { runDoctorReport } = await import(pathToFileURL(path.join(doctorDistRoot, "api.js")).href);
-const { applyToolProfileOverride, loadConfig } = await import(pathToFileURL(path.join(doctorDistRoot, "config", "index.js")).href);
-const { findAgentsFiles } = await import(pathToFileURL(path.join(doctorDistRoot, "discovery", "index.js")).href);
 const isSmokeMode = process.env.AGENTS_DOCTOR_UI_SMOKE === "1";
 const isCaptureMode = process.env.AGENTS_DOCTOR_UI_CAPTURE_SCREENSHOT === "1";
 const appIconPath = path.join(__dirname, "assets", "agents-doctor.ico");
+const configFileName = ".agents-doctor.json";
 const toolProfiles = new Set(["auto", "codex", "claude-code", "cursor", "gemini-cli", "github-copilot", "windsurf", "cline"]);
 
 let mainWindow;
@@ -91,7 +90,7 @@ ipcMain.handle("project:validate", async (_event, folderPath) => {
 });
 
 ipcMain.handle("doctor:run", async (_event, payload) => {
-  return runFromPayload(payload);
+  return runPayloadInWorker(payload);
 });
 
 ipcMain.handle("clipboard:writeText", async (_event, text) => {
@@ -118,6 +117,14 @@ ipcMain.handle("preferences:save", async (_event, payload) => {
   });
   savePreferences(preferences);
   return { ok: true };
+});
+
+ipcMain.handle("reviewed-findings:save", async (_event, payload) => {
+  return saveReviewedFindings(payload);
+});
+
+ipcMain.handle("reviewed-findings:remove", async (_event, payload) => {
+  return removeReviewedFindings(payload);
 });
 
 ipcMain.handle("file:open", async (_event, payload) => {
@@ -302,9 +309,16 @@ function runSmokeWhenReady(window) {
 
             document.querySelector("#select-project").click();
             await waitFor("folder selection", () => document.querySelector("#project-path")?.value === root);
+            const contextHygiene = document.querySelector("#context-hygiene");
+            contextHygiene.checked = true;
+            contextHygiene.dispatchEvent(new Event("change"));
+            const contextStaleDays = document.querySelector("#context-stale-days");
+            contextStaleDays.value = "30";
+            contextStaleDays.dispatchEvent(new Event("change"));
 
             document.querySelector("#run-check").click();
             await waitFor("verify title", () => (document.querySelector("#report-title")?.textContent ?? "").includes("Verify"));
+            document.querySelector('[data-filter="all"]')?.click();
 
             const selectedPath = document.querySelector("#project-path")?.value ?? "";
             const successTitle = document.querySelector("#report-title")?.textContent ?? "";
@@ -314,12 +328,67 @@ function runSmokeWhenReady(window) {
             const ledgerFindings = document.querySelector("#ledger-findings")?.textContent ?? "";
             const ledgerFiles = document.querySelector("#ledger-files")?.textContent ?? "";
             const ledgerPipeline = Array.from(document.querySelectorAll("#ledger-pipeline .check-chip")).map((chip) => chip.textContent ?? "");
+            const contextRow = Array.from(document.querySelectorAll("#findings-body tr")).find((row) =>
+              (row.textContent ?? "").includes("context.stale_plan_file")
+            );
+            if (!contextRow) {
+              throw new Error("Expected context hygiene stale finding row.");
+            }
+            contextRow.click();
+            document.querySelector("#drawer-suppress")?.click();
+            await waitFor("copy cleanup request", () => {
+              if (window.__agentsDoctorCopyError) {
+                throw new Error("Copy cleanup request failed: " + window.__agentsDoctorCopyError);
+              }
+
+              return (window.__agentsDoctorLastCopiedCleanup ?? "").includes("archive or delete");
+            });
+            const copiedCleanup = window.__agentsDoctorLastCopiedCleanup ?? "";
+            const reviewCheckbox = document.querySelector('#findings-body input[type="checkbox"]:not(:disabled)');
+            if (!reviewCheckbox) {
+              throw new Error("Expected at least one reviewable finding checkbox.");
+            }
+            reviewCheckbox.click();
+            const saveReviewed = document.querySelector('#save-reviewed');
+            if (!saveReviewed || saveReviewed.classList.contains('hidden')) {
+              throw new Error("Expected Save reviewed button after selecting a finding.");
+            }
+            saveReviewed.click();
+            await waitFor("reviewed finding rerun", () =>
+              Boolean(state.report?.findings?.some((finding) => finding.details?.reviewedFinding))
+            );
+            const reviewedFindingCount = state.report.findings.filter((finding) => finding.details?.reviewedFinding).length;
+            document.querySelector('[data-filter="ignored"]')?.click();
+            await waitFor("ignored filter count", () =>
+              Number(document.querySelector('[data-count-for="ignored"]')?.textContent ?? "0") >= reviewedFindingCount
+            );
+            const ignoredRows = Array.from(document.querySelectorAll("#findings-body tr")).map((row) => row.textContent ?? "");
+            const ignoredInfoCount = document.querySelector('[data-count-for="info"]')?.textContent ?? "";
+            const ignoredCheckbox = document.querySelector('#findings-body input[type="checkbox"]:not(:disabled)');
+            if (!ignoredCheckbox || !ignoredCheckbox.checked) {
+              throw new Error("Expected checked ignored finding checkbox.");
+            }
+            ignoredCheckbox.click();
+            const restoreReviewed = document.querySelector('#restore-reviewed');
+            if (!restoreReviewed || restoreReviewed.classList.contains('hidden')) {
+              throw new Error("Expected Restore ignored button after unchecking ignored finding.");
+            }
+            restoreReviewed.click();
+            await waitFor("restored ignored finding rerun", () =>
+              Boolean(state.report) && !state.report.findings.some((finding) => finding.details?.reviewedFinding)
+            );
+            const restoredReviewedFindingCount = state.report.findings.filter((finding) => finding.details?.reviewedFinding).length;
+            const restoredWarningCount = state.report.summary.warningCount;
+            const ignoredCountAfterRestore = document.querySelector('[data-count-for="ignored"]')?.textContent ?? "";
+            document.querySelector('[data-filter="all"]')?.click();
 
             const result = await window.agentsDoctor.runCheck({
               command: "verify",
               root,
               targetPath: ".",
-              strict: false
+              strict: false,
+              contextHygiene: true,
+              contextStaleDays: 30
             });
 
             if (!result.ok) {
@@ -434,6 +503,13 @@ function runSmokeWhenReady(window) {
               ledgerFindings,
               ledgerFiles,
               ledgerPipeline,
+              copiedCleanup,
+              reviewedFindingCount,
+              ignoredRows,
+              ignoredInfoCount,
+              restoredReviewedFindingCount,
+              restoredWarningCount,
+              ignoredCountAfterRestore,
               cleanTitle,
               cleanIssueTitle,
               cleanScanned,
@@ -559,56 +635,57 @@ function runCaptureWhenReady(window) {
   });
 }
 
-function runFromPayload(payload) {
-  if (!isPlainObject(payload)) {
-    return {
-      ok: false,
-      exitCode: 2,
-      error: "Invalid run request."
+function runPayloadInWorker(payload) {
+  return new Promise((resolve) => {
+    const worker = new Worker(new URL("./doctor-worker.mjs", import.meta.url), {
+      workerData: {
+        doctorDistRoot,
+        payload
+      }
+    });
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      worker.terminate().catch(() => {});
+      resolve(result);
     };
-  }
 
-  const command = payload.command;
-  const root = typeof payload.root === "string" ? payload.root : undefined;
-  const targetPath = typeof payload.targetPath === "string" ? payload.targetPath : undefined;
-  const profile = typeof payload.profile === "string" && toolProfiles.has(payload.profile) ? payload.profile : "auto";
-  const strict = payload.strict === true;
-  const maxLines = Number.isInteger(payload.maxLines) && payload.maxLines > 0 ? payload.maxLines : undefined;
-  const ignore = Array.isArray(payload.ignore) ? payload.ignore.filter((entry) => typeof entry === "string") : undefined;
+    worker.once("message", (message) => {
+      if (isPlainObject(message) && message.ok === true && "result" in message) {
+        finish(message.result);
+        return;
+      }
 
-  if (command !== "lint" && command !== "verify" && command !== "explain") {
-    return {
-      ok: false,
-      exitCode: 2,
-      error: "Choose lint, verify, or explain."
-    };
-  }
+      finish({
+        ok: false,
+        exitCode: 2,
+        error: isPlainObject(message) && typeof message.error === "string" ? message.error : "Doctor worker returned an invalid response."
+      });
+    });
 
-  if (!root) {
-    return {
-      ok: false,
-      exitCode: 2,
-      error: "Select a project folder first."
-    };
-  }
+    worker.once("error", (error) => {
+      finish({
+        ok: false,
+        exitCode: 2,
+        error: error instanceof Error ? error.message : "Doctor worker failed."
+      });
+    });
 
-  if (command === "explain") {
-    return withUiMetadata(runDoctorReport({
-      command,
-      root,
-      targetPath: targetPath && targetPath.trim().length > 0 ? targetPath : ".",
-      profile
-    }), profile);
-  }
-
-  return withUiMetadata(runDoctorReport({
-    command,
-    root,
-    strict,
-    profile,
-    ...(maxLines ? { maxLines } : {}),
-    ...(ignore && ignore.length > 0 ? { ignore } : {})
-  }), profile);
+    worker.once("exit", (code) => {
+      if (code !== 0 && !settled) {
+        finish({
+          ok: false,
+          exitCode: 2,
+          error: `Doctor worker exited with code ${code}.`
+        });
+      }
+    });
+  });
 }
 
 function preferencesPath() {
@@ -629,6 +706,152 @@ function savePreferences(nextPreferences) {
   fs.writeFileSync(preferencesPath(), `${JSON.stringify(sanitizePreferences(nextPreferences), null, 2)}\n`, "utf8");
 }
 
+function saveReviewedFindings(payload) {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Reviewed findings payload must be an object." };
+  }
+
+  const root = typeof payload.root === "string" ? path.resolve(payload.root) : "";
+  if (!root || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    return { ok: false, error: "Project folder is required to save reviewed findings." };
+  }
+
+  const entries = Array.isArray(payload.findings) ? payload.findings.map(sanitizeReviewedFinding).filter(Boolean) : [];
+  if (entries.length === 0) {
+    return { ok: false, error: "Select at least one finding to mark reviewed." };
+  }
+
+  const configPath = path.resolve(root, configFileName);
+  if (!isPathInsideRoot(root, configPath)) {
+    return { ok: false, error: "Config path resolved outside the project root." };
+  }
+
+  let config = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    } catch (error) {
+      return {
+        ok: false,
+        error: `${configFileName} is not valid JSON: ${error instanceof Error ? error.message : "invalid JSON"}`
+      };
+    }
+  }
+
+  if (!isPlainObject(config)) {
+    return { ok: false, error: `${configFileName} must contain a JSON object.` };
+  }
+
+  const reviewedByFingerprint = new Map(
+    (Array.isArray(config.reviewedFindings) ? config.reviewedFindings : [])
+      .filter(isPlainObject)
+      .filter((entry) => typeof entry.fingerprint === "string")
+      .map((entry) => [entry.fingerprint, entry])
+  );
+
+  for (const entry of entries) {
+    reviewedByFingerprint.set(entry.fingerprint, {
+      ...(isPlainObject(reviewedByFingerprint.get(entry.fingerprint)) ? reviewedByFingerprint.get(entry.fingerprint) : {}),
+      ...entry
+    });
+  }
+
+  config.reviewedFindings = Array.from(reviewedByFingerprint.values()).sort((left, right) =>
+    String(left.fingerprint).localeCompare(String(right.fingerprint))
+  );
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  return {
+    ok: true,
+    path: configPath,
+    savedCount: entries.length,
+    totalCount: config.reviewedFindings.length
+  };
+}
+
+function removeReviewedFindings(payload) {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Reviewed findings payload must be an object." };
+  }
+
+  const root = typeof payload.root === "string" ? path.resolve(payload.root) : "";
+  if (!root || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    return { ok: false, error: "Project folder is required to restore ignored findings." };
+  }
+
+  const fingerprints = Array.isArray(payload.fingerprints)
+    ? payload.fingerprints
+        .filter((fingerprint) => typeof fingerprint === "string")
+        .map((fingerprint) => fingerprint.trim())
+        .filter(Boolean)
+    : [];
+  if (fingerprints.length === 0) {
+    return { ok: false, error: "Select at least one ignored finding to restore." };
+  }
+
+  const configPath = path.resolve(root, configFileName);
+  if (!isPathInsideRoot(root, configPath)) {
+    return { ok: false, error: "Config path resolved outside the project root." };
+  }
+  if (!fs.existsSync(configPath)) {
+    return { ok: false, error: `${configFileName} does not exist for this project.` };
+  }
+
+  let config = {};
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch (error) {
+    return {
+      ok: false,
+      error: `${configFileName} is not valid JSON: ${error instanceof Error ? error.message : "invalid JSON"}`
+    };
+  }
+
+  if (!isPlainObject(config)) {
+    return { ok: false, error: `${configFileName} must contain a JSON object.` };
+  }
+
+  const removalSet = new Set(fingerprints);
+  const before = Array.isArray(config.reviewedFindings) ? config.reviewedFindings.filter(isPlainObject) : [];
+  const after = before.filter((entry) => typeof entry.fingerprint !== "string" || !removalSet.has(entry.fingerprint));
+  const removedCount = before.length - after.length;
+  config.reviewedFindings = after;
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  return {
+    ok: true,
+    path: configPath,
+    removedCount,
+    totalCount: after.length
+  };
+}
+
+function sanitizeReviewedFinding(value) {
+  if (!isPlainObject(value) || typeof value.fingerprint !== "string" || value.fingerprint.trim() === "") {
+    return null;
+  }
+
+  const status = ["intentional", "false_positive", "accepted_risk"].includes(value.status)
+    ? value.status
+    : "intentional";
+  const entry = {
+    fingerprint: value.fingerprint.trim(),
+    status,
+    createdAt:
+      typeof value.createdAt === "string" && value.createdAt.trim()
+        ? value.createdAt
+        : new Date().toISOString()
+  };
+
+  for (const key of ["ruleId", "file", "message", "note"]) {
+    if (typeof value[key] === "string" && value[key].trim()) {
+      entry[key] = value[key].trim().slice(0, key === "message" ? 2000 : 1000);
+    }
+  }
+
+  return entry;
+}
+
 function sanitizePreferences(value) {
   if (!isPlainObject(value)) {
     return {};
@@ -638,11 +861,13 @@ function sanitizePreferences(value) {
     theme: value.theme === "dark" ? "dark" : "light",
     command: ["verify", "lint", "explain"].includes(value.command) ? value.command : "verify",
     toolProfile: typeof value.toolProfile === "string" && toolProfiles.has(value.toolProfile) ? value.toolProfile : "auto",
-    filter: ["all", "error", "warning", "info"].includes(value.filter) ? value.filter : "all",
+    filter: ["all", "error", "warning", "info", "ignored"].includes(value.filter) ? value.filter : "all",
     projectPath: typeof value.projectPath === "string" ? value.projectPath : "",
     targetPath: typeof value.targetPath === "string" ? value.targetPath : ".",
     strict: value.strict === true,
     maxLines: typeof value.maxLines === "string" ? value.maxLines : "",
+    contextHygiene: value.contextHygiene === true,
+    contextStaleDays: typeof value.contextStaleDays === "string" ? value.contextStaleDays : "60",
     ignorePatterns: typeof value.ignorePatterns === "string" ? value.ignorePatterns : "",
     recentProjects: Array.isArray(value.recentProjects)
       ? value.recentProjects.filter((entry) => typeof entry === "string").slice(0, 5)
@@ -674,36 +899,4 @@ function resolveDoctorDistRoot() {
   }
 
   return sourceCheckoutDistRoot;
-}
-
-function withUiMetadata(result, profile = "auto") {
-  if (!result.ok) {
-    return result;
-  }
-
-  return {
-    ...result,
-    meta: buildUiMetadata(result.report, profile)
-  };
-}
-
-function buildUiMetadata(report, profile = "auto") {
-  const root = report.root;
-
-  if (!root || report.command === "explain") {
-    return {
-      scannedFiles: []
-    };
-  }
-
-  try {
-    const config = applyToolProfileOverride(loadConfig({ root }), profile);
-    return {
-      scannedFiles: findAgentsFiles(root, { ignore: config.ignore, fileNames: config.lintFileNames }).map((file) => file.relativePath)
-    };
-  } catch {
-    return {
-      scannedFiles: []
-    };
-  }
 }
