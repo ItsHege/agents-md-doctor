@@ -796,12 +796,20 @@ function buildMarkdownReport(report) {
   lines.push("| Severity | Rule | Location | Message |");
   lines.push("|---|---|---|---|");
   for (const finding of report.findings) {
-    const severity = `${SEVERITY_ICON[finding.severity] ?? ""} ${finding.severity}`.trim();
-    const location = formatLocation(finding);
-    const message = String(finding.message ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
-    lines.push(`| ${severity} | \`${finding.ruleId}\` | \`${location}\` | ${message} |`);
+    const severity = escapeMarkdownTableCell(`${SEVERITY_ICON[finding.severity] ?? ""} ${finding.severity}`.trim());
+    const ruleId = escapeMarkdownTableCell(finding.ruleId);
+    const location = escapeMarkdownTableCell(formatLocation(finding));
+    const message = escapeMarkdownTableCell(finding.message);
+    lines.push(`| ${severity} | \`${ruleId}\` | \`${location}\` | ${message} |`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+function escapeMarkdownTableCell(value) {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, " ");
 }
 
 /* =========================================================
