@@ -127,6 +127,10 @@ ipcMain.handle("reviewed-findings:remove", async (_event, payload) => {
   return removeReviewedFindings(payload);
 });
 
+ipcMain.handle("project-settings:load", async (_event, payload) => {
+  return loadProjectSettings(payload);
+});
+
 ipcMain.handle("file:open", async (_event, payload) => {
   if (!isPlainObject(payload)) {
     return { ok: false, error: "Invalid open-file request." };
@@ -304,9 +308,22 @@ function runSmokeWhenReady(window) {
                 await new Promise((resolve) => setTimeout(resolve, 25));
               }
 
-              throw new Error("Timed out waiting for renderer state: " + label);
+              const reportTitle = document.querySelector("#report-title")?.textContent ?? "";
+              const errorMessage = document.querySelector("#error-message")?.textContent ?? "";
+              const runLabel = document.querySelector("#run-label")?.textContent ?? "";
+              throw new Error(
+                "Timed out waiting for renderer state: " +
+                  label +
+                  " | title=" +
+                  reportTitle +
+                  " | run=" +
+                  runLabel +
+                  " | error=" +
+                  errorMessage
+              );
             };
 
+            document.querySelector('[data-command="verify"]')?.click();
             document.querySelector("#select-project").click();
             await waitFor("folder selection", () => document.querySelector("#project-path")?.value === root);
             const contextHygiene = document.querySelector("#context-hygiene");
@@ -315,6 +332,9 @@ function runSmokeWhenReady(window) {
             const contextStaleDays = document.querySelector("#context-stale-days");
             contextStaleDays.value = "30";
             contextStaleDays.dispatchEvent(new Event("change"));
+            const promptInjection = document.querySelector("#prompt-injection");
+            promptInjection.checked = true;
+            promptInjection.dispatchEvent(new Event("change"));
 
             document.querySelector("#run-check").click();
             await waitFor("verify title", () => (document.querySelector("#report-title")?.textContent ?? "").includes("Verify"));
@@ -328,6 +348,12 @@ function runSmokeWhenReady(window) {
             const ledgerFindings = document.querySelector("#ledger-findings")?.textContent ?? "";
             const ledgerFiles = document.querySelector("#ledger-files")?.textContent ?? "";
             const ledgerPipeline = Array.from(document.querySelectorAll("#ledger-pipeline .check-chip")).map((chip) => chip.textContent ?? "");
+            const promptInjectionRow = Array.from(document.querySelectorAll("#findings-body tr")).find((row) =>
+              (row.textContent ?? "").includes("security.prompt_injection_override")
+            );
+            if (!promptInjectionRow) {
+              throw new Error("Expected prompt injection finding row.");
+            }
             const contextRow = Array.from(document.querySelectorAll("#findings-body tr")).find((row) =>
               (row.textContent ?? "").includes("context.stale_plan_file")
             );
@@ -380,6 +406,12 @@ function runSmokeWhenReady(window) {
             const restoredReviewedFindingCount = state.report.findings.filter((finding) => finding.details?.reviewedFinding).length;
             const restoredWarningCount = state.report.summary.warningCount;
             const ignoredCountAfterRestore = document.querySelector('[data-count-for="ignored"]')?.textContent ?? "";
+            document.querySelector('#open-project-settings')?.click();
+            await waitFor("project settings modal", () =>
+              (document.querySelector('#project-settings-body')?.textContent ?? "").includes("Reviewed findings")
+            );
+            const projectSettingsText = document.querySelector('#project-settings-body')?.textContent ?? "";
+            document.querySelector('#project-settings-modal [data-modal-close]')?.click();
             document.querySelector('[data-filter="all"]')?.click();
 
             const result = await window.agentsDoctor.runCheck({
@@ -388,7 +420,8 @@ function runSmokeWhenReady(window) {
               targetPath: ".",
               strict: false,
               contextHygiene: true,
-              contextStaleDays: 30
+              contextStaleDays: 30,
+              promptInjection: true
             });
 
             if (!result.ok) {
@@ -510,6 +543,7 @@ function runSmokeWhenReady(window) {
               restoredReviewedFindingCount,
               restoredWarningCount,
               ignoredCountAfterRestore,
+              projectSettingsText,
               cleanTitle,
               cleanIssueTitle,
               cleanScanned,
@@ -826,6 +860,64 @@ function removeReviewedFindings(payload) {
   };
 }
 
+function loadProjectSettings(payload) {
+  if (!isPlainObject(payload)) {
+    return { ok: false, error: "Project settings request must be an object." };
+  }
+
+  const root = typeof payload.root === "string" ? path.resolve(payload.root) : "";
+  if (!root || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    return { ok: false, error: "Project folder is required to inspect settings." };
+  }
+
+  const configPath = path.resolve(root, configFileName);
+  if (!isPathInsideRoot(root, configPath)) {
+    return { ok: false, error: "Config path resolved outside the project root." };
+  }
+
+  if (!fs.existsSync(configPath)) {
+    return {
+      ok: true,
+      root,
+      path: configPath,
+      exists: false,
+      config: {},
+      reviewedFindings: []
+    };
+  }
+
+  let config = {};
+  try {
+    const stats = fs.statSync(configPath);
+    if (stats.size > 256 * 1024) {
+      return { ok: false, error: `${configFileName} is too large to inspect.` };
+    }
+    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch (error) {
+    return {
+      ok: false,
+      error: `${configFileName} is not valid JSON: ${error instanceof Error ? error.message : "invalid JSON"}`
+    };
+  }
+
+  if (!isPlainObject(config)) {
+    return { ok: false, error: `${configFileName} must contain a JSON object.` };
+  }
+
+  return {
+    ok: true,
+    root,
+    path: configPath,
+    exists: true,
+    config: {
+      toolProfile: typeof config.toolProfile === "string" ? config.toolProfile : "auto",
+      contextHygiene: isPlainObject(config.contextHygiene) ? config.contextHygiene : {},
+      promptInjection: isPlainObject(config.promptInjection) ? config.promptInjection : {}
+    },
+    reviewedFindings: Array.isArray(config.reviewedFindings) ? config.reviewedFindings.filter(isPlainObject) : []
+  };
+}
+
 function sanitizeReviewedFinding(value) {
   if (!isPlainObject(value) || typeof value.fingerprint !== "string" || value.fingerprint.trim() === "") {
     return null;
@@ -868,6 +960,8 @@ function sanitizePreferences(value) {
     maxLines: typeof value.maxLines === "string" ? value.maxLines : "",
     contextHygiene: value.contextHygiene === true,
     contextStaleDays: typeof value.contextStaleDays === "string" ? value.contextStaleDays : "60",
+    promptInjection: value.promptInjection === true,
+    promptInjectionScanCodeBlocks: value.promptInjectionScanCodeBlocks === true,
     ignorePatterns: typeof value.ignorePatterns === "string" ? value.ignorePatterns : "",
     recentProjects: Array.isArray(value.recentProjects)
       ? value.recentProjects.filter((entry) => typeof entry === "string").slice(0, 5)

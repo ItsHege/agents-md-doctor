@@ -6,6 +6,13 @@ public milestones.
 
 ## Near Term
 
+- Prepare the 0.10 release line around context hygiene precision, repo-local
+  reviewed finding stability, desktop Project settings, and opt-in prompt
+  injection auditing.
+- Keep prompt injection deterministic and local: no model calls, network calls,
+  secret reads, or command execution.
+- Continue reducing context hygiene noise with real-project fixtures before
+  making it suitable for stricter CI gates.
 - Expand the public context-fidelity guide and examples for teams mixing Codex,
   Claude Code, Cursor, Gemini CLI, GitHub Copilot, Windsurf, and Cline.
 - Improve the desktop preview so new `explain` evidence is easier to scan and

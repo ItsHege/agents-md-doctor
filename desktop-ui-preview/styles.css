@@ -649,6 +649,11 @@ h3 { font-size: 16px; font-weight: 700; }
 .findings-search { height: 36px; width: 100%; }
 
 .toolbar-actions { display: flex; gap: 8px; }
+.toolbar-actions .review-status {
+  height: 32px;
+  min-width: 140px;
+  padding: 0 10px;
+}
 
 /* =========================================================
    Findings table
@@ -990,6 +995,46 @@ tbody tr.is-selected { background: var(--accent-soft); }
   padding: 1px 6px;
   border-radius: 4px;
 }
+
+.settings-body { padding: 18px; display: grid; gap: 14px; }
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.settings-grid div { min-width: 0; padding: 10px 12px; background: var(--panel); }
+.settings-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.settings-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 12px;
+}
+.settings-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.settings-list li {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.settings-list strong { color: var(--accent-strong); font-size: 12px; }
+.settings-list span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 
 /* =========================================================
    Toasts

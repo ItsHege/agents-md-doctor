@@ -12,6 +12,7 @@ import { buildReport } from "../report/index.js";
 import { applyReviewedFindings } from "../report/reviewed-findings.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { checkContextHygiene } from "../rules/context-hygiene.js";
+import { checkPromptInjection } from "../rules/security/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
 import type { Finding, ExitCode, Severity } from "../types/index.js";
@@ -28,6 +29,8 @@ export interface VerifyCommandOptions {
   annotationMinSeverity?: Severity;
   contextHygiene?: boolean;
   contextStaleDays?: number;
+  promptInjection?: boolean;
+  promptInjectionScanCodeBlocks?: boolean;
 }
 
 export interface CommandResult {
@@ -66,12 +69,26 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
     const contextHygieneEnabled = options.contextHygiene === true || config.contextHygiene.enabled;
     if (contextHygieneEnabled) {
       findings.push(
-        ...applyConfiguredContextSeverity(
+        ...applyConfiguredOptionalSeverity(
           checkContextHygiene({
             root,
             config: config.contextHygiene,
             ignore: [...config.ignore, ...cliIgnore],
             ...(options.contextStaleDays ? { staleAfterDays: options.contextStaleDays } : {})
+          }),
+          config
+        )
+      );
+    }
+    const promptInjectionEnabled = options.promptInjection === true || config.promptInjection.enabled;
+    if (promptInjectionEnabled) {
+      findings.push(
+        ...applyConfiguredOptionalSeverity(
+          checkPromptInjection({
+            root,
+            config: config.promptInjection,
+            ignore: [...config.ignore, ...cliIgnore],
+            ...(options.promptInjectionScanCodeBlocks === true ? { scanCodeBlocks: true } : {})
           }),
           config
         )
@@ -126,7 +143,7 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
   }
 }
 
-function applyConfiguredContextSeverity(findings: Finding[], config: ResolvedLintConfig): Finding[] {
+function applyConfiguredOptionalSeverity(findings: Finding[], config: ResolvedLintConfig): Finding[] {
   return findings.flatMap((finding) => {
     const severityOverride = config.rules[finding.ruleId]?.severity;
 

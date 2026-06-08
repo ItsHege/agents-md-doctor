@@ -59,6 +59,25 @@ describe("loadConfig", () => {
         maxFilesScanned: 500,
         maxDepth: 40
       },
+      promptInjection: {
+        enabled: false,
+        include: [
+          "**/AGENTS.md",
+          "**/CLAUDE.md",
+          "**/GEMINI.md",
+          ".github/copilot-instructions.md",
+          ".github/instructions/**/*.md",
+          ".cursor/rules/**/*.md",
+          ".cursor/rules/**/*.mdc",
+          ".windsurf/rules/**/*.md",
+          ".clinerules/**/*.md"
+        ],
+        ignore: [],
+        scanCodeBlocks: false,
+        maxFileSizeKb: 1000,
+        maxFilesScanned: 500,
+        maxDepth: 40
+      },
       reviewedFindings: [],
       rules: {}
     });
@@ -92,6 +111,15 @@ describe("loadConfig", () => {
           maxFileSizeKb: 512,
           maxFilesScanned: 250,
           maxDepth: 12
+        },
+        promptInjection: {
+          enabled: true,
+          include: ["**/AGENTS.md", "docs/security.md"],
+          ignore: ["docs/archive/**"],
+          scanCodeBlocks: true,
+          maxFileSizeKb: 256,
+          maxFilesScanned: 125,
+          maxDepth: 10
         },
         reviewedFindings: [
           {
@@ -137,6 +165,15 @@ describe("loadConfig", () => {
         maxFileSizeKb: 512,
         maxFilesScanned: 250,
         maxDepth: 12
+      },
+      promptInjection: {
+        enabled: true,
+        include: ["**/AGENTS.md", "docs/security.md"],
+        ignore: ["docs/archive/**"],
+        scanCodeBlocks: true,
+        maxFileSizeKb: 256,
+        maxFilesScanned: 125,
+        maxDepth: 10
       },
       reviewedFindings: [
         {
@@ -279,6 +316,20 @@ describe("loadConfig", () => {
       JSON.stringify({
         contextHygiene: {
           publicScopeInstructionPaths: ["../private/AGENTS.md"]
+        }
+      })
+    );
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it("rejects prompt injection include patterns that escape the repo", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(
+      path.join(root, ".agents-doctor.json"),
+      JSON.stringify({
+        promptInjection: {
+          include: ["../private/**"]
         }
       })
     );

@@ -29,6 +29,8 @@ const state = {
   maxLines: "",
   contextHygiene: false,
   contextStaleDays: "60",
+  promptInjection: false,
+  promptInjectionScanCodeBlocks: false,
   ignorePatterns: "",
   reviewedSelection: new Set(),
   restoreSelection: new Set(),
@@ -61,6 +63,9 @@ const elements = {
   contextHygiene: document.querySelector("#context-hygiene"),
   contextStaleDays: document.querySelector("#context-stale-days"),
   contextStaleDaysGroup: document.querySelector("#context-stale-days-group"),
+  promptInjection: document.querySelector("#prompt-injection"),
+  promptCodeBlocks: document.querySelector("#prompt-code-blocks"),
+  promptCodeBlocksGroup: document.querySelector("#prompt-code-blocks-group"),
   ignorePatterns: document.querySelector("#ignore-patterns"),
   targetGroup: document.querySelector("#target-group"),
   targetPath: document.querySelector("#target-path"),
@@ -95,6 +100,7 @@ const elements = {
   findingsSearch: document.querySelector("#findings-search"),
   copyJson: document.querySelector("#copy-json"),
   copyHandoff: document.querySelector("#copy-handoff"),
+  reviewStatus: document.querySelector("#review-status"),
   saveReviewed: document.querySelector("#save-reviewed"),
   restoreReviewed: document.querySelector("#restore-reviewed"),
   saveReport: document.querySelector("#save-report"),
@@ -112,6 +118,9 @@ const elements = {
   openShortcuts: document.querySelector("#open-shortcuts"),
   aboutModal: document.querySelector("#about-modal"),
   openAbout: document.querySelector("#open-about"),
+  projectSettingsModal: document.querySelector("#project-settings-modal"),
+  openProjectSettings: document.querySelector("#open-project-settings"),
+  projectSettingsBody: document.querySelector("#project-settings-body"),
   toastContainer: document.querySelector("#toast-container")
 };
 
@@ -179,11 +188,20 @@ async function loadPreferences() {
     if (typeof prefs.contextHygiene === "boolean") {
       state.contextHygiene = prefs.contextHygiene;
       elements.contextHygiene.checked = prefs.contextHygiene;
-      updateContextHygieneVisibility();
+      updateVerifyOptionVisibility();
     }
     if (typeof prefs.contextStaleDays === "string") {
       state.contextStaleDays = prefs.contextStaleDays;
       elements.contextStaleDays.value = prefs.contextStaleDays;
+    }
+    if (typeof prefs.promptInjection === "boolean") {
+      state.promptInjection = prefs.promptInjection;
+      elements.promptInjection.checked = prefs.promptInjection;
+      updateVerifyOptionVisibility();
+    }
+    if (typeof prefs.promptInjectionScanCodeBlocks === "boolean") {
+      state.promptInjectionScanCodeBlocks = prefs.promptInjectionScanCodeBlocks;
+      elements.promptCodeBlocks.checked = prefs.promptInjectionScanCodeBlocks;
     }
     if (typeof prefs.ignorePatterns === "string") {
       state.ignorePatterns = prefs.ignorePatterns;
@@ -215,6 +233,8 @@ function savePreferences() {
       maxLines: state.maxLines,
       contextHygiene: state.contextHygiene,
       contextStaleDays: state.contextStaleDays,
+      promptInjection: state.promptInjection,
+      promptInjectionScanCodeBlocks: state.promptInjectionScanCodeBlocks,
       ignorePatterns: state.ignorePatterns,
       recentProjects: state.recentProjects,
       sidebarCollapsed: state.sidebarCollapsed
@@ -265,7 +285,7 @@ function setCommand(command, { silent = false } = {}) {
     btn.classList.toggle("active", btn.dataset.command === command);
   });
   elements.targetGroup.classList.toggle("hidden", command !== "explain");
-  updateContextHygieneVisibility();
+  updateVerifyOptionVisibility();
   if (!silent) savePreferences();
 }
 
@@ -442,12 +462,23 @@ elements.maxLines.addEventListener("change", () => {
 
 elements.contextHygiene.addEventListener("change", () => {
   state.contextHygiene = elements.contextHygiene.checked;
-  updateContextHygieneVisibility();
+  updateVerifyOptionVisibility();
   savePreferences();
 });
 
 elements.contextStaleDays.addEventListener("change", () => {
   state.contextStaleDays = elements.contextStaleDays.value.trim();
+  savePreferences();
+});
+
+elements.promptInjection.addEventListener("change", () => {
+  state.promptInjection = elements.promptInjection.checked;
+  updateVerifyOptionVisibility();
+  savePreferences();
+});
+
+elements.promptCodeBlocks.addEventListener("change", () => {
+  state.promptInjectionScanCodeBlocks = elements.promptCodeBlocks.checked;
   savePreferences();
 });
 
@@ -569,13 +600,25 @@ function buildLintOptions() {
     options.contextStaleDays = staleDays;
   }
 
+  if (state.command === "verify" && elements.promptInjection.checked) {
+    options.promptInjection = true;
+    if (elements.promptCodeBlocks.checked) {
+      options.promptInjectionScanCodeBlocks = true;
+    }
+  }
+
   return options;
 }
 
-function updateContextHygieneVisibility() {
-  const visible = state.command === "verify" && elements.contextHygiene.checked;
-  elements.contextStaleDaysGroup.classList.toggle("hidden", !visible);
+function updateVerifyOptionVisibility() {
+  const verifyMode = state.command === "verify";
+  const contextVisible = verifyMode && elements.contextHygiene.checked;
+  const promptVisible = verifyMode && elements.promptInjection.checked;
+  elements.contextStaleDaysGroup.classList.toggle("hidden", !contextVisible);
+  elements.promptCodeBlocksGroup.classList.toggle("hidden", !promptVisible);
   elements.contextHygiene.disabled = state.command === "explain";
+  elements.promptInjection.disabled = state.command === "explain";
+  elements.promptCodeBlocks.disabled = state.command === "explain";
 }
 
 function parseIgnorePatterns(value) {
@@ -652,6 +695,7 @@ function buildAgentHandoff(report) {
     "Rules for the fix:",
     "- Fix only valid instruction drift from the findings.",
     "- Do not silence findings by deleting useful instructions or globally disabling rules.",
+    "- Treat security.prompt_injection findings as review-first: remove real prompt-injection wording; mark reviewed only for intentional safe examples.",
     "- If a warning is intentional, a false positive, or an accepted project risk, add its details.fingerprint to .agents-doctor.json reviewedFindings.",
     "- Reviewed findings need a short reason; new or changed warnings still need review.",
     "- Do not change unrelated files.",
@@ -690,7 +734,7 @@ async function saveSelectedReviewedFindings() {
     .filter(Boolean)
     .map((finding) => ({
       fingerprint: getFindingFingerprint(finding),
-      status: "intentional",
+      status: getSelectedReviewStatus(finding),
       ruleId: finding.ruleId,
       file: finding.file,
       message: finding.message,
@@ -1123,6 +1167,19 @@ function updateReviewedAction() {
   elements.saveReviewed.textContent = reviewCount === 0 ? "Save reviewed" : `Save reviewed (${reviewCount})`;
   elements.restoreReviewed.classList.toggle("hidden", restoreCount === 0);
   elements.restoreReviewed.textContent = restoreCount === 0 ? "Restore ignored" : `Restore ignored (${restoreCount})`;
+  elements.reviewStatus.classList.toggle("hidden", reviewCount === 0);
+  if (reviewCount > 0 && !["accepted_risk", "intentional", "false_positive"].includes(elements.reviewStatus.value)) {
+    elements.reviewStatus.value = "accepted_risk";
+  }
+}
+
+function getSelectedReviewStatus(finding) {
+  const selected = elements.reviewStatus.value;
+  if (selected === "intentional" || selected === "false_positive" || selected === "accepted_risk") {
+    return selected;
+  }
+
+  return String(finding.ruleId ?? "").startsWith("security.") ? "accepted_risk" : "intentional";
 }
 
 /* =========================================================
@@ -1338,11 +1395,11 @@ function openDrawer(index) {
       });
     };
   } else {
-    elements.drawerSuppress.textContent = "Copy config override";
+    elements.drawerSuppress.textContent = getFindingFingerprint(finding) ? "Copy reviewed snippet" : "Copy config override";
     elements.drawerSuppress.onclick = () => {
       const snippet = buildConfigSnippet(finding);
       window.agentsDoctor.copyText(snippet).then((result) => {
-        if (result.ok) toast("success", "Config override copied to clipboard.");
+        if (result.ok) toast("success", "Config snippet copied to clipboard.");
         else toast("error", result.error ?? "Copy failed.");
       });
     };
@@ -1360,6 +1417,30 @@ function closeDrawer() {
 elements.drawerClose.addEventListener("click", closeDrawer);
 
 function buildConfigSnippet(finding) {
+  const fingerprint = getFindingFingerprint(finding);
+  if (fingerprint) {
+    const status = String(finding.ruleId ?? "").startsWith("security.") ? "accepted_risk" : "intentional";
+    const suggestion = {
+      reviewedFindings: [
+        {
+          fingerprint,
+          status,
+          ruleId: finding.ruleId,
+          file: finding.file,
+          message: finding.message,
+          note: "Reviewed local exception."
+        }
+      ]
+    };
+    return [
+      "Review before adding this entry to .agents-doctor.json.",
+      "Use reviewedFindings for an intentional snapshot, accepted risk, or false positive; prefer fixing valid instruction drift.",
+      "",
+      JSON.stringify(suggestion, null, 2),
+      ""
+    ].join("\n");
+  }
+
   const suggestion = {
     rules: {
       [finding.ruleId]: { severity: "off" }
@@ -1397,6 +1478,7 @@ function closeAllModals() {
 
 elements.openShortcuts.addEventListener("click", () => openModal(elements.shortcutsModal));
 elements.openAbout.addEventListener("click", () => openModal(elements.aboutModal));
+elements.openProjectSettings.addEventListener("click", () => openProjectSettings());
 
 document.querySelectorAll(".modal-overlay").forEach((overlay) => {
   overlay.addEventListener("click", (event) => {
@@ -1406,6 +1488,64 @@ document.querySelectorAll(".modal-overlay").forEach((overlay) => {
 document.querySelectorAll("[data-modal-close]").forEach((btn) => {
   btn.addEventListener("click", closeAllModals);
 });
+
+async function openProjectSettings() {
+  if (!state.projectPath) {
+    elements.projectSettingsBody.innerHTML = '<p class="about-meta">Select a project folder to inspect .agents-doctor.json.</p>';
+    openModal(elements.projectSettingsModal);
+    return;
+  }
+
+  elements.projectSettingsBody.innerHTML = '<p class="about-meta">Loading project settings...</p>';
+  openModal(elements.projectSettingsModal);
+
+  const result = await window.agentsDoctor.loadProjectSettings({ root: state.projectPath });
+  if (!result?.ok) {
+    elements.projectSettingsBody.innerHTML = `<p class="inline-error">${escapeHtml(result?.error ?? "Could not load project settings.")}</p>`;
+    return;
+  }
+
+  renderProjectSettings(result);
+}
+
+function renderProjectSettings(settings) {
+  const reviewedFindings = Array.isArray(settings.reviewedFindings) ? settings.reviewedFindings : [];
+  const contextHygiene = isPlainObject(settings.config?.contextHygiene) ? settings.config.contextHygiene : {};
+  const promptInjection = isPlainObject(settings.config?.promptInjection) ? settings.config.promptInjection : {};
+  const rows = [
+    ["Project root", settings.root ?? state.projectPath],
+    ["Config path", settings.path ?? ".agents-doctor.json"],
+    ["Config exists", settings.exists ? "yes" : "no"],
+    ["Tool profile", settings.config?.toolProfile ?? "auto"],
+    ["Context hygiene", contextHygiene.enabled === true ? "enabled" : "disabled"],
+    ["Stale days", contextHygiene.staleAfterDays ?? "60"],
+    ["Prompt injection", promptInjection.enabled === true ? "enabled" : "disabled"],
+    ["Reviewed findings", String(reviewedFindings.length)]
+  ];
+
+  const reviewedItems =
+    reviewedFindings.length === 0
+      ? '<p class="about-meta">No reviewed findings saved for this project.</p>'
+      : `<ul class="settings-list">${reviewedFindings
+          .slice(0, 20)
+          .map((entry) => {
+            const ruleId = typeof entry.ruleId === "string" ? entry.ruleId : "finding";
+            const status = typeof entry.status === "string" ? entry.status : "reviewed";
+            const file = typeof entry.file === "string" ? entry.file : "";
+            return `<li><strong>${escapeHtml(status)}</strong><span>${escapeHtml(ruleId)}${file ? ` · ${escapeHtml(file)}` : ""}</span></li>`;
+          })
+          .join("")}</ul>`;
+
+  elements.projectSettingsBody.innerHTML = [
+    '<div class="settings-grid">',
+    ...rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`),
+    "</div>",
+    '<div class="drawer-section">',
+    '<span class="section-label">Ignored / reviewed findings</span>',
+    reviewedItems,
+    "</div>"
+  ].join("");
+}
 
 /* =========================================================
    Keyboard shortcuts (renderer-side; supplements the native menu)
@@ -1545,6 +1685,9 @@ function buildPipelineLabels(command, report) {
         : ["Applied instructions", "Conflicts", "Inheritance"];
   if (command === "verify" && report.findings?.some((finding) => finding.ruleId === "context.planning_summary")) {
     labels.push("Context hygiene");
+  }
+  if (command === "verify" && report.findings?.some((finding) => finding.ruleId === "security.prompt_injection_summary")) {
+    labels.push("Prompt injection");
   }
   const profile = getReportToolProfile(report);
   if (profile && profile !== "auto") {

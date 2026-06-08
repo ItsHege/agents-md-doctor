@@ -137,6 +137,8 @@ agents-doctor verify --fail-on-warning [repo]
 agents-doctor verify --profile gemini-cli [repo]
 agents-doctor verify --context-hygiene [repo]
 agents-doctor verify --context-hygiene --context-stale-days 30 [repo]
+agents-doctor verify --prompt-injection [repo]
+agents-doctor verify --prompt-injection --prompt-injection-scan-code-blocks [repo]
 agents-doctor explain <path> [repo]
 agents-doctor explain --json <path> [repo]
 agents-doctor explain --profile cursor <path> [repo]
@@ -151,6 +153,8 @@ Current lint behavior discovers `AGENTS.md` files and reports:
 - `security.risky_instruction` for high-confidence risky instruction patterns.
 - Optional `context.*` hygiene findings when `verify --context-hygiene` or
   `contextHygiene.enabled` is used.
+- Optional `security.prompt_injection_*` findings when
+  `verify --prompt-injection` or `promptInjection.enabled` is used.
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
@@ -198,6 +202,7 @@ Run agents-doctor (init / lint / verify / explain)
 -> Extract Markdown structure (headings, code, links)
 -> Apply deterministic rules
 -> Optionally run context hygiene for planning clutter when enabled
+-> Optionally run prompt injection audit for instruction surfaces when enabled
 -> Build report (findings + summary + exit code)
 -> Output (terminal report or JSON for CI)
 ```
@@ -258,17 +263,22 @@ commands:
 5. Optionally enable `Context hygiene` during Verify to find stale or
    overlapping planning notes and copy cleanup requests for the responsible
    agent.
-6. Keep `Tool profile` on `Auto`, or focus the run on Codex, Claude Code,
+6. Optionally enable `Prompt injection` during Verify to find high-risk wording
+   such as instruction override, secret request, external transfer, or
+   untrusted execution prompts.
+7. Keep `Tool profile` on `Auto`, or focus the run on Codex, Claude Code,
    Cursor, Gemini CLI, GitHub Copilot, Windsurf, or Cline.
-7. Select warning or error rows and click `Save reviewed` when a finding is an
+8. Select warning or error rows and click `Save reviewed` when a finding is an
    intentional repo-local exception. The UI stores finding fingerprints in
    `.agents-doctor.json`, reruns the report, and shows reviewed findings in the
    `Ignored` section instead of mixing them into normal `Info`.
-8. Open `Ignored`, uncheck a reviewed finding, and click `Restore ignored` when
+9. Open `Ignored`, uncheck a reviewed finding, and click `Restore ignored` when
    that project-local exception should become actionable again.
-9. Click `Copy JSON` for the exact machine-readable report, or `Copy handoff`
+10. Open `Project settings` to inspect `.agents-doctor.json`, reviewed finding
+    counts, and optional audit settings for the selected project.
+11. Click `Copy JSON` for the exact machine-readable report, or `Copy handoff`
    for a ready-to-send scoped agent prompt with the report embedded.
-10. Give that handoff to the responsible coding agent.
+12. Give that handoff to the responsible coding agent.
 
 Example handoff:
 
@@ -384,6 +394,25 @@ agents-doctor init .
     "maxFilesScanned": 500,
     "maxDepth": 40
   },
+  "promptInjection": {
+    "enabled": false,
+    "include": [
+      "**/AGENTS.md",
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      ".github/copilot-instructions.md",
+      ".github/instructions/**/*.md",
+      ".cursor/rules/**/*.md",
+      ".cursor/rules/**/*.mdc",
+      ".windsurf/rules/**/*.md",
+      ".clinerules/**/*.md"
+    ],
+    "ignore": [],
+    "scanCodeBlocks": false,
+    "maxFileSizeKb": 1000,
+    "maxFilesScanned": 500,
+    "maxDepth": 40
+  },
   "reviewedFindings": []
 }
 ```
@@ -427,6 +456,10 @@ Current behavior: runs lint checks plus coverage sanity and emits a unified `ver
 - When `--context-hygiene` or `contextHygiene.enabled` is used, scans
   Markdown/MDX planning notes for stale files, exact overlaps, and public-scope
   planning clutter.
+- When `--prompt-injection` or `promptInjection.enabled` is used, scans
+  configured local instruction surfaces for high-confidence prompt-injection
+  wording without model calls, network calls, command execution, or secret
+  reads.
 - Supports JSON output and strict/fail-on-warning exit behavior.
 
 ### Explain

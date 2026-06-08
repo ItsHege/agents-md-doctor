@@ -94,6 +94,8 @@ export function runCli(argv = process.argv): CommandResult {
     .option("--max-lines <number>", "override the AGENTS.md line-count warning threshold")
     .option("--context-hygiene", "run opt-in context hygiene scan for stale and overlapping planning files")
     .option("--context-stale-days <days>", "override context hygiene stale planning threshold in days")
+    .option("--prompt-injection", "run opt-in prompt-injection scan for agent instruction surfaces")
+    .option("--prompt-injection-scan-code-blocks", "include fenced code blocks in the prompt-injection scan")
     .option("--annotations-min-severity <severity>", "minimum severity for --format github annotations: info, warning, or error")
     .option("--profile <profile>", "focus checks on auto, codex, claude-code, cursor, gemini-cli, github-copilot, windsurf, or cline")
     .action(
@@ -108,6 +110,8 @@ export function runCli(argv = process.argv): CommandResult {
           maxLines?: string;
           contextHygiene?: boolean;
           contextStaleDays?: string;
+          promptInjection?: boolean;
+          promptInjectionScanCodeBlocks?: boolean;
           profile?: string;
           strict?: boolean;
         }
@@ -124,6 +128,8 @@ export function runCli(argv = process.argv): CommandResult {
           contextStaleDays: options.contextStaleDays
             ? parsePositiveIntegerOption("--context-stale-days", options.contextStaleDays)
             : undefined,
+          promptInjection: options.promptInjection === true,
+          promptInjectionScanCodeBlocks: options.promptInjectionScanCodeBlocks === true,
           annotationMinSeverity: options.annotationsMinSeverity
             ? parseSeverityOption("--annotations-min-severity", options.annotationsMinSeverity)
             : undefined,

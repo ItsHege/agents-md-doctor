@@ -60,6 +60,25 @@ provided.
     "maxFilesScanned": 500,
     "maxDepth": 40
   },
+  "promptInjection": {
+    "enabled": false,
+    "include": [
+      "**/AGENTS.md",
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      ".github/copilot-instructions.md",
+      ".github/instructions/**/*.md",
+      ".cursor/rules/**/*.md",
+      ".cursor/rules/**/*.mdc",
+      ".windsurf/rules/**/*.md",
+      ".clinerules/**/*.md"
+    ],
+    "ignore": [],
+    "scanCodeBlocks": false,
+    "maxFileSizeKb": 1000,
+    "maxFilesScanned": 500,
+    "maxDepth": 40
+  },
   "reviewedFindings": [],
   "rules": {
     "size.file_too_long": {
@@ -121,6 +140,23 @@ provided.
   hygiene before the summary reports `truncated: true`. Defaults to `500`.
 - `contextHygiene.maxDepth`: maximum directory depth for context hygiene scans.
   Defaults to `40`.
+- `promptInjection.enabled`: opt-in `verify` audit for high-confidence prompt
+  injection wording in local instruction surfaces. Defaults to `false`. The CLI
+  flag `--prompt-injection` enables it for one run.
+- `promptInjection.include`: repo-relative globs scanned by prompt injection
+  audit. Defaults to AGENTS, Claude, Gemini, GitHub Copilot, Cursor, Windsurf,
+  and Cline instruction surfaces.
+- `promptInjection.ignore`: additional repo-relative globs skipped only by
+  prompt injection audit.
+- `promptInjection.scanCodeBlocks`: include fenced code blocks in prompt
+  injection scanning. Defaults to `false` to avoid flagging security examples.
+  Override one run with `--prompt-injection-scan-code-blocks`.
+- `promptInjection.maxFileSizeKb`: maximum file size read by prompt injection
+  audit. Defaults to `1000`.
+- `promptInjection.maxFilesScanned`: maximum files scanned by prompt injection
+  audit before the summary reports `truncated: true`. Defaults to `500`.
+- `promptInjection.maxDepth`: maximum directory depth for prompt injection
+  scans. Defaults to `40`.
 - `reviewedFindings`: repo-local reviewed finding fingerprints. Matching
   findings are downgraded to `info` and keep additive
   `details.reviewedFinding` metadata so repeated intentional warnings do not
@@ -207,3 +243,21 @@ as planning files from content markers alone.
 It does not delete, move, archive, rewrite, or execute anything. Findings
 include a structured `cleanupRequest` that can be copied to a responsible
 coding agent or used in a manual cleanup review.
+
+## Prompt Injection Defaults
+
+Prompt injection auditing is disabled by default and only runs during `verify`
+when `--prompt-injection` is passed or `promptInjection.enabled` is true.
+
+The default include scope is intentionally narrower than context hygiene. It
+checks local instruction surfaces such as `AGENTS.md`, `CLAUDE.md`,
+`GEMINI.md`, GitHub Copilot instructions, Cursor rules, Windsurf rules, and
+Cline rules. Broader documentation scans must be configured explicitly with
+`promptInjection.include`.
+
+The audit uses deterministic text patterns for high-risk wording such as
+instruction overrides, hidden prompt or credential requests, external transfer
+requests, and untrusted command execution requests. It does not call an LLM,
+make network requests, read secrets or environment values, or execute commands.
+Fenced code blocks and inline code are ignored by default so security docs can
+quote bad examples without becoming findings.

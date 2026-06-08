@@ -39,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Verify AGENTS.md instructions
-        run: npx agents-doctor@0.7.1 verify --json .
+        run: npx agents-doctor@latest verify --json .
 ```
 
 Exit code behavior:
@@ -74,7 +74,7 @@ should fail CI.
 
 ```yaml
       - name: Verify AGENTS.md instructions strictly
-        run: npx agents-doctor@0.7.1 verify --json --fail-on-warning .
+        run: npx agents-doctor@latest verify --json --fail-on-warning .
 ```
 
 Strict mode changes the process/report exit code only. It does not rewrite
@@ -109,7 +109,7 @@ annotations before the human summary.
 
 ```yaml
       - name: Verify AGENTS.md instructions with annotations
-        run: npx agents-doctor@0.7.1 verify --format github .
+        run: npx agents-doctor@latest verify --format github .
 ```
 
 `--format github` maps severities as:
@@ -123,7 +123,7 @@ To reduce annotation noise without changing the report, use
 
 ```yaml
       - name: Verify AGENTS.md instructions with warning annotations only
-        run: npx agents-doctor@0.7.1 verify --format github --annotations-min-severity warning .
+        run: npx agents-doctor@latest verify --format github --annotations-min-severity warning .
 ```
 
 Supported values are `info`, `warning`, and `error`. The option filters only
@@ -163,7 +163,7 @@ Use `--format sarif` when your CI system ingests SARIF 2.1.0.
 
 ```yaml
       - name: Generate AGENTS.md Doctor SARIF
-        run: npx agents-doctor@0.7.1 verify --format sarif . > agents-doctor.sarif
+        run: npx agents-doctor@latest verify --format sarif . > agents-doctor.sarif
 ```
 
 For GitHub code scanning upload, the workflow also needs

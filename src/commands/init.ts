@@ -10,7 +10,11 @@ import {
   DEFAULT_CONTEXT_MAX_FILES_SCANNED,
   DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
   DEFAULT_CONTEXT_STALE_AFTER_DAYS,
-  DEFAULT_INSTRUCTION_GRAPH_INCLUDE
+  DEFAULT_INSTRUCTION_GRAPH_INCLUDE,
+  DEFAULT_PROMPT_INJECTION_INCLUDE,
+  DEFAULT_PROMPT_INJECTION_MAX_DEPTH,
+  DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB,
+  DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED
 } from "../config/load-config.js";
 import { AppError, isAppError } from "../errors.js";
 import type { CommandResult } from "./lint.js";
@@ -40,6 +44,15 @@ interface StarterConfig {
     publicScopeInstructionPaths: string[];
     overlapDetection: "exact";
     overlapTokenMinLength: number;
+    maxFileSizeKb: number;
+    maxFilesScanned: number;
+    maxDepth: number;
+  };
+  promptInjection: {
+    enabled: boolean;
+    include: string[];
+    ignore: string[];
+    scanCodeBlocks: boolean;
     maxFileSizeKb: number;
     maxFilesScanned: number;
     maxDepth: number;
@@ -80,6 +93,15 @@ const STARTER_CONFIG: StarterConfig = {
     maxFileSizeKb: DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
     maxFilesScanned: DEFAULT_CONTEXT_MAX_FILES_SCANNED,
     maxDepth: DEFAULT_CONTEXT_MAX_DEPTH
+  },
+  promptInjection: {
+    enabled: false,
+    include: DEFAULT_PROMPT_INJECTION_INCLUDE,
+    ignore: [],
+    scanCodeBlocks: false,
+    maxFileSizeKb: DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB,
+    maxFilesScanned: DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED,
+    maxDepth: DEFAULT_PROMPT_INJECTION_MAX_DEPTH
   },
   reviewedFindings: [],
   rules: {

@@ -67,6 +67,29 @@ describe("checkContextHygiene", () => {
     ).toBe(false);
   });
 
+  it("aggregates multiple shared tokens into one overlap finding per file set", () => {
+    const root = makeTempRoot();
+    writeFile(
+      root,
+      "notes/client-plan.md",
+      "# Payment Flow Rollout\n\nNext steps for payment-flow-rollout and billing-checkout-cleanup.\n"
+    );
+    writeFile(
+      root,
+      "notes/payment-roadmap.md",
+      "# Payment Flow Rollout\n\nDraft roadmap for payment-flow-rollout and billing-checkout-cleanup.\n"
+    );
+
+    const findings = runContext(root);
+    const overlaps = findings.filter((finding) => finding.ruleId === "context.overlapping_plan_files");
+
+    expect(overlaps).toHaveLength(1);
+    expect(overlaps[0]?.details?.matchedTokens).toEqual(
+      expect.arrayContaining(["billing-checkout-cleanup", "payment-flow-rollout", "payment flow rollout"])
+    );
+    expect(overlaps[0]?.details?.matchedTokenCount).toBe(3);
+  });
+
   it("does not report overlap for date, metric, or numeric range tokens", () => {
     const root = makeTempRoot();
     writeFile(root, "notes/android-smoke-plan.md", "# Android Smoke\n\nRun 05-28 had metric 0.872 and range 1-20.\n");
@@ -196,6 +219,22 @@ describe("checkContextHygiene", () => {
     expect(overlap?.details?.cleanupRequest).toContain("Do not delete evidence snapshots");
   });
 
+  it("treats common historical directories as non-active context", () => {
+    const root = makeTempRoot();
+    writeFile(root, "notes/archives/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    writeFile(root, "notes/snapshot/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    writeFile(root, "notes/evidence/old-plan.md", "# v0.9 Plan\n\nNext steps.\n");
+    makeOld(root, "notes/archives/old-plan.md", 90);
+    makeOld(root, "notes/snapshot/old-plan.md", 90);
+    makeOld(root, "notes/evidence/old-plan.md", 90);
+
+    const findings = runContext(root);
+
+    expect(findings.some((finding) => finding.ruleId === "context.stale_plan_file")).toBe(false);
+    const publicFindings = findings.filter((finding) => finding.ruleId === "context.private_plan_in_public_scope");
+    expect(publicFindings.every((finding) => finding.severity === "info")).toBe(true);
+  });
+
   it("downgrades skill mirror overlaps to info", () => {
     const root = makeTempRoot();
     writeFile(
@@ -256,6 +295,15 @@ describe("checkContextHygiene", () => {
     const findings = runContext(root);
 
     expect(findings.some((finding) => finding.file === "README.md" && finding.ruleId !== "context.planning_summary")).toBe(false);
+  });
+
+  it("does not treat durable release notes as planning clutter", () => {
+    const root = makeTempRoot();
+    writeFile(root, "docs/release-notes.md", "# Release Notes\n\n## v1.0\n\nNext steps are documented in the roadmap.\n");
+
+    const findings = runContext(root);
+
+    expect(findings.some((finding) => finding.file === "docs/release-notes.md")).toBe(false);
   });
 
   it("treats content-only files as planning only after multiple planning signals", () => {

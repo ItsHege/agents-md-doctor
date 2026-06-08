@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("agentsDoctor", {
   savePreferences: (preferences) => ipcRenderer.invoke("preferences:save", preferences),
   saveReviewedFindings: (payload) => ipcRenderer.invoke("reviewed-findings:save", payload),
   removeReviewedFindings: (payload) => ipcRenderer.invoke("reviewed-findings:remove", payload),
+  loadProjectSettings: (payload) => ipcRenderer.invoke("project-settings:load", payload),
   openFile: (payload) => ipcRenderer.invoke("file:open", payload),
   saveReport: (payload) => ipcRenderer.invoke("report:save", payload),
   notify: (payload) => ipcRenderer.invoke("app:notify", payload),

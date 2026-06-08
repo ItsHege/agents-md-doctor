@@ -46,6 +46,8 @@ function runFromPayload(payload, doctorApi) {
     command === "verify" && Number.isInteger(payload.contextStaleDays) && payload.contextStaleDays > 0
       ? payload.contextStaleDays
       : undefined;
+  const promptInjection = command === "verify" && payload.promptInjection === true;
+  const promptInjectionScanCodeBlocks = command === "verify" && payload.promptInjectionScanCodeBlocks === true;
   const ignore = Array.isArray(payload.ignore) ? payload.ignore.filter((entry) => typeof entry === "string") : undefined;
 
   if (command !== "lint" && command !== "verify" && command !== "explain") {
@@ -86,6 +88,8 @@ function runFromPayload(payload, doctorApi) {
       ...(maxLines ? { maxLines } : {}),
       ...(contextHygiene ? { contextHygiene: true } : {}),
       ...(contextStaleDays ? { contextStaleDays } : {}),
+      ...(promptInjection ? { promptInjection: true } : {}),
+      ...(promptInjectionScanCodeBlocks ? { promptInjectionScanCodeBlocks: true } : {}),
       ...(ignore && ignore.length > 0 ? { ignore } : {})
     }),
     profile,

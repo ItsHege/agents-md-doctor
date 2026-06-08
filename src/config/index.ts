@@ -8,6 +8,10 @@ export {
   DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH,
   DEFAULT_CONTEXT_STALE_AFTER_DAYS,
   DEFAULT_INSTRUCTION_GRAPH_INCLUDE,
+  DEFAULT_PROMPT_INJECTION_INCLUDE,
+  DEFAULT_PROMPT_INJECTION_MAX_DEPTH,
+  DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB,
+  DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED,
   applyToolProfileOverride,
   loadConfig,
   validateIgnorePatterns,
@@ -15,6 +19,7 @@ export {
   type ResolvedContextHygieneConfig,
   type ResolvedInstructionGraphConfig,
   type ResolvedLintConfig,
+  type ResolvedPromptInjectionConfig,
   type ReviewedFindingConfig,
   type RuleConfig,
   type RuleSeverityOverride

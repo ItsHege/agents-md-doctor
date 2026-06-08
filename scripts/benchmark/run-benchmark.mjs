@@ -87,6 +87,8 @@ if (
   process.exitCode = 1;
 }
 
+process.exit(process.exitCode ?? 0);
+
 function runRepoBenchmark(repo, tempDir) {
   const repoDir = path.join(tempDir, repo.id);
   const cloneStartedAt = new Date().toISOString();

@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.10.0 - 2026-06-07
+
+### Added
+- Add opt-in prompt injection auditing for `verify` through
+  `--prompt-injection`, programmatic API options, `promptInjection` config, and
+  desktop UI controls.
+- Add deterministic `security.prompt_injection_*` findings for instruction
+  override wording, hidden prompt or credential requests, external transfer
+  requests, and untrusted command execution requests, plus a scan summary.
+- Add a desktop Project settings view for inspecting `.agents-doctor.json`,
+  reviewed finding counts, context hygiene settings, and prompt injection
+  settings for the selected project.
+- Add a desktop reviewed-finding status selector so saved exceptions can be
+  marked as `accepted_risk`, `intentional`, or `false_positive`.
+
+### Changed
+- Improve context hygiene overlap findings by grouping multiple shared tokens
+  into one source-of-truth finding per file set.
+- Make reviewed stale context findings stable when only `ageDays` changes.
+- Treat common historical directories such as `archives`, `snapshot`, and
+  `evidence` as non-active context, and avoid classifying durable
+  `release-notes.md` docs as planning clutter.
+- Prefer reviewed-finding snippets over global rule-off snippets in the
+  desktop finding drawer when a fingerprint is available.
+- Update release artifact upload/download GitHub Actions pins to Node24-capable
+  official action versions.
+
+### Notes
+- Prompt injection auditing is disabled by default, scans only configured local
+  instruction surfaces unless expanded, skips code blocks by default, and does
+  not call models, network services, or external CLIs.
+- No top-level JSON report schema change; prompt injection findings use
+  additive details under schema version `1.0.0`.
+
 ## 0.9.1 - 2026-06-05
 
 ### Fixed

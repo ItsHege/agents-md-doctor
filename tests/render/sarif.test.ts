@@ -37,6 +37,26 @@ describe("renderSarifReport", () => {
       ]
     });
   });
+
+  it("renders prompt injection findings in SARIF without a schema change", () => {
+    const output = renderSarifReport(makePromptInjectionReport());
+    const sarif = JSON.parse(output);
+
+    expect(sarif.version).toBe("2.1.0");
+    expect(sarif.runs[0].tool.driver.rules[0]).toMatchObject({
+      id: "security.prompt_injection_override",
+      defaultConfiguration: {
+        level: "warning"
+      }
+    });
+    expect(sarif.runs[0].results[0]).toMatchObject({
+      ruleId: "security.prompt_injection_override",
+      level: "warning",
+      message: {
+        text: "AGENTS.md contains prompt-injection override wording."
+      }
+    });
+  });
 });
 
 function makeReport(): Report {
@@ -60,6 +80,37 @@ function makeReport(): Report {
         file: "AGENTS.md",
         line: 8,
         column: 3
+      }
+    ]
+  };
+}
+
+function makePromptInjectionReport(): Report {
+  return {
+    schemaVersion: "1.0.0",
+    tool: "agents-doctor",
+    command: "verify",
+    generatedAt: "2026-05-01T19:30:00.000Z",
+    root: "C:/repo",
+    exitCode: 0,
+    summary: {
+      errorCount: 0,
+      warningCount: 1,
+      infoCount: 0
+    },
+    findings: [
+      {
+        ruleId: "security.prompt_injection_override",
+        severity: "warning",
+        message: "AGENTS.md contains prompt-injection override wording.",
+        file: "AGENTS.md",
+        line: 5,
+        column: 1,
+        details: {
+          riskKind: "instruction_override",
+          signalId: "override_previous_instructions",
+          fingerprint: "adf_v1_111111111111111111111111"
+        }
       }
     ]
   };

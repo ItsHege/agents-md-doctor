@@ -21,6 +21,8 @@ export interface RunVerifyReportOptions extends SharedReportOptions {
   command: "verify";
   contextHygiene?: boolean;
   contextStaleDays?: number;
+  promptInjection?: boolean;
+  promptInjectionScanCodeBlocks?: boolean;
   failOnWarning?: boolean;
   ignore?: string[];
   maxLines?: number;
@@ -78,7 +80,9 @@ export function runDoctorReport(options: RunDoctorReportOptions): DoctorReportRe
         maxLines: options.maxLines,
         profile: options.profile,
         contextHygiene: options.contextHygiene,
-        contextStaleDays: options.contextStaleDays
+        contextStaleDays: options.contextStaleDays,
+        promptInjection: options.promptInjection,
+        promptInjectionScanCodeBlocks: options.promptInjectionScanCodeBlocks
       })
     );
   }

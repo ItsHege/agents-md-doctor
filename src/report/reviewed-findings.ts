@@ -20,7 +20,7 @@ export function buildFindingFingerprint(finding: Finding): string {
     ruleId: finding.ruleId,
     file: finding.file ?? "",
     key: buildStableFindingKey(finding),
-    message: normalizeText(finding.message)
+    message: buildFingerprintMessage(finding)
   };
   const hash = createHash("sha256").update(stableStringify(stablePayload)).digest("hex").slice(0, 24);
   return `${FINGERPRINT_PREFIX}${hash}`;
@@ -90,14 +90,18 @@ function buildStableFindingKey(finding: Finding): Record<string, unknown> {
     "targetName",
     "source",
     "contextKind",
-    "activeFileCount"
+    "activeFileCount",
+    "latestCandidate",
+    "signalId",
+    "riskKind",
+    "patternVersion"
   ]) {
     if (typeof details[property] === "string" || typeof details[property] === "number") {
       key[property] = details[property];
     }
   }
 
-  for (const property of ["missingHeadings", "requiredHeadings", "matchedTokens", "matchedTokenKinds"]) {
+  for (const property of ["missingHeadings", "requiredHeadings", "matchedTokens", "matchedTokenKinds", "relatedFiles"]) {
     if (Array.isArray(details[property])) {
       key[property] = details[property]
         .filter((entry): entry is string => typeof entry === "string")
@@ -113,6 +117,18 @@ function buildStableFindingKey(finding: Finding): Record<string, unknown> {
   return {
     line: finding.line ?? 1
   };
+}
+
+function buildFingerprintMessage(finding: Finding): string {
+  if (finding.ruleId === "context.stale_plan_file") {
+    return "";
+  }
+
+  if (finding.ruleId === "context.overlapping_plan_files") {
+    return "planning files overlap";
+  }
+
+  return normalizeText(finding.message);
 }
 
 function normalizeText(value: string): string {

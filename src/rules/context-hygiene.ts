@@ -374,8 +374,17 @@ function collectPlanningSignals(
   const normalizedPath = relativePath.replace(/\\/g, "/");
   const fileName = path.posix.basename(normalizedPath).toLowerCase();
   const isCommonPublicDoc = fileName === "readme.md" || fileName === "contributing.md" || fileName === "changelog.md";
+  const isDurableReleaseDoc = /^(?:release[-_]?notes|releases|changelog)(?:\.[a-z0-9]+)?\.mdx?$/iu.test(fileName);
   let pathMatched = false;
   const signalContent = stripInlineCode(stripFencedCodeBlocks(content));
+
+  if (isDurableReleaseDoc) {
+    return {
+      signals: [],
+      line: 1,
+      isPlanningLike: false
+    };
+  }
 
   for (const signal of pathSignals) {
     if (signal.pattern.test(normalizedPath)) {
@@ -589,7 +598,36 @@ function buildOverlapFindings(planningFiles: PlanningFile[], staleAfterDays: num
     .filter(([, files]) => files.length > 1)
     .sort(([leftToken], [rightToken]) => leftToken.localeCompare(rightToken));
 
-  for (const [token, files] of overlapping.slice(0, MAX_OVERLAP_FINDINGS)) {
+  const groupedOverlaps = new Map<
+    string,
+    {
+      files: PlanningFile[];
+      tokens: string[];
+      tokenKinds: StrongTokenKind[];
+    }
+  >();
+
+  for (const [token, files] of overlapping) {
+    const key = files
+      .map((file) => file.relativePath)
+      .sort()
+      .join("\0");
+    const group = groupedOverlaps.get(key) ?? { files, tokens: [], tokenKinds: [] };
+    group.tokens.push(token);
+    group.tokenKinds.push(tokenKinds.get(token) ?? "slug");
+    groupedOverlaps.set(key, group);
+  }
+
+  const groups = Array.from(groupedOverlaps.values()).sort((left, right) => {
+    const leftPrimary = selectPrimaryOverlapFile(left.files);
+    const rightPrimary = selectPrimaryOverlapFile(right.files);
+    return leftPrimary.relativePath.localeCompare(rightPrimary.relativePath);
+  });
+
+  for (const group of groups.slice(0, MAX_OVERLAP_FINDINGS)) {
+    const files = group.files;
+    const matchedTokens = group.tokens.slice(0, MAX_RELATED_FILES_PER_OVERLAP);
+    const matchedTokenKinds = group.tokenKinds.slice(0, matchedTokens.length);
     const primary = selectPrimaryOverlapFile(files);
     const allRelatedFiles = files.filter((file) => file !== primary).map((file) => file.relativePath);
     const relatedFiles = allRelatedFiles.slice(0, MAX_RELATED_FILES_PER_OVERLAP);
@@ -605,13 +643,18 @@ function buildOverlapFindings(planningFiles: PlanningFile[], staleAfterDays: num
     findings.push({
       ruleId: overlappingPlanFilesRuleDefinition.id,
       severity,
-      message: `Planning files overlap on exact context token "${token}".`,
+      message:
+        matchedTokens.length === 1
+          ? `Planning files overlap on exact context token "${matchedTokens[0]}".`
+          : `Planning files overlap on ${group.tokens.length} exact context tokens.`,
       file: primary.relativePath,
       line: primary.line,
       details: {
         matchedSignals: primary.matchedSignals,
-        matchedTokens: [token],
-        matchedTokenKinds: [tokenKinds.get(token) ?? "slug"],
+        matchedTokens,
+        matchedTokenKinds,
+        matchedTokenCount: group.tokens.length,
+        matchedTokensTruncated: group.tokens.length > matchedTokens.length,
         contextKinds,
         activeFileCount,
         latestCandidate,
@@ -622,10 +665,15 @@ function buildOverlapFindings(planningFiles: PlanningFile[], staleAfterDays: num
         suggestedAction,
         cleanupRequest:
           severity === "warning"
-            ? `Confirm the current source of truth for "${token}": ${[primary.relativePath, ...relatedFiles].join(", ")}${
+            ? `Confirm the current source of truth for ${formatOverlapTokenLabel(group.tokens)}: ${[
+                primary.relativePath,
+                ...relatedFiles
+              ].join(", ")}${
                 relatedFilesTruncated ? `, plus ${relatedFileCount - relatedFiles.length} more related files` : ""
               }. Keep one active plan and mark older active notes as archived or superseded after review. Latest candidate: ${latestCandidate}.`
-            : `These overlaps look like archive, evidence, snapshot, or mirrored skill context for "${token}". Confirm the current source of truth and mark expected historical copies in config if they are intentional. Do not delete evidence snapshots solely because of this finding. Latest candidate: ${latestCandidate}.`
+            : `These overlaps look like archive, evidence, snapshot, or mirrored skill context for ${formatOverlapTokenLabel(
+                group.tokens
+              )}. Confirm the current source of truth and mark expected historical copies in config if they are intentional. Do not delete evidence snapshots solely because of this finding. Latest candidate: ${latestCandidate}.`
       }
     });
   }
@@ -643,6 +691,7 @@ function classifyPlanningContext(relativePath: string): PlanningContextKind {
 
   if (
     normalizedPath.includes("/archive/") ||
+    normalizedPath.includes("/archives/") ||
     normalizedPath.includes("/archived/") ||
     normalizedPath.includes("/legacy/") ||
     /(?:^|[_-])legacy(?:[_-]|$)/iu.test(fileName)
@@ -651,6 +700,7 @@ function classifyPlanningContext(relativePath: string): PlanningContextKind {
   }
 
   if (
+    normalizedPath.includes("/snapshot/") ||
     normalizedPath.includes("/snapshots/") ||
     /snapshot[_-]?\d{8}/iu.test(fileName) ||
     /\d{8}t\d{6}z/iu.test(fileName)
@@ -659,6 +709,9 @@ function classifyPlanningContext(relativePath: string): PlanningContextKind {
   }
 
   if (
+    normalizedPath.includes("/evidence/") ||
+    normalizedPath.includes("/evidences/") ||
+    normalizedPath.includes("/reports/") ||
     /(?:^|[_-])(?:report|evidence|checklist|smoke|metric|profile|status)(?:[_-]|\.|$)/iu.test(fileName) ||
     /(?:survival_gate_status|android_survival_profile|survival_metric_profile)/iu.test(normalizedPath) ||
     normalizedPath.includes("/tests/")
@@ -709,6 +762,15 @@ function extractSortableDate(relativePath: string): number | null {
   }
 
   return null;
+}
+
+function formatOverlapTokenLabel(tokens: string[]): string {
+  if (tokens.length === 1) {
+    return `"${tokens[0]}"`;
+  }
+
+  const visibleTokens = tokens.slice(0, 3).map((token) => `"${token}"`).join(", ");
+  return tokens.length > 3 ? `${visibleTokens}, plus ${tokens.length - 3} more tokens` : visibleTokens;
 }
 
 function recordSkippedFile(state: ScanState, file: string, reason: string): void {

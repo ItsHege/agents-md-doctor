@@ -37,6 +37,17 @@ describe("renderGitHubReport", () => {
     expect(output).toContain("agents-doctor verify: 1 error, 1 warning, 1 info");
     expect(output).toContain("info coverage.discovery_summary AGENTS.md:1");
   });
+
+  it("renders prompt injection findings as normal GitHub annotations", () => {
+    const output = renderGitHubReport(makePromptInjectionReport(), {
+      command: "verify"
+    });
+
+    expect(output).toContain(
+      "::warning file=AGENTS.md,line=5,title=security.prompt_injection_override::AGENTS.md contains prompt-injection override wording."
+    );
+    expect(output).toContain("warning security.prompt_injection_override AGENTS.md:5");
+  });
 });
 
 function makeReport(findingOverrides: Partial<Report["findings"][number]> = {}): Report {
@@ -99,6 +110,36 @@ function makeReportWithMixedSeverities(): Report {
         message: "Missing command.",
         file: "AGENTS.md",
         line: 4
+      }
+    ]
+  };
+}
+
+function makePromptInjectionReport(): Report {
+  return {
+    schemaVersion: "1.0.0",
+    tool: "agents-doctor",
+    command: "verify",
+    generatedAt: "2026-05-01T19:30:00.000Z",
+    root: "C:/repo",
+    exitCode: 0,
+    summary: {
+      errorCount: 0,
+      warningCount: 1,
+      infoCount: 0
+    },
+    findings: [
+      {
+        ruleId: "security.prompt_injection_override",
+        severity: "warning",
+        message: "AGENTS.md contains prompt-injection override wording.",
+        file: "AGENTS.md",
+        line: 5,
+        details: {
+          riskKind: "instruction_override",
+          signalId: "override_previous_instructions",
+          fingerprint: "adf_v1_111111111111111111111111"
+        }
       }
     ]
   };

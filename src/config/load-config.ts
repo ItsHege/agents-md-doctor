@@ -49,6 +49,20 @@ export const DEFAULT_CONTEXT_OVERLAP_TOKEN_MIN_LENGTH = 4;
 export const DEFAULT_CONTEXT_MAX_FILE_SIZE_KB = 1000;
 export const DEFAULT_CONTEXT_MAX_FILES_SCANNED = 500;
 export const DEFAULT_CONTEXT_MAX_DEPTH = 40;
+export const DEFAULT_PROMPT_INJECTION_INCLUDE = [
+  "**/AGENTS.md",
+  "**/CLAUDE.md",
+  "**/GEMINI.md",
+  ".github/copilot-instructions.md",
+  ".github/instructions/**/*.md",
+  ".cursor/rules/**/*.md",
+  ".cursor/rules/**/*.mdc",
+  ".windsurf/rules/**/*.md",
+  ".clinerules/**/*.md"
+];
+export const DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB = 1000;
+export const DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED = 500;
+export const DEFAULT_PROMPT_INJECTION_MAX_DEPTH = 40;
 
 const InstructionGraphConfigSchema = z
   .object({
@@ -68,6 +82,18 @@ const ContextHygieneConfigSchema = z
     publicScopeInstructionPaths: z.array(z.string().min(1)).optional(),
     overlapDetection: z.literal("exact").optional(),
     overlapTokenMinLength: z.number().int().positive().optional(),
+    maxFileSizeKb: z.number().int().positive().optional(),
+    maxFilesScanned: z.number().int().positive().optional(),
+    maxDepth: z.number().int().min(0).max(100).optional()
+  })
+  .strict();
+
+const PromptInjectionConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    include: z.array(z.string().min(1)).optional(),
+    ignore: z.array(z.string().min(1)).optional(),
+    scanCodeBlocks: z.boolean().optional(),
     maxFileSizeKb: z.number().int().positive().optional(),
     maxFilesScanned: z.number().int().positive().optional(),
     maxDepth: z.number().int().min(0).max(100).optional()
@@ -96,6 +122,7 @@ const AgentsDoctorConfigSchema = z
     annotationMinSeverity: SeveritySchema.optional(),
     instructionGraph: InstructionGraphConfigSchema.optional(),
     contextHygiene: ContextHygieneConfigSchema.optional(),
+    promptInjection: PromptInjectionConfigSchema.optional(),
     reviewedFindings: z.array(ReviewedFindingSchema).optional(),
     rules: z.record(RuleIdSchema, RuleConfigSchema).optional()
   })
@@ -121,6 +148,16 @@ export interface ResolvedContextHygieneConfig {
   maxDepth: number;
 }
 
+export interface ResolvedPromptInjectionConfig {
+  enabled: boolean;
+  include: string[];
+  ignore: string[];
+  scanCodeBlocks: boolean;
+  maxFileSizeKb: number;
+  maxFilesScanned: number;
+  maxDepth: number;
+}
+
 export type RuleSeverityOverride = z.infer<typeof RuleSeverityOverrideSchema>;
 export type RuleConfig = z.infer<typeof RuleConfigSchema>;
 export type ReviewedFindingConfig = z.infer<typeof ReviewedFindingSchema>;
@@ -136,6 +173,7 @@ export interface ResolvedLintConfig {
   annotationMinSeverity?: z.infer<typeof SeveritySchema>;
   instructionGraph: ResolvedInstructionGraphConfig;
   contextHygiene: ResolvedContextHygieneConfig;
+  promptInjection: ResolvedPromptInjectionConfig;
   reviewedFindings: ReviewedFindingConfig[];
   rules: Record<string, RuleConfig>;
 }
@@ -171,6 +209,15 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
         maxFileSizeKb: DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
         maxFilesScanned: DEFAULT_CONTEXT_MAX_FILES_SCANNED,
         maxDepth: DEFAULT_CONTEXT_MAX_DEPTH
+      },
+      promptInjection: {
+        enabled: false,
+        include: DEFAULT_PROMPT_INJECTION_INCLUDE,
+        ignore: [],
+        scanCodeBlocks: false,
+        maxFileSizeKb: DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB,
+        maxFilesScanned: DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED,
+        maxDepth: DEFAULT_PROMPT_INJECTION_MAX_DEPTH
       },
       reviewedFindings: [],
       rules: {}
@@ -215,6 +262,8 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   const contextHygienePublicPaths = config.contextHygiene?.publicPaths ?? DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS;
   const contextHygienePublicInstructionPaths =
     config.contextHygiene?.publicScopeInstructionPaths ?? DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS;
+  const promptInjectionInclude = config.promptInjection?.include ?? DEFAULT_PROMPT_INJECTION_INCLUDE;
+  const promptInjectionIgnore = config.promptInjection?.ignore ?? [];
   validateIgnorePatterns(ignore);
   validateLintFileNames(lintFileNames);
   validateIgnorePatterns(instructionGraphInclude);
@@ -222,6 +271,8 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   validateIgnorePatterns(contextHygieneIgnore);
   validatePublicPaths(contextHygienePublicPaths);
   validateIgnorePatterns(contextHygienePublicInstructionPaths);
+  validateIgnorePatterns(promptInjectionInclude);
+  validateIgnorePatterns(promptInjectionIgnore);
 
   return {
     ignore,
@@ -248,6 +299,15 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
       maxFileSizeKb: config.contextHygiene?.maxFileSizeKb ?? DEFAULT_CONTEXT_MAX_FILE_SIZE_KB,
       maxFilesScanned: config.contextHygiene?.maxFilesScanned ?? DEFAULT_CONTEXT_MAX_FILES_SCANNED,
       maxDepth: config.contextHygiene?.maxDepth ?? DEFAULT_CONTEXT_MAX_DEPTH
+    },
+    promptInjection: {
+      enabled: config.promptInjection?.enabled ?? false,
+      include: promptInjectionInclude,
+      ignore: promptInjectionIgnore,
+      scanCodeBlocks: config.promptInjection?.scanCodeBlocks ?? false,
+      maxFileSizeKb: config.promptInjection?.maxFileSizeKb ?? DEFAULT_PROMPT_INJECTION_MAX_FILE_SIZE_KB,
+      maxFilesScanned: config.promptInjection?.maxFilesScanned ?? DEFAULT_PROMPT_INJECTION_MAX_FILES_SCANNED,
+      maxDepth: config.promptInjection?.maxDepth ?? DEFAULT_PROMPT_INJECTION_MAX_DEPTH
     },
     reviewedFindings: config.reviewedFindings ?? [],
     rules: config.rules ?? {}

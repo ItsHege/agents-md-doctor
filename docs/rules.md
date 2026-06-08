@@ -216,6 +216,58 @@ Windsurf, and Cline Markdown rule files count as public scope.
 Summarizes how many Markdown files were scanned, how many planning-like files
 were found, and whether any files were skipped because of read limits.
 
+## Prompt Injection Findings
+
+Prompt injection findings are emitted only when `verify --prompt-injection` is
+used or `.agents-doctor.json` sets `promptInjection.enabled: true`.
+
+The audit scans bounded configured instruction surfaces, skips symlinks and
+ignored paths, and ignores fenced code blocks by default. It is deterministic:
+it does not call an LLM, make network requests, read secrets or environment
+values, execute commands, or upload repository contents.
+
+### `security.prompt_injection_override`
+
+- Category: `security`
+- Default severity: `warning`
+
+Reports high-confidence wording that asks an agent to ignore, disregard,
+override, or bypass previous, system, developer, or higher-priority
+instructions.
+
+### `security.prompt_injection_secret_request`
+
+- Category: `security`
+- Default severity: `warning`
+
+Reports high-confidence wording that asks an agent to reveal hidden prompts,
+system/developer messages, policies, credentials, tokens, `.env`, or
+environment variables.
+
+### `security.prompt_injection_external_transfer`
+
+- Category: `security`
+- Default severity: `warning`
+
+Reports high-confidence wording that asks an agent to send sensitive context,
+secrets, tokens, credentials, or hidden prompts to an external endpoint.
+
+### `security.prompt_injection_untrusted_execution`
+
+- Category: `security`
+- Default severity: `warning`
+
+Reports wording that asks an agent to execute commands supplied by a prompt,
+remote content, webpage, or fetched content.
+
+### `security.prompt_injection_summary`
+
+- Category: `security`
+- Default severity: `info`
+
+Summarizes prompt injection audit scope, scanned file count, finding count,
+code-block scan mode, skipped files, and truncation status.
+
 ## Report Findings
 
 These finding IDs describe command/report context rather than standalone lint

@@ -48,6 +48,25 @@ describe("runRules", () => {
             maxFilesScanned: 500,
             maxDepth: 40
           },
+          promptInjection: {
+            enabled: false,
+            include: [
+              "**/AGENTS.md",
+              "**/CLAUDE.md",
+              "**/GEMINI.md",
+              ".github/copilot-instructions.md",
+              ".github/instructions/**/*.md",
+              ".cursor/rules/**/*.md",
+              ".cursor/rules/**/*.mdc",
+              ".windsurf/rules/**/*.md",
+              ".clinerules/**/*.md"
+            ],
+            ignore: [],
+            scanCodeBlocks: false,
+            maxFileSizeKb: 1000,
+            maxFilesScanned: 500,
+            maxDepth: 40
+          },
           reviewedFindings: [],
           rules: {
             "structure.required_sections": {

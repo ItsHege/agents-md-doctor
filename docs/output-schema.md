@@ -146,6 +146,33 @@ Context hygiene details can include:
 `review`. AGENTS.md Doctor never deletes, moves, archives, rewrites, or
 executes files during this audit.
 
+## Prompt Injection Details
+
+`verify --prompt-injection` and `promptInjection.enabled` use normal additive
+findings under the existing top-level `schemaVersion: "1.0.0"` report schema.
+
+Prompt injection details can include:
+
+```json
+{
+  "signalId": "ignore_higher_priority_instructions",
+  "patternId": "ignore_higher_priority_instructions",
+  "riskKind": "instruction_override",
+  "matchedText": "Ignore all previous system instructions",
+  "matchedTextKind": "prose",
+  "instructionSurface": "AGENTS.md",
+  "confidence": "high",
+  "scanCodeBlocks": false,
+  "patternVersion": "prompt-injection-v1",
+  "suggestedAction": "remove_or_rewrite",
+  "cleanupRequest": "Review AGENTS.md:12. Remove or rewrite this prompt-injection style instruction..."
+}
+```
+
+`security.prompt_injection_summary.details` includes scan counts such as
+`markdownFileCount`, `scannedFileCount`, `findingCount`, `scanCodeBlocks`,
+`truncated`, and `skippedFiles`.
+
 ## Instruction Graph Details
 
 Instruction graph output is represented as normal findings with additive
