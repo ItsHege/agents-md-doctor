@@ -43,7 +43,7 @@
   "homepage": "https://github.com/ItsHege/agents-md-doctor#readme",
   "license": "MIT",
   "dependencies": {
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "picomatch": "^4.0.4",
     "remark": "^15.0.1",
     "remark-parse": "^11.0.0",
