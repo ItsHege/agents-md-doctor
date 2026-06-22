@@ -94,6 +94,24 @@ try {
   fs.rmSync(profileRoot, { recursive: true, force: true });
 }
 
+const codexRoleRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-codex-role-"));
+try {
+  fs.writeFileSync(path.join(codexRoleRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+  fs.mkdirSync(path.join(codexRoleRoot, ".codex", "agents"), { recursive: true });
+  fs.writeFileSync(path.join(codexRoleRoot, ".codex", "agents", "reviewer.toml"), "[agent]\nname = \"reviewer\"\n");
+  const codexRoleResult = runCli(["verify", "--json", "--profile", "codex", codexRoleRoot]);
+  assert.equal(codexRoleResult.status, 1, codexRoleResult.stderr);
+  assert.equal(codexRoleResult.stderr, "");
+  const codexRoleReport = JSON.parse(codexRoleResult.stdout);
+  assert.equal(codexRoleReport.exitCode, 1);
+  assert.equal(
+    codexRoleReport.findings.some((finding) => finding.ruleId === "runtime.codex_agent_role_invalid"),
+    true
+  );
+} finally {
+  fs.rmSync(codexRoleRoot, { recursive: true, force: true });
+}
+
 const contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-context-"));
 try {
   fs.writeFileSync(path.join(contextRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");

@@ -26,6 +26,18 @@ describe("RuleDefinitionSchema", () => {
     expect(rule.id).toBe("context.stale_plan_file");
   });
 
+  it("accepts runtime rule ids", () => {
+    const rule = RuleDefinitionSchema.parse({
+      id: "runtime.codex_agent_role_invalid",
+      category: "runtime",
+      defaultSeverity: "error",
+      title: "Invalid Codex agent role file",
+      description: "Reports Codex runtime startup surfaces that cannot be loaded."
+    });
+
+    expect(rule.id).toBe("runtime.codex_agent_role_invalid");
+  });
+
   it("rejects command-namespaced rule ids", () => {
     expect(() => RuleIdSchema.parse("verify.command_missing")).toThrow();
   });

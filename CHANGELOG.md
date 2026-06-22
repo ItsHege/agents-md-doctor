@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.1 - 2026-06-22
+
+### Added
+- Add `verify --profile codex` validation for repo-local
+  `.codex/agents/*.toml` custom agent role files, reporting
+  `runtime.codex_agent_role_invalid` when a file is malformed TOML or does not
+  provide the required top-level Codex role fields.
+
+### Notes
+- The Codex role-file check is deterministic repository inspection only. It
+  does not launch Codex, read user-level `~/.codex/agents/`, call model APIs, or
+  inspect global runtime state.
+
 ## 0.10.0 - 2026-06-07
 
 ### Added

@@ -8,7 +8,8 @@ export const ruleCategories = [
   "paths",
   "inheritance",
   "security",
-  "context"
+  "context",
+  "runtime"
 ] as const;
 
 export const severityLevels = ["error", "warning", "info"] as const;
@@ -19,7 +20,7 @@ export const SeveritySchema = z.enum(severityLevels);
 export const RuleIdSchema = z
   .string()
   .regex(
-    /^(structure|size|coverage|commands|paths|inheritance|security|context)\.[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/,
+    /^(structure|size|coverage|commands|paths|inheritance|security|context|runtime)\.[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/,
     "Rule id must use problem-type category and snake_case name, such as commands.missing_script"
   );
 

@@ -218,6 +218,19 @@ Graph mechanics findings use the same rule override mechanism:
 }
 ```
 
+Codex profile runtime findings can also be configured by rule id. For example,
+repo-local malformed `.codex/agents/*.toml` role files are errors by default:
+
+```json
+{
+  "rules": {
+    "runtime.codex_agent_role_invalid": {
+      "severity": "warning"
+    }
+  }
+}
+```
+
 ## Instruction Graph Defaults
 
 Instruction graph traversal is disabled by default to avoid surprising users

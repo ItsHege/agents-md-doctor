@@ -9,7 +9,7 @@ Static metadata for a validation rule.
 
 - `id`: stable rule id in `category.rule_name` format.
 - `category`: one of `structure`, `size`, `coverage`, `commands`, `paths`,
-  `inheritance`, `security`, or `context`.
+  `inheritance`, `security`, `context`, or `runtime`.
 - `defaultSeverity`: `error`, `warning`, or `info`.
 - `title`: short human-readable rule name.
 - `description`: what the rule detects.

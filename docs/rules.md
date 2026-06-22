@@ -268,6 +268,33 @@ remote content, webpage, or fetched content.
 Summarizes prompt injection audit scope, scanned file count, finding count,
 code-block scan mode, skipped files, and truncation status.
 
+## Runtime Surface Findings
+
+Runtime surface findings are emitted by profile-specific deterministic
+repository inspections. They do not launch external agent CLIs, read global user
+configuration, call model APIs, or attest what a tool loaded at runtime.
+
+### `runtime.codex_agent_role_invalid`
+
+- Category: `runtime`
+- Default severity: `error`
+- Emitted by: `verify --profile codex`
+
+Reports repo-local `.codex/agents/*.toml` files that do not match the Codex
+standalone custom agent role schema. Current Codex role files require top-level
+string fields: `name`, `description`, and `developer_instructions`.
+
+AGENTS.md Doctor scans only the selected repository's `.codex/agents/*.toml`
+files. It does not read user-level `~/.codex/agents/` files, so repo-local
+findings stay separate from global user configuration warnings.
+
+Example finding:
+
+```text
+error runtime.codex_agent_role_invalid .codex/agents/reviewer.toml:1
+.codex/agents/reviewer.toml defines [agent] as a TOML table, but Codex standalone agent role files require top-level string fields: name, description, developer_instructions.
+```
+
 ## Report Findings
 
 These finding IDs describe command/report context rather than standalone lint

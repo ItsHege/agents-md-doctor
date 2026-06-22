@@ -12,6 +12,7 @@ import { buildReport } from "../report/index.js";
 import { applyReviewedFindings } from "../report/reviewed-findings.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { checkContextHygiene } from "../rules/context-hygiene.js";
+import { checkCodexAgentRoles, codexAgentRoleInvalidRuleDefinition } from "../rules/runtime/index.js";
 import { checkPromptInjection } from "../rules/security/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
 import { runRules } from "../runner/index.js";
@@ -66,6 +67,18 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       }
     });
     findings.push(...buildCoverageSanityFindings(root, loadedFiles, config.lintFileNames, config.toolProfile));
+    if (config.toolProfile === "codex") {
+      findings.push(
+        ...applyConfiguredStandaloneSeverity(
+          checkCodexAgentRoles({
+            root,
+            ignore: [...config.ignore, ...cliIgnore]
+          }),
+          config,
+          codexAgentRoleInvalidRuleDefinition.id
+        )
+      );
+    }
     const contextHygieneEnabled = options.contextHygiene === true || config.contextHygiene.enabled;
     if (contextHygieneEnabled) {
       findings.push(
@@ -144,19 +157,35 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
 }
 
 function applyConfiguredOptionalSeverity(findings: Finding[], config: ResolvedLintConfig): Finding[] {
-  return findings.flatMap((finding) => {
-    const severityOverride = config.rules[finding.ruleId]?.severity;
+  return findings.flatMap((finding) => applyConfiguredFindingSeverity(finding, config));
+}
 
-    if (severityOverride === "off") {
-      return [];
-    }
+function applyConfiguredStandaloneSeverity(findings: Finding[], config: ResolvedLintConfig, ruleId: string): Finding[] {
+  const severityOverride = config.rules[ruleId]?.severity;
 
-    if (severityOverride === "error" || severityOverride === "warning" || severityOverride === "info") {
-      return [{ ...finding, severity: severityOverride }];
-    }
+  if (severityOverride === "off") {
+    return [];
+  }
 
-    return [finding];
-  });
+  if (severityOverride === "error" || severityOverride === "warning" || severityOverride === "info") {
+    return findings.map((finding) => ({ ...finding, severity: severityOverride }));
+  }
+
+  return findings;
+}
+
+function applyConfiguredFindingSeverity(finding: Finding, config: ResolvedLintConfig): Finding[] {
+  const severityOverride = config.rules[finding.ruleId]?.severity;
+
+  if (severityOverride === "off") {
+    return [];
+  }
+
+  if (severityOverride === "error" || severityOverride === "warning" || severityOverride === "info") {
+    return [{ ...finding, severity: severityOverride }];
+  }
+
+  return [finding];
 }
 
 function buildLoadedFilesFromGraph(graph: InstructionGraph): LoadedAgentsFile[] {

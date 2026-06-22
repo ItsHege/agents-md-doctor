@@ -155,6 +155,9 @@ Current lint behavior discovers `AGENTS.md` files and reports:
   `contextHygiene.enabled` is used.
 - Optional `security.prompt_injection_*` findings when
   `verify --prompt-injection` or `promptInjection.enabled` is used.
+- Under `--profile codex`, `runtime.codex_agent_role_invalid` for repo-local
+  `.codex/agents/*.toml` files that Codex cannot load as standalone custom
+  agent roles.
 
 Most findings are warnings by default. Some checks can emit errors, for example
 `commands.mentioned_command_missing` when a referenced command/target is not
@@ -178,6 +181,9 @@ Supported profile values are `auto`, `codex`, `claude-code`, `cursor`,
 `gemini-cli`, `github-copilot`, `windsurf`, and `cline`. Claude Code and Gemini
 CLI profiles also expand the default lint file names to include `CLAUDE.md` or
 `GEMINI.md` unless `.agents-doctor.json` explicitly sets `lintFileNames`.
+The Codex profile also validates repo-local `.codex/agents/*.toml` custom agent
+role files against the documented standalone role shape. This scan stays inside
+the selected repository and does not read user-level `~/.codex/agents/` files.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and
 packed-package smoke checks on push and pull request. Release automation adds
@@ -460,6 +466,9 @@ Current behavior: runs lint checks plus coverage sanity and emits a unified `ver
   configured local instruction surfaces for high-confidence prompt-injection
   wording without model calls, network calls, command execution, or secret
   reads.
+- When `--profile codex` is used, scans repo-local `.codex/agents/*.toml`
+  custom agent role files for malformed TOML or missing/invalid required
+  top-level fields without launching Codex or reading global user config.
 - Supports JSON output and strict/fail-on-warning exit behavior.
 
 ### Explain

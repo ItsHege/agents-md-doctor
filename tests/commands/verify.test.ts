@@ -225,6 +225,93 @@ describe("runVerifyCommand", () => {
     });
   });
 
+  it("reports malformed repo-local Codex agent role files under the Codex profile", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(
+      root,
+      ".codex/agents/reviewer.toml",
+      [
+        "[agent]",
+        'name = "reviewer"',
+        "",
+        "[tools]",
+        'allowed = ["shell"]'
+      ].join("\n")
+    );
+
+    const result = runVerifyCommand({
+      root,
+      json: true,
+      profile: "codex"
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const finding = report.findings.find((candidate) => candidate.ruleId === "runtime.codex_agent_role_invalid");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(finding).toMatchObject({
+      severity: "error",
+      file: ".codex/agents/reviewer.toml",
+      line: 1,
+      details: {
+        scope: "repo-local",
+        source: "project",
+        reason: "legacy_agent_table",
+        field: "agent",
+        expectedType: "string",
+        actualType: "table"
+      }
+    });
+    expect(finding?.message).toContain("top-level string fields: name, description, developer_instructions");
+  });
+
+  it("accepts valid repo-local Codex agent role files under the Codex profile", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(
+      root,
+      ".codex/agents/reviewer.toml",
+      [
+        'name = "reviewer"',
+        'description = "PR reviewer focused on correctness."',
+        'developer_instructions = """',
+        "Review code like an owner.",
+        '"""',
+        'model = "gpt-5.4"',
+        'nickname_candidates = ["Atlas", "Delta"]',
+        "",
+        "[mcp_servers.docs]",
+        'url = "https://developers.openai.com/mcp"'
+      ].join("\n")
+    );
+
+    const result = runVerifyCommand({
+      root,
+      json: true,
+      profile: "codex"
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.ruleId === "runtime.codex_agent_role_invalid")).toBe(false);
+  });
+
+  it("does not validate Codex agent role files outside the Codex profile", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+    writeFile(root, ".codex/agents/reviewer.toml", "[agent]\nname = \"reviewer\"\n");
+
+    const result = runVerifyCommand({
+      root,
+      json: true
+    });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.ruleId === "runtime.codex_agent_role_invalid")).toBe(false);
+  });
+
   it("fails on warning in strict mode", () => {
     const result = runVerifyCommand({
       root: path.join(fixtureRoot, "long-agents-file"),

@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Deterministic CLI/CI checker for AGENTS.md agent instruction files.",
   "type": "module",
   "engines": {
@@ -47,6 +47,7 @@
     "picomatch": "^4.0.4",
     "remark": "^15.0.1",
     "remark-parse": "^11.0.0",
+    "smol-toml": "^1.7.0",
     "unist-util-visit": "^5.1.0",
     "zod": "^4.4.3"
   },
