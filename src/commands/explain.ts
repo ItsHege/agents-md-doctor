@@ -7,6 +7,8 @@ import {
   type ExplainGraphDetails
 } from "../core/explain-details.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
+import { findCodexInstructionInDirectory } from "../core/codex-instructions.js";
+import { buildCodexBudgetDetails, type CodexBudgetDetails } from "../core/codex-budget.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import { filterToolEvidenceForProfile, type ToolProfile } from "../core/tool-profile.js";
 import { buildToolEvidence, type ToolEvidence } from "../core/tool-evidence.js";
@@ -33,12 +35,29 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
     const config = applyToolProfileOverride(loadConfig({ root }), options.profile);
     const resolvedTargetPath = resolveTargetPath(root, options.targetPath);
     const targetRelativePath = normalizeRelativePath(path.relative(root, resolvedTargetPath));
-    const appliedFiles = findApplicableAgentsFiles(root, resolvedTargetPath);
+    const appliedFiles = findApplicableAgentsFiles(
+      root,
+      resolvedTargetPath,
+      config.toolProfile === "codex" ? config.codex.projectDocFallbackFileNames : undefined
+    );
+    const codexInstructionFiles = config.toolProfile === "codex"
+      ? appliedFiles
+      : findApplicableAgentsFiles(root, resolvedTargetPath, config.codex.projectDocFallbackFileNames);
+    const loadedAppliedFiles = config.toolProfile === "codex" || config.instructionGraph.enabled
+      ? loadAppliedFiles(root, appliedFiles)
+      : undefined;
+    const codexInstructionBudget = config.toolProfile === "codex"
+      ? buildCodexBudgetDetails(
+          loadedAppliedFiles ?? [],
+          config.codex.projectDocMaxBytes,
+          config.codex.projectDocMaxBytesSource
+        )
+      : undefined;
     const conflicts = detectExplainConflicts(root, appliedFiles);
     const instructionGraph = config.instructionGraph.enabled
       ? buildInstructionGraph({
           root,
-          entryFiles: loadAppliedFiles(root, appliedFiles),
+          entryFiles: loadedAppliedFiles ?? [],
           maxDepth: config.instructionGraph.maxDepth,
           include: config.instructionGraph.include,
           ignore: config.ignore
@@ -49,7 +68,8 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
       buildToolEvidence({
         root,
         targetPath: resolvedTargetPath,
-        appliedAgentsFiles: appliedFiles
+        appliedAgentsFiles: appliedFiles,
+        codexInstructionFiles
       }),
       config.toolProfile
     );
@@ -59,6 +79,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
       appliedFiles,
       conflicts,
       toolEvidence,
+      ...(codexInstructionBudget ? { codexInstructionBudget } : {}),
       ...(graphDetails ? { instructionGraph: graphDetails } : {})
     });
     const findings: Finding[] = [
@@ -67,8 +88,8 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
         severity: "info" as const,
         message:
           appliedFiles.length > 0
-            ? `${appliedFiles.length} AGENTS.md files apply to ${targetRelativePath}.`
-            : `No AGENTS.md files apply to ${targetRelativePath}.`,
+            ? `${appliedFiles.length} instruction files apply to ${targetRelativePath}.`
+            : `No instruction files apply to ${targetRelativePath}.`,
         file: appliedFiles.at(-1),
         line: 1,
         details: appliedChainDetails
@@ -87,7 +108,7 @@ export function runExplainCommand(options: ExplainCommandOptions): CommandResult
       exitCode: report.exitCode,
       stdout: options.json
         ? renderJsonReport(report)
-        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, toolEvidence, graphDetails),
+        : renderHumanExplainOutput(targetRelativePath, appliedFiles, conflicts, toolEvidence, graphDetails, codexInstructionBudget),
       stderr: ""
     };
   } catch (error) {
@@ -132,7 +153,7 @@ function resolveTargetPath(root: string, targetPath: string): string {
   return realTarget;
 }
 
-function findApplicableAgentsFiles(root: string, targetPath: string): string[] {
+function findApplicableAgentsFiles(root: string, targetPath: string, codexFallbackFileNames?: string[]): string[] {
   const targetDirectory = fs.statSync(targetPath).isDirectory() ? targetPath : path.dirname(targetPath);
   const directories: string[] = [];
   let currentDirectory = targetDirectory;
@@ -153,11 +174,17 @@ function findApplicableAgentsFiles(root: string, targetPath: string): string[] {
     currentDirectory = parent;
   }
 
-  return directories
-    .reverse()
-    .map((directory) => path.join(directory, "AGENTS.md"))
-    .filter((agentsPath) => fs.existsSync(agentsPath))
-    .map((agentsPath) => normalizeRelativePath(path.relative(root, agentsPath)));
+  return directories.reverse().flatMap((directory) => {
+    if (codexFallbackFileNames) {
+      const selected = findCodexInstructionInDirectory(root, directory, codexFallbackFileNames);
+      return selected ? [selected] : [];
+    }
+
+    const agentsPath = path.join(directory, "AGENTS.md");
+    return fs.existsSync(agentsPath)
+      ? [normalizeRelativePath(path.relative(root, agentsPath))]
+      : [];
+  });
 }
 
 function renderHumanExplainOutput(
@@ -165,7 +192,8 @@ function renderHumanExplainOutput(
   appliedFiles: string[],
   conflicts: ExplainConflict[],
   toolEvidence: ToolEvidence[],
-  graphDetails?: ExplainGraphDetails
+  graphDetails?: ExplainGraphDetails,
+  codexInstructionBudget?: CodexBudgetDetails
 ): string {
   const lines: string[] = [];
 
@@ -173,13 +201,13 @@ function renderHumanExplainOutput(
     lines.push(
       "agents-doctor explain: 0 files apply",
       `target: ${targetPath}`,
-      "No AGENTS.md files found in target ancestry."
+      "No instruction files found in target ancestry."
     );
   } else {
     lines.push(
       `agents-doctor explain: ${appliedFiles.length} ${appliedFiles.length === 1 ? "file" : "files"} apply`,
       `target: ${targetPath}`,
-      "Applied AGENTS.md chain (root -> nearest):"
+      "Applied instruction chain (root -> nearest):"
     );
 
     for (const [index, file] of appliedFiles.entries()) {
@@ -223,6 +251,13 @@ function renderHumanExplainOutput(
         evidence.limitations.length > 0 ? `; limits: ${evidence.limitations.join(", ")}` : "";
       lines.push(`- ${evidence.label}: ${formatDiscoveryStatus(evidence.discoveryStatus)} via ${evidence.surface}${matched}${limitations}`);
     }
+  }
+
+  if (codexInstructionBudget) {
+    lines.push(
+      `Codex project instruction bytes: ${codexInstructionBudget.sourceBytes} / ${codexInstructionBudget.maxBytes}` +
+      ` (${codexInstructionBudget.maxBytesSource}; ${codexInstructionBudget.overLimit ? "above" : "within"} limit).`
+    );
   }
 
   return `${lines.join("\n")}\n`;

@@ -20,6 +20,7 @@ const RuleConfigSchema = z
   .strict();
 
 export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
+  "**/AGENTS.override.md",
   "**/AGENTS.md",
   "**/.agents/**/*.md",
   "**/docs/agents/**/*.md",
@@ -35,6 +36,7 @@ export const DEFAULT_INSTRUCTION_GRAPH_INCLUDE = [
 export const DEFAULT_CONTEXT_HYGIENE_INCLUDE = ["**/*.md", "**/*.mdx"];
 export const DEFAULT_CONTEXT_HYGIENE_PUBLIC_PATHS = [".", "docs", "examples"];
 export const DEFAULT_CONTEXT_HYGIENE_PUBLIC_INSTRUCTION_PATHS = [
+  "**/AGENTS.override.md",
   "**/AGENTS.md",
   "**/CLAUDE.md",
   "**/GEMINI.md",
@@ -50,6 +52,7 @@ export const DEFAULT_CONTEXT_MAX_FILE_SIZE_KB = 1000;
 export const DEFAULT_CONTEXT_MAX_FILES_SCANNED = 500;
 export const DEFAULT_CONTEXT_MAX_DEPTH = 40;
 export const DEFAULT_PROMPT_INJECTION_INCLUDE = [
+  "**/AGENTS.override.md",
   "**/AGENTS.md",
   "**/CLAUDE.md",
   "**/GEMINI.md",
@@ -71,6 +74,11 @@ const InstructionGraphConfigSchema = z
     include: z.array(z.string().min(1)).optional()
   })
   .strict();
+
+const CodexConfigSchema = z.object({
+  projectDocFallbackFileNames: z.array(z.string().min(1)).optional(),
+  projectDocMaxBytes: z.number().int().positive().optional()
+}).strict();
 
 const ContextHygieneConfigSchema = z
   .object({
@@ -117,6 +125,7 @@ const AgentsDoctorConfigSchema = z
     ignore: z.array(z.string().min(1)).optional(),
     toolProfile: ToolProfileSchema.optional(),
     lintFileNames: z.array(z.string().min(1)).optional(),
+    codex: CodexConfigSchema.optional(),
     maxLines: z.number().int().positive().optional(),
     failOnWarning: z.boolean().optional(),
     annotationMinSeverity: SeveritySchema.optional(),
@@ -168,6 +177,7 @@ export interface ResolvedLintConfig {
   toolProfile: ToolProfile;
   lintFileNames: string[];
   lintFileNamesConfigured: boolean;
+  codex: { projectDocFallbackFileNames: string[]; projectDocMaxBytes: number; projectDocMaxBytesSource: "default" | "doctor_config" };
   maxLines?: number;
   failOnWarning: boolean;
   annotationMinSeverity?: z.infer<typeof SeveritySchema>;
@@ -191,6 +201,7 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
       toolProfile: "auto",
       lintFileNames: defaultLintFileNamesForProfile("auto"),
       lintFileNamesConfigured: false,
+      codex: { projectDocFallbackFileNames: [], projectDocMaxBytes: 32_768, projectDocMaxBytesSource: "default" },
       failOnWarning: false,
       instructionGraph: {
         enabled: false,
@@ -255,7 +266,8 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   const ignore = config.ignore ?? [];
   const toolProfile = config.toolProfile ?? "auto";
   const lintFileNamesConfigured = Array.isArray(config.lintFileNames);
-  const lintFileNames = config.lintFileNames ?? defaultLintFileNamesForProfile(toolProfile);
+  const projectDocFallbackFileNames = config.codex?.projectDocFallbackFileNames ?? [];
+  const lintFileNames = config.lintFileNames ?? defaultFileNames(toolProfile, projectDocFallbackFileNames);
   const instructionGraphInclude = config.instructionGraph?.include ?? DEFAULT_INSTRUCTION_GRAPH_INCLUDE;
   const contextHygieneInclude = config.contextHygiene?.include ?? DEFAULT_CONTEXT_HYGIENE_INCLUDE;
   const contextHygieneIgnore = config.contextHygiene?.ignore ?? [];
@@ -266,6 +278,7 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
   const promptInjectionIgnore = config.promptInjection?.ignore ?? [];
   validateIgnorePatterns(ignore);
   validateLintFileNames(lintFileNames);
+  validateCodexFallbackFileNames(projectDocFallbackFileNames);
   validateIgnorePatterns(instructionGraphInclude);
   validateIgnorePatterns(contextHygieneInclude);
   validateIgnorePatterns(contextHygieneIgnore);
@@ -279,6 +292,11 @@ export function loadConfig(options: LoadConfigOptions): ResolvedLintConfig {
     toolProfile,
     lintFileNames,
     lintFileNamesConfigured,
+    codex: {
+      projectDocFallbackFileNames,
+      projectDocMaxBytes: config.codex?.projectDocMaxBytes ?? 32_768,
+      projectDocMaxBytesSource: config.codex?.projectDocMaxBytes === undefined ? "default" : "doctor_config"
+    },
     ...(config.maxLines ? { maxLines: config.maxLines } : {}),
     failOnWarning: config.failOnWarning ?? false,
     ...(config.annotationMinSeverity ? { annotationMinSeverity: config.annotationMinSeverity } : {}),
@@ -324,8 +342,30 @@ export function applyToolProfileOverride(config: ResolvedLintConfig, profile?: T
     toolProfile: profile,
     lintFileNames: config.lintFileNamesConfigured
       ? config.lintFileNames
-      : defaultLintFileNamesForProfile(profile)
+      : defaultFileNames(profile, config.codex.projectDocFallbackFileNames)
   };
+}
+
+function defaultFileNames(profile: ToolProfile, fallbackFileNames: string[]): string[] {
+  return profile === "codex"
+    ? [...defaultLintFileNamesForProfile(profile), ...fallbackFileNames]
+    : defaultLintFileNamesForProfile(profile);
+}
+
+function validateCodexFallbackFileNames(fileNames: string[]): void {
+  const seen = new Set(["agents.override.md", "agents.md"]);
+  for (const fileName of fileNames) {
+    const lower = fileName.toLowerCase();
+    if (
+      !/^[a-z0-9._-]+\.md$/i.test(fileName) ||
+      fileName === "." ||
+      fileName === ".." ||
+      seen.has(lower)
+    ) {
+      throw new AppError("E_CONFIG_INVALID", `codex.projectDocFallbackFileNames must contain distinct Markdown file names: ${fileName}`);
+    }
+    seen.add(lower);
+  }
 }
 
 function validateLintFileNames(fileNames: string[]): void {

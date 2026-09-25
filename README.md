@@ -92,7 +92,7 @@ npx agents-doctor@latest init .
 
 - Use `lint` for fast local checks of AGENTS.md size, structure, paths, command references, and risky instructions.
 - Use `verify` for CI and adoption checks. It includes lint findings plus repository coverage sanity findings.
-- Use `explain <path>` when you need to know which AGENTS.md files apply to a file or directory, and which local agent-tool instruction surfaces were detected.
+- Use `explain <path>` when you need to know which instruction files apply to a file or directory, and which local agent-tool instruction surfaces were detected.
 - Use `--json` for scripts and CI wrappers.
 - Use `--format github` for GitHub workflow annotations plus a human summary.
 - Use `--format sarif` for SARIF consumers that ingest SARIF 2.1.0.
@@ -184,6 +184,21 @@ CLI profiles also expand the default lint file names to include `CLAUDE.md` or
 The Codex profile also validates repo-local `.codex/agents/*.toml` custom agent
 role files against the documented standalone role shape. This scan stays inside
 the selected repository and does not read user-level `~/.codex/agents/` files.
+For `lint`, `verify`, and `explain --profile codex`, each directory contributes
+at most one nonempty instruction file: `AGENTS.override.md`, then `AGENTS.md`,
+then the ordered `codex.projectDocFallbackFileNames` from `.agents-doctor.json`.
+Set fallback names explicitly to mirror your Codex configuration; the tool does
+not inspect user-level Codex settings. `auto` keeps the legacy AGENTS.md applied
+chain while its Codex tool evidence reports the repository-local Codex chain.
+In Codex mode, `lint` and `verify` report the largest discovered project
+instruction chain in UTF-8 bytes; `explain` reports the chain for its target.
+The default comparison is 32,768 bytes. If your Codex limit differs, mirror it
+with `codex.projectDocMaxBytes` in `.agents-doctor.json`. Byte-limit findings
+are informational by default, including above the limit; a repository can opt
+into a warning for above-limit chains with
+`rules["size.codex_project_budget"].severity`.
+This is local project-file evidence, not a claim about exactly what a Codex
+session loaded or truncated.
 
 GitHub Actions currently runs typecheck, tests, build, CLI smoke checks, and
 packed-package smoke checks on push and pull request. Release automation adds

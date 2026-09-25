@@ -1,6 +1,6 @@
 {
   "name": "agents-doctor-desktop-preview",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "Local desktop prototype for running AGENTS.md Doctor without a terminal.",
   "type": "module",
@@ -25,7 +25,7 @@
     "smoke": "npm run safety:scan && node scripts/smoke.mjs && npm run launcher"
   },
   "devDependencies": {
-    "@electron/packager": "^20.0.0",
-    "electron": "^42.3.0"
+    "@electron/packager": "^20.3.0",
+    "electron": "^42.11.8"
   }
 }

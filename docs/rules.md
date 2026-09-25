@@ -46,6 +46,26 @@ Fix by splitting overly broad instructions into smaller scoped `AGENTS.md`
 files, deleting stale boilerplate, or raising `maxLines` intentionally in
 `.agents-doctor.json`.
 
+## `size.codex_project_budget`
+
+- Category: `size`
+- Default severity: `info`
+- Default comparison limit: 32,768 bytes
+- Applies to `lint` and `verify` with the `codex` profile
+- Config options: `codex.projectDocMaxBytes`; rule `severity` can be set to
+  `warning` or `error` for above-limit chains, or `off` to omit the finding
+
+Reports the largest repository-local Codex instruction chain discovered by
+the command. It adds the UTF-8 byte lengths of selected instruction file
+contents along one ancestry path. Sibling files are never added together.
+`explain --profile codex` reports the same measurement for its target in
+`inheritance.applied_chain.details.codexInstructionBudget`.
+
+The measurement excludes global instructions, joining separators, and runtime
+state. It is a size signal, not proof of exactly which text a Codex session
+loaded or truncated. The threshold follows the documented default in
+[OpenAI's AGENTS.md guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+
 ## `structure.required_sections`
 
 - Category: `structure`

@@ -101,9 +101,22 @@ provided.
   `github-copilot`, `windsurf`, and `cline`.
 - `lintFileNames`: file names to lint during `lint` and `verify`. Defaults to
   the selected `toolProfile` preset. In `auto`, the default is `["AGENTS.md"]`.
+  In `codex`, the default starts with `["AGENTS.override.md", "AGENTS.md"]`
+  and adds configured Codex fallback names.
   In `claude-code`, the default is `["AGENTS.md", "CLAUDE.md"]`. In
   `gemini-cli`, the default is `["AGENTS.md", "GEMINI.md"]`. Entries must be
   file names, not paths.
+- `codex.projectDocFallbackFileNames`: ordered repository instruction fallback
+  names for the Codex profile. These are explicit local settings that should
+  mirror Codex's `project_doc_fallback_filenames`; the doctor does not read
+  Codex user-level settings. Entries must be distinct Markdown file names,
+  without directory components. Empty files are skipped. Within each directory,
+  Codex mode selects the first nonempty `AGENTS.override.md`, `AGENTS.md`, or
+  configured fallback and lints only that selected file.
+- `codex.projectDocMaxBytes`: optional positive integer for the Codex project
+  instruction byte comparison. Defaults to `32768` (32 KiB). Set it explicitly
+  to mirror your Codex `project_doc_max_bytes` when different; the doctor does
+  not read Codex configuration files or user-level settings.
 - `maxLines`: default line threshold for `size.file_too_long`.
 - `failOnWarning`: makes warnings produce exit code `1`.
 - `annotationMinSeverity`: optional minimum severity for GitHub workflow
@@ -112,7 +125,7 @@ provided.
   summaries, SARIF, JSON, and exit codes remain complete.
 - `rules`: per-rule options and severity overrides.
 - `instructionGraph.enabled`: opt-in instruction graph traversal for `verify` and `explain`.
-- `instructionGraph.maxDepth`: traversal depth from discovered or applied `AGENTS.md` files, from `0` to `10`.
+- `instructionGraph.maxDepth`: traversal depth from discovered or applied instruction files, from `0` to `10`.
 - `instructionGraph.include`: repo-relative glob allowlist for referenced instruction files.
 - `contextHygiene.enabled`: opt-in `verify` audit for stale, overlapping, or
   public-scope planning notes. Defaults to `false`. The CLI flag
@@ -179,6 +192,33 @@ rules to apply to another repository instruction file family:
   "lintFileNames": ["AGENTS.md", "CLAUDE.md"]
 }
 ```
+
+For Codex fallback names, keep the order used by Codex:
+
+```json
+{
+  "toolProfile": "codex",
+  "codex": {
+    "projectDocFallbackFileNames": ["TEAM_GUIDE.md", ".agents.md"],
+    "projectDocMaxBytes": 65536
+  }
+}
+```
+
+To make an above-limit Codex chain a warning, opt in explicitly:
+
+```json
+{
+  "toolProfile": "codex",
+  "rules": { "size.codex_project_budget": { "severity": "warning" } }
+}
+```
+
+At or below the limit, this finding remains informational. Its default is
+informational even when the measured chain is above the limit.
+
+`lintFileNames` is an independent explicit lint inventory override. If you set
+it, list every Codex candidate you want `lint` and `verify` to inspect.
 
 Use `reviewedFindings` only for project-specific exceptions after a human or
 responsible agent has reviewed the finding. It is intentionally more precise

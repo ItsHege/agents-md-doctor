@@ -81,7 +81,7 @@ Current AGENTS.md Doctor evidence is repository-local only.
 
 | Tool profile | Local surfaces checked | What the evidence means | Main caveat |
 | --- | --- | --- | --- |
-| `codex` | `AGENTS.md` ancestry for the target path | Native AGENTS.md-style path inheritance was modeled | Runtime behavior can still be affected by user prompts and session state |
+| `codex` | Repository-local `AGENTS.override.md`, `AGENTS.md`, then configured fallback names along target ancestry | First nonempty file per directory is selected for the project chain | User-level Codex instructions and configuration are not inspected; runtime behavior can also depend on prompts and session state |
 | `cursor` | `.cursor/rules/**/*.mdc`, `.cursorrules`, applicable `AGENTS.md` | Cursor-native files or AGENTS.md-compatible evidence exist | Cursor rule activation and AGENTS.md support can differ from AGENTS.md ancestry |
 | `claude-code` | `CLAUDE.md` ancestry, `.claude/**/*.md`, `.claude/commands/**/*.md`, `.claude/settings.json`, applicable `AGENTS.md` | Claude project instruction files, command files, local settings presence, import candidates, slash-command candidates, or compatible AGENTS.md evidence exist | Claude imports, settings values, memory scope, rules, hooks, slash-command runtime, and runtime loading are not fully modeled |
 | `github-copilot` | `.github/copilot-instructions.md`, `.github/instructions/**/*.instructions.md`, applicable `AGENTS.md` | Copilot repository/path instruction files or compatible AGENTS.md evidence exist | Feature-specific support and activation can vary by Copilot surface |

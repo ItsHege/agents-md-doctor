@@ -38,10 +38,10 @@ describe("runExplainCommand", () => {
         toolId: "codex",
         label: "Codex",
         discoveryStatus: "native",
-        surface: "AGENTS.md ancestry",
-        checkedSurfaces: ["AGENTS.md ancestry"],
+        surface: "Codex project instruction ancestry",
+        checkedSurfaces: ["AGENTS.override.md, AGENTS.md, and configured fallback ancestry"],
         matchedFiles: ["AGENTS.md", "packages/app/AGENTS.md"],
-        limitations: []
+        limitations: ["user-level-codex-instructions-not-inspected"]
       },
       {
         toolId: "cursor",
@@ -113,9 +113,131 @@ describe("runExplainCommand", () => {
     expect(result.stdout).toContain("AGENTS.md");
     expect(result.stdout).toContain("packages/app/AGENTS.md");
     expect(result.stdout).toContain("Tool evidence:");
-    expect(result.stdout).toContain("Codex: native via AGENTS.md ancestry");
+    expect(result.stdout).toContain("Codex: native via Codex project instruction ancestry");
     expect(result.stdout).toContain("Cursor: compatible via AGENTS.md compatibility signal");
     expect(result.stdout).not.toContain("auto-discovered");
+  });
+
+  it("selects one nonempty Codex instruction per directory in precedence order", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root base\n");
+    fs.writeFileSync(path.join(root, "AGENTS.override.md"), "# Root override\n");
+    fs.writeFileSync(path.join(root, "packages", "AGENTS.override.md"), "  \n");
+    fs.writeFileSync(path.join(root, "packages", "AGENTS.md"), "# Package\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.override.md"), "# App override\n");
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.md"), "# App base\n");
+
+    const result = runExplainCommand({ root, targetPath: "packages/app", json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual([
+      "AGENTS.override.md",
+      "packages/AGENTS.md",
+      "packages/app/AGENTS.override.md"
+    ]);
+    expect(details.toolEvidence).toEqual([
+      expect.objectContaining({
+        toolId: "codex",
+        discoveryStatus: "native",
+        matchedFiles: details.appliedFiles,
+        limitations: ["user-level-codex-instructions-not-inspected"]
+      })
+    ]);
+  });
+
+  it("reports a target-specific Codex byte budget without claiming runtime truncation", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "packages", "app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "a".repeat(20_000));
+    fs.writeFileSync(path.join(root, "packages", "app", "AGENTS.override.md"), "é".repeat(7_000));
+
+    const result = runExplainCommand({ root, targetPath: "packages/app", json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const details = AppliedChainDetailsSchema.parse(report.findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.codexInstructionBudget).toEqual({
+      scope: "repository-local",
+      measurement: "utf8-file-content-bytes",
+      maxBytes: 32_768,
+      maxBytesSource: "default",
+      sourceBytes: 34_000,
+      overLimit: true,
+      files: [
+        { file: "AGENTS.md", bytes: 20_000 },
+        { file: "packages/app/AGENTS.override.md", bytes: 14_000 }
+      ]
+    });
+    expect(report.summary.warningCount).toBe(0);
+
+    const human = runExplainCommand({ root, targetPath: "packages/app", json: false, profile: "codex" });
+    expect(human.stdout).toContain("Codex project instruction bytes: 34000 / 32768 (default; above limit).");
+  });
+
+  it("uses explicitly configured fallback names after empty higher-priority files", () => {
+    const root = makeTempRoot();
+    fs.mkdirSync(path.join(root, "src"));
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+      codex: { projectDocFallbackFileNames: ["TEAM.md", "LOCAL.md"] }
+    }));
+    fs.writeFileSync(path.join(root, "AGENTS.override.md"), "\n\t");
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "");
+    fs.writeFileSync(path.join(root, "TEAM.md"), "# Team\n");
+    fs.writeFileSync(path.join(root, "LOCAL.md"), "# Local\n");
+    fs.writeFileSync(path.join(root, "src", "AGENTS.md"), "# Source\n");
+
+    const result = runExplainCommand({ root, targetPath: "src", json: true, profile: "codex" });
+    const details = AppliedChainDetailsSchema.parse(ReportSchema.parse(JSON.parse(result.stdout)).findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual(["TEAM.md", "src/AGENTS.md"]);
+    expect(details.toolEvidence[0]?.matchedFiles).toEqual(details.appliedFiles);
+  });
+
+  it("does not treat a fallback name as active without explicit configuration", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "TEAM.md"), "# Team\n");
+
+    const result = runExplainCommand({ root, targetPath: ".", json: true, profile: "codex" });
+    const details = AppliedChainDetailsSchema.parse(ReportSchema.parse(JSON.parse(result.stdout)).findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual([]);
+    expect(details.toolEvidence[0]?.discoveryStatus).toBe("not_found");
+  });
+
+  it("shows Codex override evidence under auto without changing other tool compatibility", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "AGENTS.override.md"), "# Codex only\n");
+
+    const result = runExplainCommand({ root, targetPath: ".", json: true });
+    const details = AppliedChainDetailsSchema.parse(ReportSchema.parse(JSON.parse(result.stdout)).findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual([]);
+    expect(details.toolEvidence.find((evidence) => evidence.toolId === "codex")?.matchedFiles).toEqual([
+      "AGENTS.override.md"
+    ]);
+    expect(details.toolEvidence.find((evidence) => evidence.toolId === "cursor")?.discoveryStatus).toBe("not_found");
+  });
+
+  it("skips symlinked Codex instruction candidates", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Root\n");
+    try {
+      fs.symlinkSync("AGENTS.md", path.join(root, "AGENTS.override.md"));
+    } catch {
+      return; // Symlink creation can be unavailable on Windows hosts.
+    }
+
+    const result = runExplainCommand({ root, targetPath: ".", json: true, profile: "codex" });
+    const details = AppliedChainDetailsSchema.parse(ReportSchema.parse(JSON.parse(result.stdout)).findings[0]?.details);
+
+    expect(result.exitCode).toBe(0);
+    expect(details.appliedFiles).toEqual(["AGENTS.md"]);
   });
 
   it("reports not_found tool evidence when no instruction surfaces apply", () => {

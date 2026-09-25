@@ -201,10 +201,10 @@ Example `inheritance.applied_chain` details:
       "toolId": "codex",
       "label": "Codex",
       "discoveryStatus": "native",
-      "surface": "AGENTS.md ancestry",
-      "checkedSurfaces": ["AGENTS.md ancestry"],
+      "surface": "Codex project instruction ancestry",
+      "checkedSurfaces": ["AGENTS.override.md, AGENTS.md, and configured fallback ancestry"],
       "matchedFiles": ["AGENTS.md", "packages/app/AGENTS.md"],
-      "limitations": []
+      "limitations": ["user-level-codex-instructions-not-inspected"]
     },
     {
       "toolId": "cursor",
@@ -234,6 +234,15 @@ Example `inheritance.applied_chain` details:
   }
 }
 ```
+
+With `--profile codex`, `explain --json` also adds
+`details.codexInstructionBudget`. For example, it contains `scope`,
+`measurement`, `sourceBytes`, `maxBytes`, `maxBytesSource`, `overLimit`, and an
+ordered `files` array with byte counts. `lint --profile codex` and
+`verify --profile codex` report the largest discovered chain as the
+informational `size.codex_project_budget` finding; its `details` adds
+`targetDirectory`. These are additive fields under schema version `1.0.0`.
+They measure selected repository file contents only.
 
 ## Tool Evidence Details
 

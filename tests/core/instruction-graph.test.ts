@@ -217,6 +217,7 @@ describe("buildInstructionGraph", () => {
       toolProfile: "auto",
       lintFileNames: ["AGENTS.md"],
       lintFileNamesConfigured: false,
+      codex: { projectDocFallbackFileNames: [], projectDocMaxBytes: 32_768, projectDocMaxBytesSource: "default" },
       failOnWarning: false,
       instructionGraph: {
         enabled: true,

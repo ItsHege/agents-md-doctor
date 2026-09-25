@@ -94,6 +94,37 @@ try {
   fs.rmSync(profileRoot, { recursive: true, force: true });
 }
 
+const codexInstructionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-codex-instructions-"));
+try {
+  fs.writeFileSync(path.join(codexInstructionRoot, ".agents-doctor.json"), JSON.stringify({
+    codex: { projectDocFallbackFileNames: ["TEAM.md"] }
+  }));
+  fs.writeFileSync(path.join(codexInstructionRoot, "AGENTS.override.md"), "# Override\n\n## Safety\n\n## Testing\n");
+  fs.writeFileSync(path.join(codexInstructionRoot, "AGENTS.md"), "# Shadowed\n");
+  fs.mkdirSync(path.join(codexInstructionRoot, "src"));
+  fs.writeFileSync(path.join(codexInstructionRoot, "src", "TEAM.md"), "# Team\n\n## Safety\n\n## Testing\n");
+
+  const explain = runReport(["explain", "--json", "--profile", "codex", "src", codexInstructionRoot], "explain");
+  assert.equal(explain.exitCode, 0);
+  assert.deepEqual(explain.findings[0].details.appliedFiles, ["AGENTS.override.md", "src/TEAM.md"]);
+
+  const verify = runReport(["verify", "--json", "--profile", "codex", codexInstructionRoot], "verify");
+  assert.equal(verify.exitCode, 0);
+  assert.equal(verify.findings.find((finding) => finding.ruleId === "coverage.discovery_summary").details.instructionFileCount, 2);
+  assert.equal(verify.findings.some((finding) => finding.file === "AGENTS.md"), false);
+  const budget = verify.findings.find((finding) => finding.ruleId === "size.codex_project_budget");
+  assert.equal(budget.severity, "info");
+  assert.deepEqual(budget.details.files.map((file) => file.file), ["AGENTS.override.md", "src/TEAM.md"]);
+  assert.equal(budget.details.maxBytes, 32_768);
+
+  const lint = runReport(["lint", "--json", "--profile", "codex", codexInstructionRoot], "lint");
+  assert.equal(lint.exitCode, 0);
+  assert.equal(lint.findings.some((finding) => finding.ruleId === "size.codex_project_budget"), true);
+  assert.equal(explain.findings[0].details.codexInstructionBudget.sourceBytes, budget.details.sourceBytes);
+} finally {
+  fs.rmSync(codexInstructionRoot, { recursive: true, force: true });
+}
+
 const codexRoleRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-codex-role-"));
 try {
   fs.writeFileSync(path.join(codexRoleRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
@@ -110,6 +141,32 @@ try {
   );
 } finally {
   fs.rmSync(codexRoleRoot, { recursive: true, force: true });
+}
+
+const malformedCodexRoleRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-codex-toml-"));
+try {
+  fs.writeFileSync(path.join(malformedCodexRoleRoot, "AGENTS.md"), "# Instructions\n\n## Safety\n\n## Testing\n");
+  fs.mkdirSync(path.join(malformedCodexRoleRoot, ".codex", "agents"), { recursive: true });
+  fs.writeFileSync(path.join(malformedCodexRoleRoot, ".codex", "agents", "reviewer.toml"), "a=[1 #");
+
+  const result = spawnSync(
+    process.execPath,
+    [cliPath, "verify", "--json", "--profile", "codex", malformedCodexRoleRoot],
+    { cwd: projectRoot, encoding: "utf8", timeout: 5_000 }
+  );
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(result.stderr, "");
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.exitCode, 1);
+  const finding = report.findings.find((candidate) => candidate.ruleId === "runtime.codex_agent_role_invalid");
+  assert.equal(finding?.severity, "error");
+  assert.equal(finding?.file, ".codex/agents/reviewer.toml");
+  assert.equal(finding?.line, 1);
+  assert.equal(finding?.details?.reason, "toml_parse_error");
+  assert.match(finding.message, /not valid TOML/);
+} finally {
+  fs.rmSync(malformedCodexRoleRoot, { recursive: true, force: true });
 }
 
 const contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agents-doctor-cli-smoke-context-"));

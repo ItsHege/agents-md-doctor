@@ -225,6 +225,140 @@ describe("runVerifyCommand", () => {
     });
   });
 
+  it("recognizes an override-only Codex repository without false coverage warnings", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.override.md", "# Instructions\n\n## Safety\n\n## Testing\n");
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const coverage = report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary");
+
+    expect(result.exitCode).toBe(0);
+    expect(coverage?.details).toMatchObject({
+      instructionFileCount: 1,
+      lintFileNames: ["AGENTS.override.md", "AGENTS.md"],
+      hasRootAgents: false
+    });
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.no_agents_file")).toBe(false);
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.root_agents_missing")).toBe(false);
+  });
+
+  it("lints only the active Codex file when an override shadows AGENTS.md", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.override.md", "# Active\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "AGENTS.md", "# Inactive\n");
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary")?.details).toMatchObject({
+      instructionFileCount: 1
+    });
+    expect(report.findings.some((finding) => finding.file === "AGENTS.md")).toBe(false);
+  });
+
+  it("does not read a shadowed oversized AGENTS.md in Codex mode", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.override.md", "# Active\n\n## Safety\n\n## Testing\n");
+    writeFile(root, "AGENTS.md", "x".repeat(1_000_001));
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.file === "AGENTS.md")).toBe(false);
+  });
+
+  it("reports a large Codex project chain as information without changing strict exit status", () => {
+    const root = makeTempRoot();
+    const heading = "# Instructions\n\n## Safety\n\n## Testing\n";
+    writeFile(root, "AGENTS.md", heading + "a".repeat(42_053 - heading.length));
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex", strict: true });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+    const finding = report.findings.find((candidate) => candidate.ruleId === "size.codex_project_budget");
+
+    expect(result.exitCode).toBe(0);
+    expect(finding).toMatchObject({
+      severity: "info",
+      file: "AGENTS.md",
+      line: 1,
+      details: {
+        targetDirectory: ".",
+        sourceBytes: 42_053,
+        maxBytes: 32_768,
+        maxBytesSource: "default",
+        overLimit: true,
+        files: [{ file: "AGENTS.md", bytes: 42_053 }]
+      }
+    });
+  });
+
+  it("uses an explicit byte limit and warns only when the owner opts in", () => {
+    const root = makeTempRoot();
+    const heading = "# Instructions\n\n## Safety\n\n## Testing\n";
+    writeFile(root, ".agents-doctor.json", JSON.stringify({
+      codex: { projectDocMaxBytes: 50_000 },
+      rules: { "size.codex_project_budget": { severity: "warning" } }
+    }));
+    writeFile(root, "AGENTS.md", heading + "a".repeat(42_053 - heading.length));
+
+    const within = runVerifyCommand({ root, json: true, profile: "codex", strict: true });
+    const withinReport = ReportSchema.parse(JSON.parse(within.stdout));
+    expect(within.exitCode).toBe(0);
+    expect(withinReport.findings.find((finding) => finding.ruleId === "size.codex_project_budget")?.severity).toBe("info");
+
+    writeFile(root, "AGENTS.md", heading + "a".repeat(50_001 - heading.length));
+    const over = runVerifyCommand({ root, json: true, profile: "codex", strict: true });
+    const overReport = ReportSchema.parse(JSON.parse(over.stdout));
+    expect(over.exitCode).toBe(1);
+    expect(overReport.findings.find((finding) => finding.ruleId === "size.codex_project_budget")).toMatchObject({
+      severity: "warning",
+      details: { sourceBytes: 50_001, maxBytes: 50_000, maxBytesSource: "doctor_config", overLimit: true }
+    });
+
+    const github = runVerifyCommand({ root, json: false, profile: "codex", format: "github" });
+    expect(github.exitCode).toBe(0);
+    expect(github.stderr).toBe("");
+    expect(github.stdout).toContain("::warning file=AGENTS.md,line=1,title=size.codex_project_budget::");
+
+    const sarif = runVerifyCommand({ root, json: false, profile: "codex", format: "sarif" });
+    expect(sarif.exitCode).toBe(0);
+    expect(sarif.stderr).toBe("");
+    expect(JSON.parse(sarif.stdout).runs[0].results).toEqual(
+      expect.arrayContaining([expect.objectContaining({ ruleId: "size.codex_project_budget" })])
+    );
+  });
+
+  it("finds configured Codex fallback files in verify", () => {
+    const root = makeTempRoot();
+    writeFile(root, ".agents-doctor.json", JSON.stringify({ codex: { projectDocFallbackFileNames: ["TEAM.md"] } }));
+    writeFile(root, "TEAM.md", "# Team\n\n## Safety\n\n## Testing\n");
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.find((finding) => finding.ruleId === "coverage.discovery_summary")?.details).toMatchObject({
+      instructionFileCount: 1,
+      lintFileNames: ["AGENTS.override.md", "AGENTS.md", "TEAM.md"]
+    });
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.no_agents_file")).toBe(false);
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.root_agents_missing")).toBe(false);
+  });
+
+  it("does not count an empty Codex instruction file as active coverage", () => {
+    const root = makeTempRoot();
+    writeFile(root, "AGENTS.override.md", " \n");
+
+    const result = runVerifyCommand({ root, json: true, profile: "codex" });
+    const report = ReportSchema.parse(JSON.parse(result.stdout));
+
+    expect(result.exitCode).toBe(0);
+    expect(report.findings.some((finding) => finding.ruleId === "coverage.no_agents_file")).toBe(true);
+  });
+
   it("reports malformed repo-local Codex agent role files under the Codex profile", () => {
     const root = makeTempRoot();
     writeFile(root, "AGENTS.md", "# Instructions\n\n## Safety\n\n## Testing\n");

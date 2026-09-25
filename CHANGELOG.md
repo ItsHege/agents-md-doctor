@@ -1,14 +1,37 @@
 # Changelog
 
-## 0.10.1 - 2026-06-22
+## 0.10.1 - 2026-09-25
 
 ### Added
+- Report repository-local Codex instruction chain UTF-8 bytes in `lint`,
+  `verify`, and target-specific `explain` output. Compare with the 32 KiB
+  default or an explicit `codex.projectDocMaxBytes` value. The
+  `size.codex_project_budget` finding stays informational by default; a
+  warning or error for above-limit chains requires a rule severity override.
+- Model repository-local Codex instruction precedence for `lint`, `verify`,
+  and `explain --profile codex`: `AGENTS.override.md`, `AGENTS.md`, then
+  explicit `codex.projectDocFallbackFileNames`, selecting one nonempty file
+  per directory. Codex tool evidence now identifies the selected chain and
+  states that user-level configuration was not inspected.
 - Add `verify --profile codex` validation for repo-local
   `.codex/agents/*.toml` custom agent role files, reporting
   `runtime.codex_agent_role_invalid` when a file is malformed TOML or does not
   provide the required top-level Codex role fields.
 
+### Fixed
+- Raise the Vitest 4 minimum to 4.1.11 and refresh its locked development
+  dependency chain, clearing the current npm development dependency advisories.
+- Refresh the desktop Electron 42 and packager 20 minimums and lockfile to clear
+  current desktop dependency advisories; keep the desktop smoke finding-count
+  assertion tied to the same UI run when local preferences differ.
+- Avoid false missing-instruction coverage warnings for override-only or
+  configured-fallback-only Codex repositories.
+- Upgrade `smol-toml` to 1.7.1 to prevent the known TOML parser hang on a
+  malformed repo-local Codex agent role file (GHSA-7w5x-hrqm-74c2).
+
 ### Notes
+- Refresh the public Codex skill example with current Codex profile,
+  instruction byte-budget, and release-audit guidance.
 - The Codex role-file check is deterministic repository inspection only. It
   does not launch Codex, read user-level `~/.codex/agents/`, call model APIs, or
   inspect global runtime state.

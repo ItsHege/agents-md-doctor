@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { applyToolProfileOverride, loadConfig, validateIgnorePatterns, type ResolvedLintConfig } from "../config/index.js";
 import { buildInstructionGraphFindings } from "../core/instruction-graph-findings.js";
+import { loadCodexInstructionFiles } from "../core/codex-instructions.js";
 import { buildInstructionGraph, type InstructionGraph } from "../core/instruction-graph.js";
 import type { ToolProfile } from "../core/tool-profile.js";
 import { findAgentsFiles } from "../discovery/index.js";
@@ -15,6 +16,7 @@ import { checkContextHygiene } from "../rules/context-hygiene.js";
 import { checkCodexAgentRoles, codexAgentRoleInvalidRuleDefinition } from "../rules/runtime/index.js";
 import { checkPromptInjection } from "../rules/security/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
+import { checkCodexProjectBudget } from "../rules/size/index.js";
 import { runRules } from "../runner/index.js";
 import type { Finding, ExitCode, Severity } from "../types/index.js";
 
@@ -50,13 +52,12 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
       ignore: [...config.ignore, ...cliIgnore],
       fileNames: config.lintFileNames
     });
-    const loadedFiles: LoadedAgentsFile[] = agentsFiles.map((file) => ({
-      ...file,
-      content: readTextFileWithinRoot({
-        root,
-        filePath: file.absolutePath
-      })
-    }));
+    const loadedFiles: LoadedAgentsFile[] = config.toolProfile === "codex"
+      ? loadCodexInstructionFiles(root, agentsFiles, config.codex.projectDocFallbackFileNames)
+      : agentsFiles.map((file) => ({
+          ...file,
+          content: readTextFileWithinRoot({ root, filePath: file.absolutePath })
+        }));
     const findings = runRules({
       files: loadedFiles,
       rules: lintRules,
@@ -66,7 +67,8 @@ export function runVerifyCommand(options: VerifyCommandOptions): CommandResult {
         ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
       }
     });
-    findings.push(...buildCoverageSanityFindings(root, loadedFiles, config.lintFileNames, config.toolProfile));
+    findings.push(...checkCodexProjectBudget(loadedFiles, config));
+    findings.push(...buildCoverageSanityFindings(root, loadedFiles, config));
     if (config.toolProfile === "codex") {
       findings.push(
         ...applyConfiguredStandaloneSeverity(
@@ -219,13 +221,15 @@ function addGraphProvenance(finding: Finding, graph: InstructionGraph): Finding 
   };
 }
 
-function buildCoverageSanityFindings(
-  root: string,
-  files: LoadedAgentsFile[],
-  lintFileNames: string[],
-  toolProfile: ToolProfile
-): Finding[] {
+function buildCoverageSanityFindings(root: string, files: LoadedAgentsFile[], config: ResolvedLintConfig): Finding[] {
+  const { lintFileNames, toolProfile } = config;
   const hasRootAgents = files.some((file) => file.relativePath === "AGENTS.md");
+  const hasRootInstruction = toolProfile === "codex"
+    ? files.some((file) => !file.relativePath.includes("/") && file.content.trim().length > 0)
+    : hasRootAgents;
+  const hasActiveInstruction = toolProfile === "codex"
+    ? files.some((file) => file.content.trim().length > 0)
+    : files.length > 0;
   const fileLabel = lintFileNames.length === 1 && lintFileNames[0] === "AGENTS.md" ? "AGENTS.md file" : "instruction file";
   const findings: Finding[] = [
     {
@@ -244,7 +248,7 @@ function buildCoverageSanityFindings(
     }
   ];
 
-  if (files.length === 0) {
+  if (!hasActiveInstruction) {
     findings.push({
       ruleId: "coverage.no_agents_file",
       severity: "warning",
@@ -261,11 +265,13 @@ function buildCoverageSanityFindings(
     });
   }
 
-  if (lintFileNames.includes("AGENTS.md") && !hasRootAgents && files.length > 0) {
+  if (lintFileNames.includes("AGENTS.md") && !hasRootInstruction && hasActiveInstruction) {
     findings.push({
       ruleId: "coverage.root_agents_missing",
       severity: "warning",
-      message: "Root AGENTS.md is missing; inheritance may be harder to reason about.",
+      message: toolProfile === "codex"
+        ? "Root Codex instruction file is missing; inheritance may be harder to reason about."
+        : "Root AGENTS.md is missing; inheritance may be harder to reason about.",
       line: 1,
       details: {
         nearestAgentsFiles: files.slice(0, 5).map((file) => file.relativePath)

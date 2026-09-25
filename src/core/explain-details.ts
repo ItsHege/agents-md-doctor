@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ToolProfileSchema } from "./tool-profile.js";
 import { ToolEvidenceListSchema } from "./tool-evidence.js";
+import { CodexBudgetDetailsSchema } from "./codex-budget.js";
 
 export const ExplainConflictIdSchema = z.enum([
   "tool_manager.disagreement",
@@ -43,6 +44,7 @@ export const AppliedChainDetailsSchema = z.object({
   appliedFiles: z.array(z.string().min(1)),
   conflicts: z.array(ExplainConflictSchema),
   toolEvidence: ToolEvidenceListSchema,
+  codexInstructionBudget: CodexBudgetDetailsSchema.optional(),
   instructionGraph: ExplainGraphDetailsSchema.optional()
 });
 

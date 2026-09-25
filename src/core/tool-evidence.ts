@@ -31,6 +31,7 @@ export interface BuildToolEvidenceOptions {
   root: string;
   targetPath: string;
   appliedAgentsFiles: string[];
+  codexInstructionFiles?: string[];
   maxSurfaceDirectoryEntries?: number;
   maxSurfaceDepth?: number;
 }
@@ -62,7 +63,7 @@ export function buildToolEvidence(options: BuildToolEvidenceOptions): ToolEviden
   const clineScan = scanClineSurfaces(root, scanBudget);
 
   return ToolEvidenceListSchema.parse([
-    buildCodexEvidence(appliedAgentsFiles),
+    buildCodexEvidence(orderedUnique(options.codexInstructionFiles ?? appliedAgentsFiles)),
     buildCursorEvidence(appliedAgentsFiles, cursorScan),
     buildClaudeEvidence(claudeScan),
     buildCopilotEvidence(appliedAgentsFiles, copilotScan),
@@ -77,10 +78,13 @@ function buildCodexEvidence(appliedAgentsFiles: string[]): ToolEvidence {
     toolId: "codex",
     label: "Codex",
     discoveryStatus: appliedAgentsFiles.length > 0 ? "native" : "not_found",
-    surface: "AGENTS.md ancestry",
-    checkedSurfaces: ["AGENTS.md ancestry"],
+    surface: "Codex project instruction ancestry",
+    checkedSurfaces: ["AGENTS.override.md, AGENTS.md, and configured fallback ancestry"],
     matchedFiles: appliedAgentsFiles,
-    limitations: appliedAgentsFiles.length > 0 ? [] : ["no-agents-md-in-target-ancestry"]
+    limitations: [
+      "user-level-codex-instructions-not-inspected",
+      ...(appliedAgentsFiles.length > 0 ? [] : ["no-project-instructions-in-target-ancestry"])
+    ]
   };
 }
 

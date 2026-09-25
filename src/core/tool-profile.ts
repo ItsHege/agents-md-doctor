@@ -16,6 +16,10 @@ export const ToolProfileSchema = z.enum(toolProfiles);
 export type ToolProfile = z.infer<typeof ToolProfileSchema>;
 
 export function defaultLintFileNamesForProfile(profile: ToolProfile): string[] {
+  if (profile === "codex") {
+    return ["AGENTS.override.md", "AGENTS.md"];
+  }
+
   if (profile === "claude-code") {
     return ["AGENTS.md", "CLAUDE.md"];
   }

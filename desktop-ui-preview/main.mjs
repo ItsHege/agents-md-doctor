@@ -337,10 +337,15 @@ function runSmokeWhenReady(window) {
             promptInjection.dispatchEvent(new Event("change"));
 
             document.querySelector("#run-check").click();
-            await waitFor("verify title", () => (document.querySelector("#report-title")?.textContent ?? "").includes("Verify"));
+            await waitFor("verify title", () =>
+              (document.querySelector("#report-title")?.textContent ?? "").includes("Verify") &&
+              !document.querySelector("#run-check")?.disabled &&
+              state.report?.command === "verify"
+            );
             document.querySelector('[data-filter="all"]')?.click();
 
             const selectedPath = document.querySelector("#project-path")?.value ?? "";
+            const initialFindingCount = state.report.findings.length;
             const successTitle = document.querySelector("#report-title")?.textContent ?? "";
             const successRows = Array.from(document.querySelectorAll("#findings-body tr")).map((row) => row.textContent ?? "");
             const ledgerCommand = document.querySelector("#ledger-command")?.textContent ?? "";
@@ -527,7 +532,7 @@ function runSmokeWhenReady(window) {
 
             return {
               command: result.report.command,
-              findingCount: result.report.findings.length,
+              findingCount: initialFindingCount,
               selectedPath,
               title: successTitle,
               rows: successRows,

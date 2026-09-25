@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { applyToolProfileOverride, loadConfig, validateIgnorePatterns } from "../config/index.js";
+import { loadCodexInstructionFiles } from "../core/codex-instructions.js";
 import type { ToolProfile } from "../core/tool-profile.js";
 import { findAgentsFiles } from "../discovery/index.js";
 import { AppError, isAppError } from "../errors.js";
@@ -9,6 +10,7 @@ import { buildReport } from "../report/index.js";
 import { applyReviewedFindings } from "../report/reviewed-findings.js";
 import { renderReport, resolveOutputFormat, type OutputFormat } from "../render/index.js";
 import { lintRules, type LoadedAgentsFile } from "../rules/index.js";
+import { checkCodexProjectBudget } from "../rules/size/index.js";
 import { runRules } from "../runner/index.js";
 import type { ExitCode, Severity } from "../types/index.js";
 
@@ -40,13 +42,12 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
       ignore: [...config.ignore, ...cliIgnore],
       fileNames: config.lintFileNames
     });
-    const loadedFiles: LoadedAgentsFile[] = agentsFiles.map((file) => ({
-      ...file,
-      content: readTextFileWithinRoot({
-        root,
-        filePath: file.absolutePath
-      })
-    }));
+    const loadedFiles: LoadedAgentsFile[] = config.toolProfile === "codex"
+      ? loadCodexInstructionFiles(root, agentsFiles, config.codex.projectDocFallbackFileNames)
+      : agentsFiles.map((file) => ({
+          ...file,
+          content: readTextFileWithinRoot({ root, filePath: file.absolutePath })
+        }));
     const findings = runRules({
       files: loadedFiles,
       rules: lintRules,
@@ -56,6 +57,7 @@ export function runLintCommand(options: LintCommandOptions): CommandResult {
         ...(options.maxLines ? { cliMaxLines: options.maxLines } : {})
       }
     });
+    findings.push(...checkCodexProjectBudget(loadedFiles, config));
     const reviewedFindings = applyReviewedFindings(findings, config.reviewedFindings);
     const report = buildReport({
       command: "lint",

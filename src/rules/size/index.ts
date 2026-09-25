@@ -6,3 +6,4 @@ export {
   type CheckFileTooLongOptions
 } from "./file-too-long.js";
 
+export { checkCodexProjectBudget, codexProjectBudgetRuleDefinition } from "./codex-project-budget.js";

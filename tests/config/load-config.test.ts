@@ -20,11 +20,13 @@ describe("loadConfig", () => {
       toolProfile: "auto",
       lintFileNames: ["AGENTS.md"],
       lintFileNamesConfigured: false,
+      codex: { projectDocFallbackFileNames: [], projectDocMaxBytes: 32_768, projectDocMaxBytesSource: "default" },
       failOnWarning: false,
       instructionGraph: {
         enabled: false,
         maxDepth: 2,
         include: [
+          "**/AGENTS.override.md",
           "**/AGENTS.md",
           "**/.agents/**/*.md",
           "**/docs/agents/**/*.md",
@@ -44,6 +46,7 @@ describe("loadConfig", () => {
         ignore: [],
         publicPaths: [".", "docs", "examples"],
         publicScopeInstructionPaths: [
+          "**/AGENTS.override.md",
           "**/AGENTS.md",
           "**/CLAUDE.md",
           "**/GEMINI.md",
@@ -62,6 +65,7 @@ describe("loadConfig", () => {
       promptInjection: {
         enabled: false,
         include: [
+          "**/AGENTS.override.md",
           "**/AGENTS.md",
           "**/CLAUDE.md",
           "**/GEMINI.md",
@@ -145,6 +149,7 @@ describe("loadConfig", () => {
       toolProfile: "claude-code",
       lintFileNames: ["AGENTS.md", "CLAUDE.md"],
       lintFileNamesConfigured: true,
+      codex: { projectDocFallbackFileNames: [], projectDocMaxBytes: 32_768, projectDocMaxBytesSource: "default" },
       maxLines: 400,
       failOnWarning: true,
       annotationMinSeverity: "warning",
@@ -223,6 +228,63 @@ describe("loadConfig", () => {
       lintFileNames: ["AGENTS.md", "GEMINI.md"],
       lintFileNamesConfigured: false
     });
+  });
+
+  it("adds configured Codex fallback names after the standard candidates", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+      toolProfile: "codex",
+      codex: { projectDocFallbackFileNames: ["TEAM.md", "LOCAL.md"] }
+    }));
+
+    expect(loadConfig({ root })).toMatchObject({
+      toolProfile: "codex",
+      lintFileNames: ["AGENTS.override.md", "AGENTS.md", "TEAM.md", "LOCAL.md"],
+      codex: { projectDocFallbackFileNames: ["TEAM.md", "LOCAL.md"] }
+    });
+  });
+
+  it("uses an explicit Codex project byte limit without inspecting Codex config", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+      codex: { projectDocMaxBytes: 65_536 }
+    }));
+
+    expect(loadConfig({ root }).codex).toEqual({
+      projectDocFallbackFileNames: [],
+      projectDocMaxBytes: 65_536,
+      projectDocMaxBytesSource: "doctor_config"
+    });
+  });
+
+  it.each([0, -1, 1.5, "65536"])("rejects invalid Codex byte limit %s", (limit) => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+      codex: { projectDocMaxBytes: limit }
+    }));
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
+  });
+
+  it.each(["../TEAM.md", "docs/TEAM.md", "\\\\server.md", ".env", "AGENTS.md", "agents.override.md", "TEAM.md:backup"])(
+    "rejects unsafe or duplicate Codex fallback name %s",
+    (fileName) => {
+      const root = makeTempRoot();
+      fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+        codex: { projectDocFallbackFileNames: [fileName] }
+      }));
+
+      expect(() => loadConfig({ root })).toThrow(AppError);
+    }
+  );
+
+  it("rejects duplicate Codex fallback names case-insensitively", () => {
+    const root = makeTempRoot();
+    fs.writeFileSync(path.join(root, ".agents-doctor.json"), JSON.stringify({
+      codex: { projectDocFallbackFileNames: ["TEAM.md", "team.md"] }
+    }));
+
+    expect(() => loadConfig({ root })).toThrow(AppError);
   });
 
   it("rejects invalid tool profiles", () => {
